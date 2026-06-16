@@ -1758,6 +1758,7 @@ import { useQuasar } from 'quasar'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
+import { supabase, processoToDb, processoFromDb, historicoToDb, historicoFromDb, configToDb, configFromDb } from '../lib/supabase.js'
 
 const $q = useQuasar()
 const drawer = ref(true)
@@ -2646,7 +2647,6 @@ const configAPI = ref({
   zInstanceId: '', zToken: '', zClientToken: '',
   url: '', token: '', telefone: '',
   emailUrl: '', emailKey: '', emailFrom: '',
-  ...JSON.parse(localStorage.getItem('wms_config_api') || '{}'),
 })
 const filtroUrgencia = ref('todos')
 const filtroTempo    = ref('todos')
@@ -2755,7 +2755,7 @@ const progressPercent = computed(() =>
   totalCampos.value ? Math.round((totalPreenchido.value / totalCampos.value) * 100) : 0
 )
 
-const registros = ref(JSON.parse(localStorage.getItem('wms_registros') || '[]'))
+const registros = ref([])
 
 // ── Resumo ──
 const docsEmpresa = ref([
@@ -2995,10 +2995,9 @@ async function sincronizarServidor() {
   } catch { /* silencioso em dev local */ }
 }
 
-function salvarConfig() {
-  localStorage.setItem('wms_config_api', JSON.stringify(configAPI.value))
+async function salvarConfig() {
+  await supabase.from('configuracoes').upsert(configToDb(configAPI.value))
   dialogConfig.value = false
-  sincronizarServidor()
   $q.notify({ icon: 'check', color: 'positive', message: 'Configuração salva!', position: 'top', timeout: 2000 })
 }
 
@@ -3025,8 +3024,7 @@ function salvarRegistro(prazo = 'normal') {
     taxas:   taxas.value.map(t => ({ label: t.label, valor: t.valor })),
   }
   registros.value.unshift(reg)
-  localStorage.setItem('wms_registros', JSON.stringify(registros.value))
-  sincronizarServidor()
+  supabase.from('processos').insert(processoToDb(reg))
   regAberto.value = reg.id
 }
 
@@ -3083,11 +3081,11 @@ function dispararNotificacoes() {
 
 // ── GERADOR DE RELATÓRIO ──
 const gerandoRelatorio   = ref(false)
-const historico          = ref(JSON.parse(localStorage.getItem('wms_historico_constituicao') || '[]'))
+const historico          = ref([])
 const historicoExpandido = ref(false)
 
 function salvarHistorico(empresa, protocolo, localizacao) {
-  historico.value.unshift({
+  const h = {
     id:          Date.now(),
     empresa,
     protocolo,
@@ -3095,12 +3093,13 @@ function salvarHistorico(empresa, protocolo, localizacao) {
     pct:         progressoEtapas.value,
     data:        new Date().toLocaleDateString('pt-BR'),
     hora:        new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-  })
-  localStorage.setItem('wms_historico_constituicao', JSON.stringify(historico.value))
+  }
+  historico.value.unshift(h)
+  supabase.from('historico').insert(historicoToDb(h))
 }
 function removerHistorico(id) {
   historico.value = historico.value.filter(h => h.id !== id)
-  localStorage.setItem('wms_historico_constituicao', JSON.stringify(historico.value))
+  supabase.from('historico').delete().eq('id', id)
 }
 
 function etapaValor(key) {
@@ -3208,17 +3207,47 @@ async function gerarRelatorio() {
 
 onMounted(async () => {
   await registrarSW()
+
+  // Carrega dados do Supabase
+  const [{ data: procs }, { data: hist }, { data: cfg }] = await Promise.all([
+    supabase.from('processos').select('*').order('created_at', { ascending: false }),
+    supabase.from('historico').select('*').order('created_at', { ascending: false }),
+    supabase.from('configuracoes').select('*').eq('id', 1).single(),
+  ])
+
+  if (procs && procs.length > 0) {
+    registros.value = procs.map(processoFromDb)
+  } else {
+    // Migra dados existentes do localStorage para Supabase (primeira vez)
+    const local = JSON.parse(localStorage.getItem('wms_registros') || '[]')
+    if (local.length > 0) {
+      registros.value = local
+      supabase.from('processos').insert(local.map(processoToDb)).then(() => {
+        localStorage.removeItem('wms_registros')
+      })
+    }
+  }
+
+  if (hist && hist.length > 0) {
+    historico.value = hist.map(historicoFromDb)
+  } else {
+    const localHist = JSON.parse(localStorage.getItem('wms_historico') || '[]')
+    if (localHist.length > 0) {
+      historico.value = localHist
+      supabase.from('historico').insert(localHist.map(historicoToDb)).then(() => {
+        localStorage.removeItem('wms_historico')
+      })
+    }
+  }
+
+  if (cfg) Object.assign(configAPI.value, configFromDb(cfg))
+
   if (Notification.permission === 'granted') {
     notifPermissao.value = 'granted'
     dispararNotificacoes()
   }
-  // notificações browser a cada 30 min
   notifInterval = setInterval(dispararNotificacoes, 30 * 60 * 1000)
-  // sincroniza dados atuais com o servidor de alertas em segundo plano
-  sincronizarServidor()
-  // alertas WhatsApp: dispara às 7:50 e 15:00 (via browser, quando aberto)
   agendarProximoAlerta()
-  // verifica quando a aba volta ao foco
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') dispararNotificacoes()
   })
@@ -3266,8 +3295,7 @@ function alterarPrazo(id, nivel) {
   const reg = registros.value.find(r => r.id === id)
   if (reg) {
     reg.prazo = nivel
-    localStorage.setItem('wms_registros', JSON.stringify(registros.value))
-    sincronizarServidor()
+    supabase.from('processos').update({ prazo: nivel }).eq('id', id)
   }
 }
 
@@ -3281,8 +3309,7 @@ function reeniviarWhatsApp(reg) {
 
 function excluirRegistro(id) {
   registros.value = registros.value.filter(r => r.id !== id)
-  localStorage.setItem('wms_registros', JSON.stringify(registros.value))
-  sincronizarServidor()
+  supabase.from('processos').delete().eq('id', id)
   if (regAberto.value === id) regAberto.value = null
 }
 

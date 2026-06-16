@@ -1,16 +1,16 @@
-import { Redis } from '@upstash/redis'
+import { createClient } from '@supabase/supabase-js'
 
-const redis = new Redis({
-  url:   process.env.KV_REST_API_URL,
-  token: process.env.KV_REST_API_TOKEN,
-})
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+)
 
 const NUMEROS_ALERTA = ['5599984491810']
 
 function diasRestantes(r) {
-  if (!r.dataISO) return 999
+  if (!r.data_iso) return 999
   const hoje = new Date(); hoje.setHours(0, 0, 0, 0)
-  const venc = new Date(r.dataISO); venc.setHours(0, 0, 0, 0)
+  const venc = new Date(r.data_iso); venc.setHours(0, 0, 0, 0)
   return Math.ceil((venc - hoje) / 86400000)
 }
 
@@ -26,21 +26,21 @@ function montarMensagem(processos) {
     msg += `\n🔴 *VENCIDOS (${vencidos.length})*\n`
     vencidos.forEach(r => {
       const d = Math.abs(diasRestantes(r))
-      msg += `• ${r.razaoSocial || 'Sem nome'} — vencido há ${d} dia${d !== 1 ? 's' : ''}\n`
+      msg += `• ${r.razao_social || 'Sem nome'} — vencido há ${d} dia${d !== 1 ? 's' : ''}\n`
     })
   }
   if (urgentes.length) {
     msg += `\n🚨 *URGENTE (${urgentes.length})*\n`
     urgentes.forEach(r => {
       const d = diasRestantes(r)
-      msg += `• ${r.razaoSocial || 'Sem nome'} — ${d === 0 ? 'vence hoje' : `vence em ${d} dia${d !== 1 ? 's' : ''}`}\n`
+      msg += `• ${r.razao_social || 'Sem nome'} — ${d === 0 ? 'vence hoje' : `vence em ${d} dia${d !== 1 ? 's' : ''}`}\n`
     })
   }
   if (priorizar.length) {
     msg += `\n🟡 *PRIORIZAR (${priorizar.length})*\n`
     priorizar.forEach(r => {
       const d = diasRestantes(r)
-      msg += `• ${r.razaoSocial || 'Sem nome'} — vence em ${d} dia${d !== 1 ? 's' : ''}\n`
+      msg += `• ${r.razao_social || 'Sem nome'} — vence em ${d} dia${d !== 1 ? 's' : ''}\n`
     })
   }
 
@@ -50,12 +50,12 @@ function montarMensagem(processos) {
 
 async function enviarZAPI(numero, texto, cfg) {
   const res = await fetch(
-    `https://api.z-api.io/instances/${cfg.zInstanceId}/token/${cfg.zToken}/send-text`,
+    `https://api.z-api.io/instances/${cfg.z_instance_id}/token/${cfg.z_token}/send-text`,
     {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Client-Token': cfg.zClientToken || '',
+        'Client-Token': cfg.z_client_token || '',
       },
       body: JSON.stringify({ phone: numero, message: texto }),
     }
@@ -70,37 +70,34 @@ export default async function handler(req, res) {
   }
 
   try {
-    const [registrosRaw, configRaw] = await Promise.all([
-      redis.get('wms:registros'),
-      redis.get('wms:config'),
+    const [{ data: processos }, { data: cfg }] = await Promise.all([
+      supabase.from('processos').select('*'),
+      supabase.from('configuracoes').select('*').eq('id', 1).single(),
     ])
 
-    const registros = typeof registrosRaw === 'string' ? JSON.parse(registrosRaw) : (registrosRaw || [])
-    const config    = typeof configRaw    === 'string' ? JSON.parse(configRaw)    : (configRaw    || {})
-
-    if (!config.zInstanceId || !config.zToken) {
+    if (!cfg || !cfg.z_instance_id || !cfg.z_token) {
       console.log('[cron] Z-API não configurada')
       return res.status(200).json({ ok: false, motivo: 'API não configurada' })
     }
 
-    const processos = registros.filter(r => {
+    const urgentes = (processos || []).filter(r => {
       const d = diasRestantes(r)
       return d < 0 || d <= 3 || (r.prazo || 'normal') === 'urgente'
     })
 
-    if (!processos.length) {
+    if (!urgentes.length) {
       console.log('[cron] Nenhum processo urgente/vencido')
       return res.status(200).json({ ok: true, enviados: 0 })
     }
 
-    const msg = montarMensagem(processos)
+    const msg = montarMensagem(urgentes)
     const resultados = await Promise.all(
-      NUMEROS_ALERTA.map(num => enviarZAPI(num, msg, config))
+      NUMEROS_ALERTA.map(num => enviarZAPI(num, msg, cfg))
     )
 
     const enviados = resultados.filter(Boolean).length
     console.log(`[cron] Alertas enviados: ${enviados}/${NUMEROS_ALERTA.length}`)
-    return res.status(200).json({ ok: true, enviados, processos: processos.length })
+    return res.status(200).json({ ok: true, enviados, processos: urgentes.length })
   } catch (err) {
     console.error('[cron]', err)
     return res.status(500).json({ error: err.message })
