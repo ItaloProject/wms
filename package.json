@@ -1,0 +1,29 @@
+{
+  "name": "wms",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@quasar/extras": "^1.16.12",
+    "@upstash/redis": "^1.38.0",
+    "docx": "^9.7.1",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
+    "jszip": "^3.10.1",
+    "quasar": "^2.16.0",
+    "vue": "^3.4.0",
+    "vue-router": "^4.4.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@quasar/vite-plugin": "^1.7.0",
+    "@vitejs/plugin-vue": "^5.0.0",
+    "sass-embedded": "^1.80.2",
+    "vite": "^5.4.0"
+  }
+}
