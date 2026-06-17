@@ -2798,22 +2798,27 @@ const registros = ref([])
 
 // ── Resumo ──
 const docsEmpresa = ref([
-  { label: 'Razão social',   valor: '' },
-  { label: 'Nome Fantasia',  valor: '' },
-  { label: 'Endereço',       valor: '' },
-  { label: 'Capital Social', valor: '' },
-  { label: 'Telefone',       valor: '' },
-  { label: 'E-Mail',         valor: '' },
+  { label: 'Razão social',        valor: '' },
+  { label: 'CNPJ',                valor: '' },
+  { label: 'Nome Fantasia',       valor: '' },
+  { label: 'Capital Social',      valor: '' },
+  { label: 'Inscrição Estadual',  valor: '' },
+  { label: 'Inscrição Municipal', valor: '' },
+  { label: 'NIRE',                valor: '' },
+  { label: 'Endereço',            valor: '' },
+  { label: 'Telefone',            valor: '' },
+  { label: 'E-Mail',              valor: '' },
 ])
 
 const docsSocio = ref([
-  { label: 'CPF',                                  valor: '' },
-  { label: 'RG ou CNH',                            valor: '' },
-  { label: 'Comprovante de Residência do Titular', valor: '' },
-  { label: 'Senha do Gov.Br (Nível Ouro)',         valor: '' },
-  { label: 'Telefone',                             valor: '' },
-  { label: 'E-Mail',                               valor: '' },
-  { label: 'Endereço pessoa física',               valor: '' },
+  { label: 'Nome do Sócio',                        valor: '' },
+  { label: 'CPF',                                   valor: '' },
+  { label: 'RG ou CNH',                             valor: '' },
+  { label: 'Comprovante de Residência do Titular',  valor: '' },
+  { label: 'Senha do Gov.Br (Nível Ouro)',          valor: '' },
+  { label: 'Telefone',                              valor: '' },
+  { label: 'E-Mail',                                valor: '' },
+  { label: 'Endereço pessoa física',                valor: '' },
 ])
 
 function copiarTexto(texto, caption = '') {
@@ -3177,7 +3182,6 @@ function etapaStatus(key) {
 }
 
 function _coletarValoresRelatorio() {
-  const razaoSocial     = etapaValor('empresa')
   const municipioEstado = etapaValor('localizacao')
   const dataAbertura    = etapaValor('contrato')
   const regimeVal       = etapaValor('regime')
@@ -3190,13 +3194,16 @@ function _coletarValoresRelatorio() {
   const procStatus      = etapaStatus('proc_fisica') === 'concluida' || etapaStatus('proc_juridica') === 'concluida' ? 'SIM' : ''
 
   const emp = label => docsEmpresa.value.find(d => d.label === label)?.valor || ''
-  const capitalSocial  = emp('Capital Social')
-  const nomeFantasia   = emp('Nome Fantasia')
-  const enderecoEmp    = emp('Endereço')
-  const telefoneEmp    = emp('Telefone')
-  const emailEmp       = emp('E-Mail')
+  // RAZAO: prefere o campo "Razão social" do Resumo; fallback no campo rápido da etapa
+  const razaoSocial  = emp('Razão social') || etapaValor('empresa')
+  const cnpj         = emp('CNPJ')
+  const capitalSocial = emp('Capital Social')
+  const inscEst      = emp('Inscrição Estadual')
+  const inscMun      = emp('Inscrição Municipal')
+  const nire         = emp('NIRE')
 
   const soc = label => docsSocio.value.find(d => d.label === label)?.valor || ''
+  const nomeSocio      = soc('Nome do Sócio')
   const cpf            = soc('CPF')
   const rg             = soc('RG ou CNH')
   const compResidencia = soc('Comprovante de Residência do Titular')
@@ -3206,12 +3213,13 @@ function _coletarValoresRelatorio() {
   const enderecoSocio  = soc('Endereço pessoa física')
 
   const quadroTexto = [
-    cpf            ? `CPF: ${cpf}`                            : '',
-    rg             ? `RG / CNH: ${rg}`                        : '',
-    compResidencia ? `COMPROV. RESIDÊNCIA: ${compResidencia}` : '',
-    telefoneSocio  ? `TELEFONE: ${telefoneSocio}`             : '',
-    emailSocio     ? `E-MAIL: ${emailSocio}`                  : '',
-    enderecoSocio  ? `ENDEREÇO: ${enderecoSocio}`             : '',
+    nomeSocio      ? nomeSocio                                           : '',
+    cpf            ? `CPF: ${cpf}`                                       : '',
+    rg             ? `RG / CNH: ${rg}`                                   : '',
+    compResidencia ? `COMPROV. RESIDÊNCIA: ${compResidencia}`            : '',
+    telefoneSocio  ? `TELEFONE: ${telefoneSocio}`                        : '',
+    emailSocio     ? `E-MAIL: ${emailSocio}`                             : '',
+    enderecoSocio  ? `ENDEREÇO: ${enderecoSocio}`                        : '',
   ].filter(Boolean).join('\n')
 
   const processosTexto = processoVal ? processoVal.toUpperCase() : 'CONSTITUIÇÃO'
@@ -3219,16 +3227,16 @@ function _coletarValoresRelatorio() {
   return {
     valores: {
       RAZAO:       razaoSocial,
-      CNPJ:        '',
+      CNPJ:        cnpj,
       ABERTURA:    dataAbertura,
       CAPITAL:     capitalSocial,
       MUN_EST:     municipioEstado,
       DONO:        '',
-      INSC_EST:    '',
-      INSC_MUN:    '',
-      SOCIO:       '',
+      INSC_EST:    inscEst,
+      INSC_MUN:    inscMun,
+      SOCIO:       nomeSocio,
       CPF:         cpf,
-      NIRE:        '',
+      NIRE:        nire,
       SEN_EST:     sefaznetVal,
       SEN_MUN:     semfazVal,
       CERTIFICADO: assinaturaVal === 'Certificado' ? 'SIM' : 'NÃO',
