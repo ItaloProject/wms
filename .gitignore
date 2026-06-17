@@ -8,3 +8,5 @@ dist/
 Thumbs.db
 alert-server/wms-data.json
 alert-server/wms-config.json
+
+.vercel
