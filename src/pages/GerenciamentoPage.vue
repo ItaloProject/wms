@@ -707,6 +707,10 @@
                       :placeholder="etapa.placeholder"
                       @change="salvarEtapas"
                     />
+                    <div v-else-if="etapa.tipo === 'carimbo'" class="et-carimbo" :class="{ 'et-carimbo--vazio': !etapa.valor }">
+                      <q-icon :name="etapa.valor ? 'verified' : 'pending'" size="16px" />
+                      <span>{{ etapa.valor || 'Gerado automaticamente ao concluir' }}</span>
+                    </div>
                     <input
                       v-else-if="etapa.tipo === 'senha'"
                       v-model="etapa.valor"
@@ -1838,7 +1842,7 @@ const etapasPadrao = [
   { key: 'sintegra_up',  titulo: 'Atualizar SINTEGRA',                     tipo: 'ok' },
   { key: 'regime_trib',  titulo: 'Atualizar Regime Tributário Município',  tipo: 'ok' },
   { key: 'contabilista', titulo: 'Verificar Contabilista',                 tipo: 'ok' },
-  { key: 'assinatura_u', titulo: 'Assinatura do Usuário',                  tipo: 'texto', placeholder: 'Usuário responsável' },
+  { key: 'assinatura_u', titulo: 'Assinatura do Usuário',                  tipo: 'carimbo' },
 ]
 
 const etapas = ref(carregarEtapas())
@@ -3271,6 +3275,11 @@ function concluir() {
 
 function selecionarPrazo(nivel) {
   dialogPrazo.value = false
+  // Carimbo automático do sistema
+  const agora = new Date()
+  const stamp = `WMS Sistema ✓ — ${agora.toLocaleDateString('pt-BR')} às ${agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+  const etapaCarimbo = etapas.value.find(e => e.key === 'assinatura_u')
+  if (etapaCarimbo) { etapaCarimbo.valor = stamp; salvarEtapas() }
   salvarRegistro(nivel)
   $q.notify({
     icon: 'check_circle',
@@ -4649,6 +4658,16 @@ const alerts = [
 }
 .et-input:focus, .et-select:focus { border-color: rgba(90,184,46,0.5); }
 .et-toggle-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.et-carimbo {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: 9px; width: 100%;
+  background: rgba(90,184,46,0.1); border: 1px solid rgba(90,184,46,0.35);
+  color: #5ab82e; font-size: 0.82rem; font-weight: 600;
+}
+.et-carimbo--vazio {
+  background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.3); font-weight: 400;
+}
 .et-toggle-btn {
   padding: 5px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: 700;
   font-family: inherit; cursor: pointer; letter-spacing: 0.03em;
