@@ -1679,6 +1679,37 @@
       </div>
     </q-dialog>
 
+    <!-- Dialog: Complementar Relatório -->
+    <q-dialog v-model="dialogComplementar" persistent>
+      <div class="compl-dialog">
+        <div class="compl-dialog-header">
+          <q-icon name="edit_note" size="24px" style="color:#5ab82e" />
+          <div>
+            <div class="compl-dialog-title">Completar Relatório</div>
+            <div class="compl-dialog-sub">Preencha as informações em falta para gerar em 100%</div>
+          </div>
+        </div>
+
+        <div class="compl-fields">
+          <div v-for="campo in camposComplementar" :key="campo.token" class="compl-field">
+            <label class="compl-label">{{ campo.label }}</label>
+            <input
+              v-model="campo.valor"
+              class="compl-input"
+              :placeholder="`Digite ${campo.label.toLowerCase()}…`"
+            />
+          </div>
+        </div>
+
+        <div class="compl-actions">
+          <button class="prazo-cancel" @click="confirmarComplementar">Pular e gerar assim</button>
+          <button class="rp-btn-concluir" @click="confirmarComplementar">
+            <q-icon name="download" size="16px" /> Gerar Relatório
+          </button>
+        </div>
+      </div>
+    </q-dialog>
+
     <!-- Modal: Confirmação de Envio Baixa -->
     <transition name="modal-fade">
       <div v-if="mostrarModalEnvio" class="env-overlay" @click.self="mostrarModalEnvio = false">
@@ -3091,6 +3122,34 @@ function dispararNotificacoes() {
 const gerandoRelatorio   = ref(false)
 const historico          = ref([])
 const historicoExpandido = ref(false)
+const dialogComplementar = ref(false)
+const camposComplementar = ref([])
+const _valoresPendentes  = ref(null)
+const _nomePendente      = ref('')
+
+const LABEL_CAMPO = {
+  RAZAO:    'Razão Social',
+  CNPJ:     'CNPJ',
+  ABERTURA: 'Data de Abertura',
+  CAPITAL:  'Capital Social',
+  MUN_EST:  'Município / Estado',
+  DONO:     'Responsável / Dono',
+  INSC_EST: 'Inscrição Estadual',
+  INSC_MUN: 'Inscrição Municipal',
+  SOCIO:    'Sócio Administrador',
+  CPF:      'CPF do Sócio',
+  NIRE:     'NIRE',
+  SEN_EST:  'Senha SEFAZ NET',
+  SEN_MUN:  'Senha SEMFAZ',
+  NFSE1:    'NFS-e (Usuário)',
+  NFSE2:    'NFS-e (Senha)',
+  SEGMENTO: 'Segmento',
+  CUIDADOR: 'Cuidador',
+  REGIME:   'Regime Tributário',
+  DOMINIO:  'Domínio',
+  VERI:     'VERI',
+  GOVBR:    'Senha Gov.Br',
+}
 
 function salvarHistorico(empresa, protocolo, localizacao) {
   const h = {
@@ -3117,58 +3176,48 @@ function etapaStatus(key) {
   return etapas.value.find(e => e.key === key)?.status || ''
 }
 
-async function gerarRelatorio() {
-  gerandoRelatorio.value = true
-  try {
-    // — Controle/Constituição —
-    const razaoSocial     = etapaValor('empresa')
-    const municipioEstado = etapaValor('localizacao')
-    const dataAbertura    = etapaValor('contrato')
-    const regimeVal       = etapaValor('regime')
-    const dominioVal      = etapaValor('dominio')
-    const veriVal         = etapaValor('veri')
-    const assinaturaVal   = etapaValor('assinatura')
-    const processoVal     = etapaValor('processo')
-    const semfazVal       = etapaValor('semfaz')
-    const sefaznetVal     = etapaValor('sefaznet')
-    const procStatus      = etapaStatus('proc_fisica') === 'concluida' || etapaStatus('proc_juridica') === 'concluida' ? 'SIM' : ''
+function _coletarValoresRelatorio() {
+  const razaoSocial     = etapaValor('empresa')
+  const municipioEstado = etapaValor('localizacao')
+  const dataAbertura    = etapaValor('contrato')
+  const regimeVal       = etapaValor('regime')
+  const dominioVal      = etapaValor('dominio')
+  const veriVal         = etapaValor('veri')
+  const assinaturaVal   = etapaValor('assinatura')
+  const processoVal     = etapaValor('processo')
+  const semfazVal       = etapaValor('semfaz')
+  const sefaznetVal     = etapaValor('sefaznet')
+  const procStatus      = etapaStatus('proc_fisica') === 'concluida' || etapaStatus('proc_juridica') === 'concluida' ? 'SIM' : ''
 
-    // — Resumo: Dados da Empresa —
-    const emp = label => docsEmpresa.value.find(d => d.label === label)?.valor || ''
-    const nomeFantasia   = emp('Nome Fantasia')
-    const enderecoEmp    = emp('Endereço')
-    const capitalSocial  = emp('Capital Social')
-    const telefoneEmp    = emp('Telefone')
-    const emailEmp       = emp('E-Mail')
+  const emp = label => docsEmpresa.value.find(d => d.label === label)?.valor || ''
+  const capitalSocial  = emp('Capital Social')
+  const nomeFantasia   = emp('Nome Fantasia')
+  const enderecoEmp    = emp('Endereço')
+  const telefoneEmp    = emp('Telefone')
+  const emailEmp       = emp('E-Mail')
 
-    // — Resumo: Dados do Sócio —
-    const soc = label => docsSocio.value.find(d => d.label === label)?.valor || ''
-    const cpf            = soc('CPF')
-    const rg             = soc('RG ou CNH')
-    const compResidencia = soc('Comprovante de Residência do Titular')
-    const senhaGov       = soc('Senha do Gov.Br (Nível Ouro)')
-    const telefoneSocio  = soc('Telefone')
-    const emailSocio     = soc('E-Mail')
-    const enderecoSocio  = soc('Endereço pessoa física')
+  const soc = label => docsSocio.value.find(d => d.label === label)?.valor || ''
+  const cpf            = soc('CPF')
+  const rg             = soc('RG ou CNH')
+  const compResidencia = soc('Comprovante de Residência do Titular')
+  const senhaGov       = soc('Senha do Gov.Br (Nível Ouro)')
+  const telefoneSocio  = soc('Telefone')
+  const emailSocio     = soc('E-Mail')
+  const enderecoSocio  = soc('Endereço pessoa física')
 
-    // — Resumo: Taxas —
-    const tax = label => taxas.value.find(t => t.label === label)?.valor || ''
-    const jucema         = tax('Jucema')
-    const certDigital    = tax('Certificado digital da empresa')
-    const alvaraPref     = tax('Alvará da prefeitura')
+  const quadroTexto = [
+    cpf            ? `CPF: ${cpf}`                            : '',
+    rg             ? `RG / CNH: ${rg}`                        : '',
+    compResidencia ? `COMPROV. RESIDÊNCIA: ${compResidencia}` : '',
+    telefoneSocio  ? `TELEFONE: ${telefoneSocio}`             : '',
+    emailSocio     ? `E-MAIL: ${emailSocio}`                  : '',
+    enderecoSocio  ? `ENDEREÇO: ${enderecoSocio}`             : '',
+  ].filter(Boolean).join('\n')
 
-    const quadroTexto = [
-      cpf            ? `CPF: ${cpf}`                       : '',
-      rg             ? `RG / CNH: ${rg}`                   : '',
-      compResidencia ? `COMPROV. RESIDÊNCIA: ${compResidencia}` : '',
-      telefoneSocio  ? `TELEFONE: ${telefoneSocio}`        : '',
-      emailSocio     ? `E-MAIL: ${emailSocio}`             : '',
-      enderecoSocio  ? `ENDEREÇO: ${enderecoSocio}`        : '',
-    ].filter(Boolean).join('\n')
+  const processosTexto = processoVal ? processoVal.toUpperCase() : 'CONSTITUIÇÃO'
 
-    const processosTexto = processoVal ? processoVal.toUpperCase() : 'CONSTITUIÇÃO'
-
-    await preencherRelatorioGeral({
+  return {
+    valores: {
       RAZAO:       razaoSocial,
       CNPJ:        '',
       ABERTURA:    dataAbertura,
@@ -3194,11 +3243,54 @@ async function gerarRelatorio() {
       GOVBR:       senhaGov,
       QUADRO:      quadroTexto,
       PROCESSOS:   processosTexto,
-    }, `Relatorio_${razaoSocial || 'Constituicao'}_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.docx`)
+    },
+    nomeArquivo: `Relatorio_${razaoSocial || 'Constituicao'}_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.docx`,
+    razaoSocial,
+    municipioEstado,
+  }
+}
 
+async function gerarRelatorio() {
+  const { valores, nomeArquivo, razaoSocial, municipioEstado } = _coletarValoresRelatorio()
+
+  // Campos que o usuário pode complementar (excluindo campos computados)
+  const COMPLEMENTAVEIS = ['RAZAO','CNPJ','ABERTURA','CAPITAL','MUN_EST','DONO',
+    'INSC_EST','INSC_MUN','SOCIO','CPF','NIRE','SEN_EST','SEN_MUN',
+    'NFSE1','NFSE2','SEGMENTO','CUIDADOR','REGIME','DOMINIO','VERI','GOVBR']
+
+  const vazios = COMPLEMENTAVEIS.filter(k => !valores[k])
+
+  if (vazios.length > 0) {
+    camposComplementar.value = vazios.map(k => ({ token: k, label: LABEL_CAMPO[k] || k, valor: '' }))
+    _valoresPendentes.value  = { valores, nomeArquivo, razaoSocial, municipioEstado }
+    _nomePendente.value      = nomeArquivo
+    dialogComplementar.value = true
+    return
+  }
+
+  gerandoRelatorio.value = true
+  try {
+    await preencherRelatorioGeral(valores, nomeArquivo)
     salvarHistorico(razaoSocial, etapaValor('protocolo'), municipioEstado)
   } finally {
     gerandoRelatorio.value = false
+  }
+}
+
+async function confirmarComplementar() {
+  if (!_valoresPendentes.value) return
+  dialogComplementar.value = false
+
+  const { valores, nomeArquivo, razaoSocial, municipioEstado } = _valoresPendentes.value
+  camposComplementar.value.forEach(c => { if (c.valor) valores[c.token] = c.valor })
+
+  gerandoRelatorio.value = true
+  try {
+    await preencherRelatorioGeral(valores, nomeArquivo)
+    salvarHistorico(razaoSocial, etapaValor('protocolo'), municipioEstado)
+  } finally {
+    gerandoRelatorio.value = false
+    _valoresPendentes.value = null
   }
 }
 
@@ -4496,6 +4588,45 @@ const alerts = [
 }
 .prazo-cancel:hover { background: rgba(255,255,255,0.06); color: white; }
 
+/* ══ DIALOG COMPLEMENTAR ══ */
+.compl-dialog {
+  width: 520px; max-width: 95vw; max-height: 85vh;
+  background: #0f1923;
+  border: 1.5px solid rgba(255,255,255,0.1);
+  border-radius: 20px; padding: 28px; display: flex; flex-direction: column; gap: 20px;
+  overflow: hidden;
+}
+.compl-dialog-header {
+  display: flex; align-items: flex-start; gap: 14px;
+}
+.compl-dialog-title { color: white; font-size: 1.1rem; font-weight: 800; }
+.compl-dialog-sub   { color: rgba(255,255,255,0.45); font-size: 0.82rem; margin-top: 2px; }
+.compl-fields {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 12px; overflow-y: auto; max-height: 50vh;
+  padding-right: 4px;
+}
+@media (max-width: 520px) { .compl-fields { grid-template-columns: 1fr; } }
+.compl-field { display: flex; flex-direction: column; gap: 5px; }
+.compl-label {
+  font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.04em; color: rgba(255,255,255,0.5);
+}
+.compl-input {
+  background: rgba(255,255,255,0.06);
+  border: 1.5px solid rgba(255,255,255,0.1);
+  border-radius: 9px; padding: 9px 12px;
+  color: white; font-size: 0.9rem; font-family: inherit;
+  transition: border-color 0.2s;
+}
+.compl-input:focus { outline: none; border-color: #5ab82e; }
+.compl-input::placeholder { color: rgba(255,255,255,0.25); }
+.compl-actions {
+  display: flex; gap: 10px; margin-top: 4px;
+}
+.compl-actions .prazo-cancel { width: auto; flex: 1; }
+.compl-actions .rp-btn-concluir { flex: 2; }
+
 /* ══ CONTROLE ══ */
 .controle-page { animation: card-in 0.3s ease both; }
 
@@ -5789,6 +5920,21 @@ const alerts = [
 .wms-app--light .prazo-opt-arrow { color: rgba(15,23,42,0.3) !important; }
 .wms-app--light .prazo-cancel { color: rgba(15,23,42,0.45) !important; }
 .wms-app--light .prazo-cancel:hover { background: rgba(15,23,42,0.06) !important; color: #0f172a !important; }
+
+/* ── Light mode: Dialog Complementar ── */
+.wms-app--light .compl-dialog {
+  background: #f8fafc !important;
+  border-color: rgba(15,23,42,0.1) !important;
+}
+.wms-app--light .compl-dialog-title { color: #0f172a !important; }
+.wms-app--light .compl-dialog-sub   { color: rgba(15,23,42,0.5) !important; }
+.wms-app--light .compl-label        { color: rgba(15,23,42,0.5) !important; }
+.wms-app--light .compl-input {
+  background: white !important;
+  border-color: rgba(15,23,42,0.15) !important;
+  color: #0f172a !important;
+}
+.wms-app--light .compl-input::placeholder { color: rgba(15,23,42,0.3) !important; }
 
 /* ── Light mode: Controle ── */
 .wms-app--light .ctrl-card {
