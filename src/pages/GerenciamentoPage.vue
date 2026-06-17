@@ -3166,18 +3166,7 @@ async function gerarRelatorio() {
       enderecoSocio  ? `ENDEREÇO: ${enderecoSocio}`        : '',
     ].filter(Boolean).join('\n')
 
-    const processosTexto = [
-      processoVal ? processoVal.toUpperCase() : 'CONSTITUIÇÃO',
-      etapaValor('protocolo') ? `PROTOCOLO: ${etapaValor('protocolo')}`   : '',
-      dataAbertura            ? `DATA DO CONTRATO: ${dataAbertura}`       : '',
-      nomeFantasia            ? `NOME FANTASIA: ${nomeFantasia}`          : '',
-      enderecoEmp             ? `ENDEREÇO: ${enderecoEmp}`                : '',
-      telefoneEmp             ? `TELEFONE: ${telefoneEmp}`                : '',
-      emailEmp                ? `E-MAIL: ${emailEmp}`                     : '',
-      jucema                  ? `JUCEMA: R$ ${jucema}`                    : '',
-      certDigital             ? `CERT. DIGITAL: R$ ${certDigital}`        : '',
-      alvaraPref              ? `ALVARÁ PREFEITURA: R$ ${alvaraPref}`     : '',
-    ].filter(Boolean).join('\n')
+    const processosTexto = processoVal ? processoVal.toUpperCase() : 'CONSTITUIÇÃO'
 
     await preencherRelatorioGeral({
       RAZAO:       razaoSocial,
