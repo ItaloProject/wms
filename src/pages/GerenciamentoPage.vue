@@ -3269,17 +3269,15 @@ function concluir() {
   dialogPrazo.value = true
 }
 
-async function selecionarPrazo(nivel) {
+function selecionarPrazo(nivel) {
   dialogPrazo.value = false
-  const texto = montarMensagem(nivel)
   salvarRegistro(nivel)
-  const ok = await enviarWhatsApp(texto)
   $q.notify({
-    icon: ok ? 'check_circle' : 'error',
-    color: ok ? 'positive' : 'negative',
-    message: ok ? 'Mensagem enviada via WhatsApp!' : 'Falha ao enviar. Verifique a configuração da API.',
+    icon: 'check_circle',
+    color: 'positive',
+    message: 'Processo salvo com sucesso!',
     position: 'top',
-    timeout: 3500,
+    timeout: 2500,
   })
 }
 
