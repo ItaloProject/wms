@@ -1165,7 +1165,8 @@
                   v-for="p in processosConsultar"
                   :key="p.id"
                   class="cons-card"
-                  :class="`cons-card--${p.status}`"
+                  :class="[`cons-card--${p.status}`, p.id === 'atual' ? 'cons-card--clicavel' : '']"
+                  @click="p.id === 'atual' ? (ctrlSessao3 = null, ctrlSessao1 = 'Constituição') : null"
                 >
                   <div class="cons-card-left">
                     <div class="cons-status-dot" :class="`cons-dot--${p.status}`"></div>
@@ -1200,6 +1201,9 @@
                     </div>
                     <div class="cons-badge" :class="`cons-badge--${p.status}`">
                       {{ p.status === 'concluido' ? 'Concluído' : p.status === 'andamento' ? 'Em andamento' : 'Não iniciado' }}
+                    </div>
+                    <div v-if="p.id === 'atual'" class="cons-continuar-btn">
+                      <q-icon name="play_arrow" size="14px" /> Continuar
                     </div>
                   </div>
                 </div>
@@ -4810,9 +4814,17 @@ const alerts = [
   transition: background 0.15s;
 }
 .cons-card:hover { background: rgba(255,255,255,0.07); }
+.cons-card--clicavel { cursor: pointer; }
+.cons-card--clicavel:hover { background: rgba(90,184,46,0.07); border-color: rgba(90,184,46,0.25); }
 .cons-card--concluido  { border-left: 3px solid rgba(34,197,94,0.6); }
 .cons-card--andamento  { border-left: 3px solid rgba(251,191,36,0.6); }
 .cons-card--nao_iniciado { border-left: 3px solid rgba(255,255,255,0.15); }
+.cons-continuar-btn {
+  display: flex; align-items: center; gap: 4px; margin-top: 6px;
+  padding: 4px 10px; border-radius: 7px;
+  background: rgba(90,184,46,0.15); color: #5ab82e;
+  font-size: 0.72rem; font-weight: 700;
+}
 
 .cons-card-left { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
 .cons-status-dot {
