@@ -206,11 +206,24 @@
                 </button>
               </div>
               <div class="rp-fields">
-                <div v-for="doc in docsEmpresa" :key="doc.label" class="rp-field" :class="{ 'rp-field--filled': doc.valor }">
+                <div
+                  v-for="doc in docsEmpresa"
+                  :key="doc.label"
+                  class="rp-field"
+                  :class="{ 'rp-field--filled': doc.valor, 'rp-field--invalido': doc.valor && !campoValido(doc) }"
+                >
                   <label class="rp-field-label">{{ doc.label }}</label>
                   <div class="rp-field-wrap">
-                    <input v-model="doc.valor" class="rp-field-input" placeholder="Digite aqui..." />
-                    <q-icon v-if="doc.valor" name="check_circle" size="16px" class="rp-field-ok" />
+                    <input
+                      :value="doc.valor"
+                      class="rp-field-input"
+                      :placeholder="placeholderCampo(doc)"
+                      :type="doc.tipo === 'email' ? 'email' : 'text'"
+                      :inputmode="inputmodeCampo(doc)"
+                      @input="onInputDoc(doc, $event)"
+                    />
+                    <q-icon v-if="doc.valor && campoValido(doc)"  name="check_circle" size="16px" class="rp-field-ok" />
+                    <q-icon v-else-if="doc.valor && !campoValido(doc)" name="error" size="16px" class="rp-field-err" />
                   </div>
                 </div>
               </div>
@@ -237,11 +250,24 @@
                 </button>
               </div>
               <div class="rp-fields">
-                <div v-for="doc in docsSocio" :key="doc.label" class="rp-field" :class="{ 'rp-field--filled': doc.valor }">
+                <div
+                  v-for="doc in docsSocio"
+                  :key="doc.label"
+                  class="rp-field"
+                  :class="{ 'rp-field--filled': doc.valor, 'rp-field--invalido': doc.valor && !campoValido(doc) }"
+                >
                   <label class="rp-field-label">{{ doc.label }}</label>
                   <div class="rp-field-wrap">
-                    <input v-model="doc.valor" class="rp-field-input" placeholder="Digite aqui..." />
-                    <q-icon v-if="doc.valor" name="check_circle" size="16px" class="rp-field-ok" />
+                    <input
+                      :value="doc.valor"
+                      class="rp-field-input"
+                      :placeholder="placeholderCampo(doc)"
+                      :type="doc.tipo === 'email' ? 'email' : 'text'"
+                      :inputmode="inputmodeCampo(doc)"
+                      @input="onInputDoc(doc, $event)"
+                    />
+                    <q-icon v-if="doc.valor && campoValido(doc)"  name="check_circle" size="16px" class="rp-field-ok" />
+                    <q-icon v-else-if="doc.valor && !campoValido(doc)" name="error" size="16px" class="rp-field-err" />
                   </div>
                 </div>
               </div>
@@ -2784,6 +2810,76 @@ const steps = [
 const docsEmpresaOk  = computed(() => docsEmpresa.value.filter(d => d.valor).length)
 const docsSocioOk    = computed(() => docsSocio.value.filter(d => d.valor).length)
 
+function mascarar(v, tipo) {
+  if (!v) return ''
+  switch (tipo) {
+    case 'cnpj': {
+      const d = v.replace(/\D/g, '').slice(0, 14)
+      return d
+        .replace(/^(\d{2})(\d)/, '$1.$2')
+        .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+        .replace(/\.(\d{3})(\d)/, '.$1/$2')
+        .replace(/(\d{4})(\d)/, '$1-$2')
+    }
+    case 'cpf': {
+      const d = v.replace(/\D/g, '').slice(0, 11)
+      return d
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d{1,2})$/, '$1-$2')
+    }
+    case 'telefone': {
+      const d = v.replace(/\D/g, '').slice(0, 11)
+      if (d.length <= 10)
+        return d.replace(/^(\d{2})(\d)/, '($1) $2').replace(/(\d{4})(\d{1,4})$/, '$1-$2')
+      return d.replace(/^(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d{1,4})$/, '$1-$2')
+    }
+    case 'numero':
+      return v.replace(/\D/g, '')
+    case 'moeda':
+      return v.replace(/[^\d,]/g, '')
+    case 'rg':
+      return v.replace(/[^\dA-Za-z-]/g, '').toUpperCase()
+    default:
+      return v
+  }
+}
+
+function campoValido(doc) {
+  const v = doc.valor
+  if (!v) return false
+  switch (doc.tipo) {
+    case 'cnpj':     return v.replace(/\D/g, '').length === 14
+    case 'cpf':      return v.replace(/\D/g, '').length === 11
+    case 'telefone': return v.replace(/\D/g, '').length >= 10
+    case 'email':    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
+    default:         return true
+  }
+}
+
+const PLACEHOLDER_CAMPO = {
+  cnpj:     '00.000.000/0000-00',
+  cpf:      '000.000.000-00',
+  telefone: '(00) 00000-0000',
+  email:    'nome@email.com',
+  moeda:    '1.500,00',
+  numero:   'Apenas números',
+  rg:       'Ex: 0000000',
+}
+function placeholderCampo(doc) {
+  return PLACEHOLDER_CAMPO[doc.tipo] || 'Digite aqui...'
+}
+function inputmodeCampo(doc) {
+  return ['cnpj','cpf','telefone','numero','moeda','rg'].includes(doc.tipo) ? 'numeric' : 'text'
+}
+
+function onInputDoc(doc, event) {
+  const masked = mascarar(event.target.value, doc.tipo)
+  doc.valor = masked
+  // Keeps cursor-position stable (prevents DOM drift on masked fields)
+  if (event.target.value !== masked) event.target.value = masked
+}
+
 const totalCampos = computed(() =>
   docsEmpresa.value.length + docsSocio.value.length + taxas.value.length
 )
@@ -2798,27 +2894,27 @@ const registros = ref([])
 
 // ── Resumo ──
 const docsEmpresa = ref([
-  { label: 'Razão social',        valor: '' },
-  { label: 'CNPJ',                valor: '' },
-  { label: 'Nome Fantasia',       valor: '' },
-  { label: 'Capital Social',      valor: '' },
-  { label: 'Inscrição Estadual',  valor: '' },
-  { label: 'Inscrição Municipal', valor: '' },
-  { label: 'NIRE',                valor: '' },
-  { label: 'Endereço',            valor: '' },
-  { label: 'Telefone',            valor: '' },
-  { label: 'E-Mail',              valor: '' },
+  { label: 'Razão social',        valor: '', tipo: 'texto'   },
+  { label: 'CNPJ',                valor: '', tipo: 'cnpj'    },
+  { label: 'Nome Fantasia',       valor: '', tipo: 'texto'   },
+  { label: 'Capital Social',      valor: '', tipo: 'moeda'   },
+  { label: 'Inscrição Estadual',  valor: '', tipo: 'numero'  },
+  { label: 'Inscrição Municipal', valor: '', tipo: 'numero'  },
+  { label: 'NIRE',                valor: '', tipo: 'numero'  },
+  { label: 'Endereço',            valor: '', tipo: 'texto'   },
+  { label: 'Telefone',            valor: '', tipo: 'telefone'},
+  { label: 'E-Mail',              valor: '', tipo: 'email'   },
 ])
 
 const docsSocio = ref([
-  { label: 'Nome do Sócio',                        valor: '' },
-  { label: 'CPF',                                   valor: '' },
-  { label: 'RG ou CNH',                             valor: '' },
-  { label: 'Comprovante de Residência do Titular',  valor: '' },
-  { label: 'Senha do Gov.Br (Nível Ouro)',          valor: '' },
-  { label: 'Telefone',                              valor: '' },
-  { label: 'E-Mail',                                valor: '' },
-  { label: 'Endereço pessoa física',                valor: '' },
+  { label: 'Nome do Sócio',                        valor: '', tipo: 'texto'   },
+  { label: 'CPF',                                   valor: '', tipo: 'cpf'    },
+  { label: 'RG ou CNH',                             valor: '', tipo: 'rg'     },
+  { label: 'Comprovante de Residência do Titular',  valor: '', tipo: 'texto'  },
+  { label: 'Senha do Gov.Br (Nível Ouro)',          valor: '', tipo: 'texto'  },
+  { label: 'Telefone',                              valor: '', tipo: 'telefone'},
+  { label: 'E-Mail',                                valor: '', tipo: 'email'  },
+  { label: 'Endereço pessoa física',                valor: '', tipo: 'texto'  },
 ])
 
 function copiarTexto(texto, caption = '') {
@@ -4141,7 +4237,12 @@ const alerts = [
 }
 .rp-field-input::placeholder { color: rgba(255,255,255,0.2); }
 
-.rp-field-ok { color: #5ab82e; flex-shrink: 0; }
+.rp-field-ok  { color: #5ab82e; flex-shrink: 0; }
+.rp-field-err { color: #ef4444; flex-shrink: 0; }
+
+.rp-field--invalido .rp-field-input {
+  border-color: rgba(239,68,68,0.45) !important;
+}
 
 .rp-prefix {
   color: rgba(255,255,255,0.35);
