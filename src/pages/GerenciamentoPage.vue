@@ -289,7 +289,14 @@
                   <label class="rp-field-label">{{ taxa.label }}</label>
                   <div class="rp-field-wrap rp-field-wrap--taxa">
                     <span class="rp-prefix">R$</span>
-                    <input v-model="taxa.valor" class="rp-field-input" placeholder="0,00" type="text" />
+                    <input
+                      :value="taxa.valor"
+                      class="rp-field-input"
+                      placeholder="0,00"
+                      type="text"
+                      inputmode="numeric"
+                      @input="onInputDoc(taxa, $event)"
+                    />
                     <q-icon v-if="taxa.valor" name="check_circle" size="16px" class="rp-field-ok" />
                   </div>
                 </div>
@@ -3536,9 +3543,9 @@ function copiarParaWhatsApp() {
 }
 
 const taxas = ref([
-  { label: 'Jucema',                       valor: '' },
-  { label: 'Certificado digital da empresa', valor: '' },
-  { label: 'Alvará da prefeitura',          valor: '' },
+  { label: 'Jucema',                        valor: '', tipo: 'moeda' },
+  { label: 'Certificado digital da empresa', valor: '', tipo: 'moeda' },
+  { label: 'Alvará da prefeitura',           valor: '', tipo: 'moeda' },
 ])
 
 const today = new Intl.DateTimeFormat('pt-BR', {
