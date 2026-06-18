@@ -2836,8 +2836,12 @@ function mascarar(v, tipo) {
     }
     case 'numero':
       return v.replace(/\D/g, '')
-    case 'moeda':
-      return v.replace(/[^\d,]/g, '')
+    case 'moeda': {
+      const raw = v.replace(/[^\d,]/g, '')
+      const parts = raw.split(',')
+      const inteiro = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+      return parts.length > 1 ? inteiro + ',' + parts[1].slice(0, 2) : inteiro
+    }
     case 'rg':
       return v.replace(/[^\dA-Za-z-]/g, '').toUpperCase()
     default:
