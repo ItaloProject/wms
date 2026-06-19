@@ -1234,7 +1234,7 @@
                   :key="p.id"
                   class="cons-card"
                   :class="[`cons-card--${p.status}`, p.status !== 'concluido' ? 'cons-card--clicavel' : '']"
-                  @click="p.status !== 'concluido' ? (ctrlSessao3 = null, ctrlSessao1 = 'Constituição') : null"
+                  @click="continuarProcesso(p)"
                 >
                   <div class="cons-card-left">
                     <div class="cons-status-dot" :class="`cons-dot--${p.status}`"></div>
@@ -2800,44 +2800,62 @@ function exportarExcel() {
 }
 
 const processosConsultar = computed(() => {
-  // Concluídos — do histórico
-  const concluidos = historico.value.map(h => {
-    const pct = h.pct ?? 100
-    return {
+  // Mapeia processoId → entrada mais recente do histórico (já vem order by id desc)
+  const latestByProcesso = {}
+  for (const h of historico.value) {
+    if (h.processoId && !latestByProcesso[h.processoId]) {
+      latestByProcesso[h.processoId] = h
+    }
+  }
+
+  // Processos ativos (não concluídos) — um por registro
+  const ativos = registros.value
+    .filter(r => !r.concluido)
+    .map(r => {
+      const h = latestByProcesso[r.id]
+      let pct = h?.pct ?? 0
+      if (!h && r.id === regAberto.value) {
+        const total = etapas.value.length
+        const ok    = etapas.value.filter(e => e.status === 'concluida').length
+        pct = total ? Math.round((ok / total) * 100) : 0
+      }
+      const nome = r.razaoSocial
+        || r.empresa?.find?.(d => d.label === 'Razão social')?.valor
+        || '—'
+      const proto = h?.protocolo
+        || (r.id === regAberto.value ? etapaValor('protocolo') : '')
+        || '—'
+      const local = h?.localizacao
+        || (r.id === regAberto.value ? etapaValor('localizacao') : '')
+        || '—'
+      const data  = h ? `${h.data} ${h.hora}` : (r.dataFormatada ? `Aberto ${r.dataFormatada}` : '—')
+      return {
+        id:          r.id,
+        processoId:  r.id,
+        empresa:     nome,
+        protocolo:   proto,
+        localizacao: local,
+        data,
+        pct,
+        status:      pct === 100 ? 'concluido' : pct > 0 ? 'andamento' : 'nao_iniciado',
+      }
+    })
+
+  // Processos concluídos — do histórico (pct = 100)
+  const concluidos = historico.value
+    .filter(h => (h.pct ?? 0) === 100)
+    .map(h => ({
       id:          h.id,
       processoId:  h.processoId || null,
       empresa:     h.empresa || '—',
       protocolo:   h.protocolo || '—',
       localizacao: h.localizacao || '—',
       data:        h.data + ' ' + h.hora,
-      pct,
-      status:      pct === 100 ? 'concluido' : pct > 0 ? 'andamento' : 'nao_iniciado',
-    }
-  })
+      pct:         100,
+      status:      'concluido',
+    }))
 
-  // Em andamento — guia atual se tiver empresa preenchida
-  const empAtual = etapaValor('empresa')
-  const emAndamento = []
-  if (empAtual) {
-    const jaConsta = concluidos.some(c => c.empresa === empAtual)
-    const total = etapas.value.length
-    const ok    = etapas.value.filter(e => e.status === 'concluida').length
-    const pct   = total ? Math.round((ok / total) * 100) : 0
-    if (!jaConsta || pct < 100) {
-      emAndamento.push({
-        id:          'atual',
-        processoId:  regAberto.value || null,
-        empresa:     empAtual,
-        protocolo:   etapaValor('protocolo') || '—',
-        localizacao: etapaValor('localizacao') || '—',
-        data:        'Em andamento',
-        pct,
-        status:      pct === 100 ? 'concluido' : pct > 0 ? 'andamento' : 'nao_iniciado',
-      })
-    }
-  }
-
-  const todos = [...emAndamento, ...concluidos]
+  const todos = [...ativos, ...concluidos]
   const q = consultarBusca.value.trim().toLowerCase()
   if (!q) return todos
   return todos.filter(p =>
@@ -2846,6 +2864,20 @@ const processosConsultar = computed(() => {
     p.localizacao.toLowerCase().includes(q)
   )
 })
+
+function continuarProcesso(p) {
+  if (p.status === 'concluido') return
+  ctrlSessao3.value = null
+  ctrlSessao1.value = 'Constituição'
+  if (!p.processoId || p.processoId === regAberto.value) return
+  const reg = registros.value.find(r => r.id === p.processoId)
+  if (!reg) return
+  regAberto.value = reg.id
+  reg.empresa?.forEach((s, i) => { if (docsEmpresa.value[i] && s.valor !== undefined) docsEmpresa.value[i].valor = s.valor })
+  reg.socio?.forEach((s, i)   => { if (docsSocio.value[i]   && s.valor !== undefined) docsSocio.value[i].valor   = s.valor })
+  reg.taxas?.forEach((s, i)   => { if (taxas.value[i]       && s.valor !== undefined) taxas.value[i].valor         = s.valor })
+  salvarResumo()
+}
 
 function abrirAnexo(catKey) {
   catAnexoAtiva.value = catKey
