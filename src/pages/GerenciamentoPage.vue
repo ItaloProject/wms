@@ -2116,10 +2116,20 @@ const etapasPadrao = [
   { key: 'assinatura_u', titulo: 'Assinatura do Usuário',                  tipo: 'carimbo' },
 ]
 
-const etapas = ref(carregarEtapas())
+const etapas = ref(carregarEtapas(_navSalvo?.regAberto || null, true))
 
-function carregarEtapas() {
-  const salvas = JSON.parse(localStorage.getItem('wms_constituicao') || 'null')
+// processoId=null → usa chave legada 'wms_constituicao'
+// usarFallbackLegado=true → ao trocar de processo, não herda etapas de outro processo
+function carregarEtapas(processoId, usarFallbackLegado = false) {
+  let salvas = null
+  if (processoId) {
+    salvas = JSON.parse(localStorage.getItem(`wms_etapas_${processoId}`) || 'null')
+    if (!salvas && usarFallbackLegado) {
+      salvas = JSON.parse(localStorage.getItem('wms_constituicao') || 'null')
+    }
+  } else {
+    salvas = JSON.parse(localStorage.getItem('wms_constituicao') || 'null')
+  }
   return etapasPadrao.map(e => {
     const s = salvas?.find(x => x.key === e.key)
     const subStatus = { ...(s?.subStatus || {}) }
@@ -2870,13 +2880,31 @@ function continuarProcesso(p) {
   ctrlSessao3.value = null
   ctrlSessao1.value = 'Constituição'
   if (!p.processoId || p.processoId === regAberto.value) return
+
+  // Persiste etapas do processo atual antes de trocar
+  if (regAberto.value) {
+    const dataAtual = JSON.stringify(
+      etapas.value.map(e => ({ key: e.key, status: e.status, obs: e.obs, valor: e.valor, concluidaEm: e.concluidaEm || '' }))
+    )
+    localStorage.setItem(`wms_etapas_${regAberto.value}`, dataAtual)
+  }
+
   const reg = registros.value.find(r => r.id === p.processoId)
   if (!reg) return
+
   regAberto.value = reg.id
-  reg.empresa?.forEach((s, i) => { if (docsEmpresa.value[i] && s.valor !== undefined) docsEmpresa.value[i].valor = s.valor })
-  reg.socio?.forEach((s, i)   => { if (docsSocio.value[i]   && s.valor !== undefined) docsSocio.value[i].valor   = s.valor })
-  reg.taxas?.forEach((s, i)   => { if (taxas.value[i]       && s.valor !== undefined) taxas.value[i].valor         = s.valor })
+
+  // Limpa Resumo e carrega dados do processo selecionado
+  docsEmpresa.value.forEach(d => { d.valor = '' })
+  docsSocio.value.forEach(d => { d.valor = '' })
+  taxas.value.forEach(t => { t.valor = '' })
+  reg.empresa?.forEach((s, i) => { if (docsEmpresa.value[i] && s.valor) docsEmpresa.value[i].valor = s.valor })
+  reg.socio?.forEach((s, i)   => { if (docsSocio.value[i]   && s.valor) docsSocio.value[i].valor   = s.valor })
+  reg.taxas?.forEach((s, i)   => { if (taxas.value[i]       && s.valor) taxas.value[i].valor         = s.valor })
   salvarResumo()
+
+  // Carrega etapas específicas do processo (sem fallback para outro processo)
+  etapas.value = carregarEtapas(reg.id, false)
 }
 
 function abrirAnexo(catKey) {
@@ -3010,9 +3038,11 @@ function selecionarSugestao(etapa, nome) {
 }
 
 function salvarEtapas() {
-  localStorage.setItem('wms_constituicao', JSON.stringify(
+  const data = JSON.stringify(
     etapas.value.map(e => ({ key: e.key, status: e.status, obs: e.obs, valor: e.valor, concluidaEm: e.concluidaEm || '' }))
-  ))
+  )
+  if (regAberto.value) localStorage.setItem(`wms_etapas_${regAberto.value}`, data)
+  localStorage.setItem('wms_constituicao', data)
 }
 
 function setStatusEtapa(etapa, status) {
@@ -3901,6 +3931,7 @@ function resetarFormConstituicao() {
 }
 
 function _limparFormulario() {
+  if (regAberto.value) localStorage.removeItem(`wms_etapas_${regAberto.value}`)
   localStorage.removeItem('wms_constituicao')
   localStorage.removeItem('wms_resumo')
   regAberto.value = null
