@@ -3962,13 +3962,15 @@ onMounted(async () => {
 
   if (procs && procs.length > 0) {
     registros.value = procs.map(processoFromDb)
-    // Se o Resumo local está vazio, restaura do banco pelo regAberto ou pelo nome da empresa
-    if (!docsEmpresa.value.some(d => d.valor)) {
-      const nomeAtual = etapaValor('empresa')
-      const reg = registros.value.find(r => r.id === regAberto.value)
-        || (nomeAtual ? registros.value.find(r => r.razaoSocial === nomeAtual && r.empresa?.length) : null)
-      if (reg) {
-        // Index-based para evitar falha de encoding nos labels
+
+    // Reconcilia regAberto com o ID real do Supabase (pode diferir do ID gerado no frontend)
+    const nomeAtual = etapaValor('empresa')
+    const reg = registros.value.find(r => r.id === regAberto.value)
+      || (nomeAtual ? registros.value.find(r => r.razaoSocial === nomeAtual) : null)
+    if (reg) {
+      if (reg.id !== regAberto.value) regAberto.value = reg.id
+      // Restaura Resumo do banco se o local estiver vazio
+      if (!docsEmpresa.value.some(d => d.valor)) {
         reg.empresa?.forEach((s, i) => { if (docsEmpresa.value[i] && s.valor) docsEmpresa.value[i].valor = s.valor })
         reg.socio?.forEach((s, i)   => { if (docsSocio.value[i]   && s.valor) docsSocio.value[i].valor   = s.valor })
         reg.taxas?.forEach((s, i)   => { if (taxas.value[i]       && s.valor) taxas.value[i].valor         = s.valor })
