@@ -18,6 +18,7 @@ export function processoToDb(r) {
     empresa:            r.empresa || [],
     socio:              r.socio   || [],
     taxas:              r.taxas   || [],
+    concluido:          r.concluido || false,
   }
 }
 
@@ -33,6 +34,7 @@ export function processoFromDb(row) {
     empresa:            row.empresa || [],
     socio:              row.socio   || [],
     taxas:              row.taxas   || [],
+    concluido:          row.concluido || false,
   }
 }
 
@@ -40,6 +42,7 @@ export function processoFromDb(row) {
 export function historicoToDb(h) {
   return {
     id:          h.id,
+    processo_id: h.processoId  || null,
     empresa:     h.empresa     || '',
     protocolo:   h.protocolo   || '',
     localizacao: h.localizacao || '',
@@ -52,6 +55,7 @@ export function historicoToDb(h) {
 export function historicoFromDb(row) {
   return {
     id:          row.id,
+    processoId:  row.processo_id || null,
     empresa:     row.empresa     || '',
     protocolo:   row.protocolo   || '',
     localizacao: row.localizacao || '',
@@ -64,33 +68,37 @@ export function historicoFromDb(row) {
 // ── Configurações ─────────────────────────────────────────────────────────────
 export function configToDb(cfg) {
   return {
-    id:             1,
-    provider:       cfg.provider    || 'zapi',
-    z_instance_id:  cfg.zInstanceId || '',
-    z_token:        cfg.zToken      || '',
-    z_client_token: cfg.zClientToken|| '',
-    telefone:       cfg.telefone    || '',
-    url:            cfg.url         || '',
-    token:          cfg.token       || '',
-    email_url:      cfg.emailUrl    || '',
-    email_key:      cfg.emailKey    || '',
-    email_from:     cfg.emailFrom   || '',
-    updated_at:     new Date().toISOString(),
+    id:                  1,
+    provider:            cfg.provider          || 'zapi',
+    z_instance_id:       cfg.zInstanceId       || '',
+    z_token:             cfg.zToken            || '',
+    z_client_token:      cfg.zClientToken      || '',
+    telefone:            cfg.telefone          || '',
+    url:                 cfg.url               || '',
+    token:               cfg.token             || '',
+    evolution_instance:  cfg.evolutionInstance || 'wms',
+    email_url:           cfg.emailUrl          || '',
+    email_key:           cfg.emailKey          || '',
+    email_from:          cfg.emailFrom         || '',
+    responsavel:         cfg.responsavel       || '',
+    updated_at:          new Date().toISOString(),
   }
 }
 
 export function configFromDb(row) {
   if (!row) return {}
   return {
-    provider:     row.provider       || 'zapi',
-    zInstanceId:  row.z_instance_id  || '',
-    zToken:       row.z_token        || '',
-    zClientToken: row.z_client_token || '',
-    telefone:     row.telefone       || '',
-    url:          row.url            || '',
-    token:        row.token          || '',
-    emailUrl:     row.email_url      || '',
-    emailKey:     row.email_key      || '',
-    emailFrom:    row.email_from     || '',
+    provider:          row.provider            || 'zapi',
+    zInstanceId:       row.z_instance_id       || '',
+    zToken:            row.z_token             || '',
+    zClientToken:      row.z_client_token      || '',
+    telefone:          row.telefone            || '',
+    url:               row.url                 || '',
+    token:             row.token               || '',
+    evolutionInstance: row.evolution_instance  || 'wms',
+    emailUrl:          row.email_url           || '',
+    emailKey:          row.email_key           || '',
+    emailFrom:         row.email_from          || '',
+    responsavel:       row.responsavel         || '',
   }
 }

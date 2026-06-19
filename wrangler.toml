@@ -1,0 +1,14 @@
+name = "wms-alertas"
+main = "worker/index.js"
+compatibility_date = "2024-11-01"
+workers_dev = true
+preview_urls = false
+
+# Cron: 07:50 BRT (UTC-3) = 10:50 UTC | 15:00 BRT = 18:00 UTC
+[triggers]
+crons = ["50 10 * * *", "0 18 * * *"]
+
+[vars]
+SUPABASE_URL    = "https://uysamynplejghdmxlrfk.supabase.co"
+NUMEROS_ALERTA  = "5599984491810"
+GOTENBERG_URL   = "https://gotenberg-production-931d.up.railway.app"

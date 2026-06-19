@@ -45,7 +45,7 @@
 
               <div v-else class="notif-list">
                 <div
-                  v-for="reg in registros.filter(r => { const d = diasRestantes(r); return (r.prazo||'normal')==='urgente' || d < 0 || d <= 3 }).map(r => ({...r, _dias: diasRestantes(r)}))"
+                  v-for="reg in registros.filter(r => !r.concluido && ((() => { const d = diasRestantes(r); return (r.prazo||'normal')==='urgente' || d < 0 || d <= 3 })())).map(r => ({...r, _dias: diasRestantes(r)}))"
                   :key="reg.id"
                   class="notif-item"
                   :class="{ 'notif-item--urgente': (reg.prazo||'normal')==='urgente' || reg._dias < 0, 'notif-item--aviso': reg._dias >= 0 && reg._dias <= 3 }"
@@ -287,7 +287,21 @@
               <div class="rp-fields">
                 <div v-for="taxa in taxas" :key="taxa.label" class="rp-field" :class="{ 'rp-field--filled': taxa.valor }">
                   <label class="rp-field-label">{{ taxa.label }}</label>
-                  <div class="rp-field-wrap rp-field-wrap--taxa">
+
+                  <!-- Sim / Não -->
+                  <div v-if="taxa.tipo === 'simnom'" class="rp-simnom-wrap">
+                    <button
+                      :class="['rp-simnom-btn', taxa.valor === 'SIM' && 'rp-simnom-btn--sim']"
+                      @click="taxa.valor = taxa.valor === 'SIM' ? '' : 'SIM'"
+                    >SIM</button>
+                    <button
+                      :class="['rp-simnom-btn', taxa.valor === 'NÃO' && 'rp-simnom-btn--nom']"
+                      @click="taxa.valor = taxa.valor === 'NÃO' ? '' : 'NÃO'"
+                    >NÃO</button>
+                  </div>
+
+                  <!-- Valor monetário -->
+                  <div v-else class="rp-field-wrap rp-field-wrap--taxa">
                     <span class="rp-prefix">R$</span>
                     <input
                       :value="taxa.valor"
@@ -375,15 +389,18 @@
               <div class="db-kpi-body">
                 <div class="db-kpi-label">Vencendo em 7 dias</div>
                 <div class="db-kpi-val" style="color:#fcd34d">{{ dbVencendo7 }}</div>
-                <div class="db-kpi-sub">{{ statsUrgentes }} urgente{{ statsUrgentes !== 1 ? 's' : '' }} · {{ statsPriorizar }} priorizar</div>
+                <div class="db-kpi-sub">
+                  <template v-if="statsVencidos > 0">{{ statsVencidos }} vencido{{ statsVencidos !== 1 ? 's' : '' }} · </template>
+                  {{ statsUrgentes + statsPriorizar }} crítico{{ (statsUrgentes + statsPriorizar) !== 1 ? 's' : '' }} monitorado{{ (statsUrgentes + statsPriorizar) !== 1 ? 's' : '' }}
+                </div>
               </div>
             </div>
             <div class="db-kpi-card">
-              <div class="db-kpi-accent" style="background:#ef4444"></div>
+              <div class="db-kpi-accent" style="background:#5ab82e"></div>
               <div class="db-kpi-body">
-                <div class="db-kpi-label">Vencidos</div>
-                <div class="db-kpi-val" style="color:#fca5a5">{{ statsVencidos }}</div>
-                <div class="db-kpi-sub">{{ statsVencidos === 0 ? 'tudo em dia' : 'ação necessária agora' }}</div>
+                <div class="db-kpi-label">Concluídos</div>
+                <div class="db-kpi-val" style="color:#86efac">{{ historico.length }}</div>
+                <div class="db-kpi-sub">{{ historico.filter(h => h.pct === 100).length }} finalizados · {{ historico.length }} total</div>
               </div>
             </div>
           </div>
@@ -526,24 +543,32 @@
                 </div>
               </div>
 
-              <!-- Pendências -->
+              <!-- Histórico Recente -->
               <div class="db-panel">
                 <div class="db-panel-head">
-                  <q-icon name="pending_actions" size="17px" style="color:#f59e0b" />
-                  <span class="db-panel-title">Pendências</span>
-                  <q-badge v-if="dbPendencias.length > 0" color="orange" :label="dbPendencias.length" style="margin-left:6px" />
+                  <q-icon name="history" size="17px" style="color:#5ab82e" />
+                  <span class="db-panel-title">Histórico Recente</span>
+                  <q-space />
+                  <button class="db-link-btn" @click="activeNav = 'Relatórios'">
+                    ver todos <q-icon name="chevron_right" size="14px" />
+                  </button>
                 </div>
-                <div v-if="dbPendencias.length === 0" class="db-empty" style="padding:12px 0">
-                  <span style="font-size:0.8rem">Nenhuma pendência</span>
+                <div v-if="historico.length === 0" class="db-empty" style="padding:12px 0">
+                  <span style="font-size:0.8rem">Nenhum processo concluído</span>
                 </div>
                 <div v-else class="db-pend-list">
-                  <div v-for="reg in dbPendencias.slice(0, 4)" :key="reg.id" class="db-pend-item">
-                    <q-icon name="business" size="13px" style="color:rgba(255,255,255,0.3);flex-shrink:0" />
-                    <span class="db-pend-name">{{ reg.razaoSocial || '— sem nome' }}</span>
-                    <span class="db-pend-tag">sem razão social</span>
+                  <div v-for="h in historico.slice(0, 5)" :key="h.id" class="db-pend-item">
+                    <q-icon name="check_circle" size="13px" style="color:#5ab82e;flex-shrink:0" />
+                    <div style="flex:1;min-width:0">
+                      <div class="db-pend-name">{{ h.empresa || '—' }}</div>
+                      <div style="font-size:0.68rem;color:rgba(255,255,255,0.4)">
+                        {{ h.localizacao && h.localizacao !== '—' ? h.localizacao + ' · ' : '' }}{{ h.data }}
+                      </div>
+                    </div>
+                    <span class="db-pend-tag" :style="{ color: h.pct === 100 ? '#86efac' : '#fcd34d' }">{{ h.pct }}%</span>
                   </div>
-                  <div v-if="dbPendencias.length > 4" class="db-pend-more">
-                    +{{ dbPendencias.length - 4 }} mais
+                  <div v-if="historico.length > 5" class="db-pend-more">
+                    +{{ historico.length - 5 }} mais
                   </div>
                 </div>
               </div>
@@ -632,13 +657,17 @@
                   <q-icon name="arrow_back" size="16px" />
                   Controle
                 </button>
-                <div>
+                <div style="flex:1">
                   <div class="rp-eyebrow row items-center no-wrap q-mb-xs">
                     <q-icon name="inventory_2" size="15px" class="q-mr-xs" style="color:#5ab82e" />
                     <span>Abertura · Alteração · Transformação · Novas Empresas</span>
                   </div>
                   <h2 class="rp-title">Constituição</h2>
                 </div>
+                <button class="rp-btn-novo-proc" @click="dialogNovoProcesso = true">
+                  <q-icon name="add_circle_outline" size="15px" />
+                  Novo Processo
+                </button>
               </div>
 
               <div class="et-guia-head">
@@ -667,7 +696,12 @@
                       <q-icon v-else-if="etapa.status === 'nao_concluida'" name="close" size="15px" />
                       <span v-else>{{ i + 1 }}</span>
                     </div>
-                    <div class="et-titulo">{{ etapa.titulo }}</div>
+                    <div class="et-titulo-wrap">
+                      <div class="et-titulo">{{ etapa.titulo }}</div>
+                      <div v-if="etapa.status === 'concluida' && etapa.concluidaEm" class="et-concluida-em">
+                        <q-icon name="check_circle" size="11px" />{{ etapa.concluidaEm }}
+                      </div>
+                    </div>
                     <div class="et-status-btns">
                       <button
                         class="et-st-btn et-st-btn--ok"
@@ -796,14 +830,15 @@
                       <div v-for="cat in categoriasDocs" :key="cat.key" class="et-anx-cat">
                         <div class="et-anx-cat-head">
                           <span class="et-anx-cat-label">{{ cat.label }}</span>
-                          <button class="et-anx-add-btn" @click="abrirAnexo(cat.key)" :title="'Anexar ' + cat.label">
-                            <q-icon name="add" size="13px" />
+                          <button class="et-anx-add-btn" @click="abrirAnexo(cat.key)" :title="'Anexar ' + cat.label" :disabled="uploadAndo">
+                            <q-spinner v-if="uploadAndo && catAnexoAtiva === cat.key" size="13px" />
+                            <q-icon v-else name="add" size="13px" />
                           </button>
                         </div>
                         <div v-if="docsAnexados[cat.key] && docsAnexados[cat.key].length" class="et-anx-files">
                           <div v-for="arq in docsAnexados[cat.key]" :key="arq.id" class="et-anx-file">
                             <q-icon :name="iconeTipoArquivo(arq.tipo)" size="13px" class="et-anx-file-icon" />
-                            <span class="et-anx-file-nome" @click="abrirArquivo(arq)" :title="arq.nome">{{ arq.nome }}</span>
+                            <span class="et-anx-file-nome" @click="verDoc(arq)" :title="arq.nome" style="cursor:pointer">{{ arq.nome }}</span>
                             <span class="et-anx-file-size">{{ formatarTamanho(arq.tamanho) }}</span>
                             <button class="et-anx-del-btn" @click="removerAnexo(cat.key, arq.id)" title="Remover">
                               <q-icon name="close" size="11px" />
@@ -1198,8 +1233,8 @@
                   v-for="p in processosConsultar"
                   :key="p.id"
                   class="cons-card"
-                  :class="[`cons-card--${p.status}`, p.id === 'atual' ? 'cons-card--clicavel' : '']"
-                  @click="p.id === 'atual' ? (ctrlSessao3 = null, ctrlSessao1 = 'Constituição') : null"
+                  :class="[`cons-card--${p.status}`, p.status !== 'concluido' ? 'cons-card--clicavel' : '']"
+                  @click="p.status !== 'concluido' ? (ctrlSessao3 = null, ctrlSessao1 = 'Constituição') : null"
                 >
                   <div class="cons-card-left">
                     <div class="cons-status-dot" :class="`cons-dot--${p.status}`"></div>
@@ -1232,10 +1267,19 @@
                       </svg>
                       <span class="cons-pct-num">{{ p.pct }}%</span>
                     </div>
-                    <div class="cons-badge" :class="`cons-badge--${p.status}`">
-                      {{ p.status === 'concluido' ? 'Concluído' : p.status === 'andamento' ? 'Em andamento' : 'Não iniciado' }}
+                    <div class="cons-badge-wrap">
+                      <div class="cons-badge" :class="`cons-badge--${p.status}`">
+                        {{ p.status === 'concluido' ? 'Concluído' : p.status === 'andamento' ? 'Em andamento' : 'Não iniciado' }}
+                      </div>
+                      <div v-if="p.status === 'concluido' && configAPI.responsavel" class="cons-assinatura">
+                        <q-icon name="verified" size="11px" /> {{ configAPI.responsavel }}
+                      </div>
                     </div>
-                    <div v-if="p.id === 'atual'" class="cons-continuar-btn">
+                    <button class="cons-docs-btn" @click.stop="abrirDialogDocs(p, $event)" title="Ver documentos anexados">
+                      <q-icon name="folder_open" size="14px" />
+                      Documentos
+                    </button>
+                    <div v-if="p.status !== 'concluido'" class="cons-continuar-btn">
                       <q-icon name="play_arrow" size="14px" /> Continuar
                     </div>
                   </div>
@@ -1270,8 +1314,20 @@
             </div>
           </div>
 
-          <!-- Filtros -->
-          <div class="pz-filters q-mb-lg">
+          <!-- Tabs Ativos / Concluídos -->
+          <div class="pz-tabs q-mb-lg">
+            <button :class="['pz-tab', abaPrazos === 'ativos' && 'pz-tab--active']" @click="abaPrazos = 'ativos'">
+              <q-icon name="pending_actions" size="15px" /> Ativos
+              <span class="pz-tab-count">{{ registrosAtivos.length }}</span>
+            </button>
+            <button :class="['pz-tab', abaPrazos === 'concluidos' && 'pz-tab--active']" @click="abaPrazos = 'concluidos'">
+              <q-icon name="check_circle" size="15px" /> Concluídos
+              <span class="pz-tab-count pz-tab-count--green">{{ registrosConcluidos.length }}</span>
+            </button>
+          </div>
+
+          <!-- Filtros (só para ativos) -->
+          <div v-if="abaPrazos === 'ativos'" class="pz-filters q-mb-lg">
             <div class="pz-filter-group">
               <span class="pz-filter-label">Urgência</span>
               <div class="pz-filter-btns">
@@ -1298,23 +1354,20 @@
             </div>
           </div>
 
-          <!-- Sem registros -->
-          <div v-if="registros.length === 0" class="prazos-empty">
-            <q-icon name="schedule" size="48px" style="color:rgba(255,255,255,0.12)" />
-            <p>Nenhum processo registrado ainda.</p>
-            <button class="rp-btn-back" @click="activeNav = 'Resumo'">
-              <q-icon name="add" size="16px" /> Ir para Resumo
-            </button>
-          </div>
-
-          <!-- Filtro sem resultados -->
-          <div v-else-if="registrosFiltrados.length === 0" class="prazos-empty">
-            <q-icon name="filter_list" size="40px" style="color:rgba(255,255,255,0.12)" />
-            <p>Nenhum registro para este filtro.</p>
-          </div>
-
-          <!-- Lista de cards -->
-          <div v-else class="prazos-list">
+          <!-- ABA: ATIVOS -->
+          <template v-if="abaPrazos === 'ativos'">
+            <div v-if="registrosAtivos.length === 0" class="prazos-empty">
+              <q-icon name="schedule" size="48px" style="color:rgba(255,255,255,0.12)" />
+              <p>Nenhum processo ativo.</p>
+              <button class="rp-btn-back" @click="activeNav = 'Resumo'">
+                <q-icon name="add" size="16px" /> Ir para Resumo
+              </button>
+            </div>
+            <div v-else-if="registrosFiltrados.length === 0" class="prazos-empty">
+              <q-icon name="filter_list" size="40px" style="color:rgba(255,255,255,0.12)" />
+              <p>Nenhum registro para este filtro.</p>
+            </div>
+            <div v-else class="prazos-list">
             <div
               v-for="reg in registrosFiltrados"
               :key="reg.id"
@@ -1352,9 +1405,50 @@
                   <button class="pd-btn pd-btn--priorizar" :class="{'pd-active': reg.prazo==='priorizar'}" @click="alterarPrazo(reg.id,'priorizar')" title="Priorizar" />
                   <button class="pd-btn pd-btn--urgente"   :class="{'pd-active': reg.prazo==='urgente'}"   @click="alterarPrazo(reg.id,'urgente')"   title="Urgente" />
                 </div>
+                <button class="prazo-concluir-btn" title="Marcar como concluído" @click.stop="marcarConcluido(reg)">
+                  <q-icon name="check_circle_outline" size="16px" />
+                </button>
+                <button class="prazo-excluir-btn" title="Excluir processo" @click.stop="confirmarExcluir(reg)">
+                  <q-icon name="delete_outline" size="16px" />
+                </button>
               </div>
             </div>
-          </div>
+          </div><!-- fim prazos-list ativos -->
+          </template><!-- fim aba ativos -->
+
+          <!-- ABA: CONCLUÍDOS -->
+          <template v-if="abaPrazos === 'concluidos'">
+            <div v-if="registrosConcluidos.length === 0" class="prazos-empty">
+              <q-icon name="check_circle" size="48px" style="color:rgba(255,255,255,0.12)" />
+              <p>Nenhum processo concluído ainda.</p>
+            </div>
+            <div v-else class="prazos-list">
+              <div
+                v-for="reg in registrosConcluidos"
+                :key="reg.id"
+                class="prazo-card prazo-card--concluido-item"
+              >
+                <div class="prazo-card-bar" style="background:#22c55e" />
+                <div class="prazo-card-body">
+                  <div class="prazo-card-razao">{{ reg.razaoSocial || 'Sem razão social' }}</div>
+                  <div class="prazo-card-meta">
+                    Cadastrado {{ reg.dataFormatada }} · Concluído em {{ reg.dataVencFormatada || '—' }}
+                  </div>
+                </div>
+                <div class="prazo-dias" style="color:#22c55e">
+                  <q-icon name="check_circle" size="28px" />
+                </div>
+                <div class="prazo-card-right">
+                  <div class="prazo-badge prazo-badge--concluido-item">
+                    <q-icon name="verified" size="13px" /> Concluído
+                  </div>
+                  <button class="prazo-excluir-btn" title="Excluir" @click.stop="confirmarExcluir(reg)">
+                    <q-icon name="delete_outline" size="16px" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </template><!-- fim aba concluídos -->
 
         </div>
 
@@ -1628,8 +1722,18 @@
         </div>
 
         <div class="cfg-fields">
-          <!-- Seletor de provedor -->
+          <!-- Responsável -->
           <div class="cfg-section-label">
+            <q-icon name="person" size="14px" /> Responsável
+          </div>
+          <div class="cfg-field">
+            <label class="cfg-label">Nome do responsável</label>
+            <input v-model="configAPI.responsavel" class="cfg-input" placeholder="Ex: Ítalo Fontes" />
+            <span class="cfg-hint">Aparece como assinatura nos processos concluídos</span>
+          </div>
+
+          <!-- Seletor de provedor -->
+          <div class="cfg-section-label" style="margin-top:10px">
             <q-icon name="chat" size="14px" /> Provedor WhatsApp
           </div>
           <div class="cfg-provider-row">
@@ -1672,11 +1776,18 @@
           <template v-else>
             <div class="cfg-field">
               <label class="cfg-label">URL da API</label>
-              <input v-model="configAPI.url" class="cfg-input" placeholder="http://localhost:8080" />
+              <input v-model="configAPI.url" class="cfg-input" placeholder="https://xxx.up.railway.app" />
+              <span class="cfg-hint">URL do servidor Evolution API no Railway</span>
             </div>
             <div class="cfg-field">
               <label class="cfg-label">API Key</label>
-              <input v-model="configAPI.token" class="cfg-input" placeholder="seu-token-aqui" type="password" />
+              <input v-model="configAPI.token" class="cfg-input" placeholder="wms2024secret" type="password" />
+              <span class="cfg-hint">Valor de AUTHENTICATION_API_KEY definido no Railway</span>
+            </div>
+            <div class="cfg-field">
+              <label class="cfg-label">Nome da instância</label>
+              <input v-model="configAPI.evolutionInstance" class="cfg-input" placeholder="wms" />
+              <span class="cfg-hint">Nome que você deu ao criar a instância (ex: wms)</span>
             </div>
           </template>
 
@@ -1713,7 +1824,7 @@
     </q-dialog>
 
     <!-- Dialog: Complementar Relatório -->
-    <q-dialog v-model="dialogComplementar" persistent>
+    <q-dialog v-model="dialogComplementar" @hide="_valoresPendentes = null">
       <div class="compl-dialog">
         <div class="compl-dialog-header">
           <q-icon name="edit_note" size="24px" style="color:#5ab82e" />
@@ -1721,6 +1832,7 @@
             <div class="compl-dialog-title">Completar Relatório</div>
             <div class="compl-dialog-sub">Preencha as informações em falta para gerar em 100%</div>
           </div>
+          <q-btn flat round dense icon="close" style="margin-left:auto;color:#aaa" @click="dialogComplementar = false; _valoresPendentes.value = null" />
         </div>
 
         <div class="compl-fields">
@@ -1739,6 +1851,82 @@
           <button class="rp-btn-concluir" @click="confirmarComplementar">
             <q-icon name="download" size="16px" /> Gerar Relatório
           </button>
+        </div>
+      </div>
+    </q-dialog>
+
+    <!-- Dialog: Confirmar Novo Processo -->
+    <q-dialog v-model="dialogNovoProcesso">
+      <div class="compl-dialog" style="max-width:420px">
+        <div class="compl-dialog-header">
+          <q-icon name="warning_amber" size="24px" style="color:#f59e0b" />
+          <div>
+            <div class="compl-dialog-title">Iniciar Novo Processo?</div>
+            <div class="compl-dialog-sub">Todos os dados do formulário atual serão apagados.</div>
+          </div>
+        </div>
+        <div class="compl-actions" style="margin-top:24px">
+          <button class="prazo-cancel" @click="dialogNovoProcesso = false">Cancelar</button>
+          <button class="rp-btn-concluir" style="background:#e53e3e" @click="novoProcesso">
+            <q-icon name="restart_alt" size="16px" /> Limpar e iniciar novo
+          </button>
+        </div>
+      </div>
+    </q-dialog>
+
+    <!-- Dialog: Documentos do processo -->
+    <q-dialog v-model="dialogDocs">
+      <div class="docs-dialog">
+        <div class="docs-dialog-header">
+          <q-icon name="folder_open" size="22px" style="color:#5ab82e" />
+          <div class="docs-dialog-titulo">
+            <div class="docs-dialog-empresa">{{ docsDialogEmpresa }}</div>
+            <div class="docs-dialog-sub">
+              <template v-if="docsDialogLoading">Carregando...</template>
+              <template v-else>{{ docsDialogTotal }} documento{{ docsDialogTotal !== 1 ? 's' : '' }} anexado{{ docsDialogTotal !== 1 ? 's' : '' }}</template>
+            </div>
+          </div>
+          <q-btn flat round dense icon="close" style="margin-left:auto;color:#aaa" @click="dialogDocs = false" />
+        </div>
+
+        <div v-if="docsDialogLoading" class="docs-empty">
+          <q-spinner size="32px" color="green-4" />
+          <p>Buscando documentos...</p>
+        </div>
+
+        <div v-else-if="!docsDialogProcessoId" class="docs-empty">
+          <q-icon name="link_off" size="40px" style="color:rgba(255,255,255,0.15)" />
+          <p>Processo não vinculado a um registro de prazos.</p>
+        </div>
+
+        <div v-else-if="docsDialogTotal === 0" class="docs-empty">
+          <q-icon name="folder_off" size="40px" style="color:rgba(255,255,255,0.15)" />
+          <p>Nenhum documento foi anexado a este processo.</p>
+        </div>
+
+        <div v-else class="docs-cats">
+          <template v-for="cat in categoriasDocs" :key="cat.key">
+            <div v-if="docsDialogLista[cat.key] && docsDialogLista[cat.key].length" class="docs-cat">
+              <div class="docs-cat-label">{{ cat.label }}</div>
+              <div class="docs-cat-files">
+                <div v-for="arq in docsDialogLista[cat.key]" :key="arq.id" class="docs-file">
+                  <q-icon :name="arq.tipo?.startsWith('image/') ? 'image' : arq.tipo === 'application/pdf' ? 'picture_as_pdf' : 'insert_drive_file'" size="20px" class="docs-file-icon" />
+                  <div class="docs-file-info">
+                    <div class="docs-file-nome">{{ arq.nome }}</div>
+                    <div class="docs-file-tamanho">{{ (arq.tamanho / 1024).toFixed(1) }} KB</div>
+                  </div>
+                  <div class="docs-file-acoes">
+                    <button class="docs-btn-ver" @click="verDoc(arq)" title="Visualizar">
+                      <q-icon name="visibility" size="15px" />
+                    </button>
+                    <button class="docs-btn-baixar" @click="baixarDoc(arq)" title="Baixar">
+                      <q-icon name="download" size="15px" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
         </div>
       </div>
     </q-dialog>
@@ -1831,6 +2019,7 @@ import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
 import { supabase, processoToDb, processoFromDb, historicoToDb, historicoFromDb, configToDb, configFromDb } from '../lib/supabase.js'
+import { r2Upload, r2Delete, r2ViewUrl, r2DownloadUrl } from '../lib/r2.js'
 
 const $q = useQuasar()
 const drawer = ref(true)
@@ -1841,7 +2030,7 @@ const lightMode = ref(JSON.parse(localStorage.getItem('wms_light_mode') || 'fals
 watch(lightMode, v => localStorage.setItem('wms_light_mode', JSON.stringify(v)))
 
 const activeStep = ref(0)
-const regAberto = ref(null)
+const regAberto = ref(_navSalvo?.regAberto || null)
 const dialogPrazo  = ref(false)
 const ctrlSessao1  = ref(_navSalvo?.ctrlSessao1 || null)
 const ctrlSessao2  = ref(_navSalvo?.ctrlSessao2 || null)
@@ -1850,22 +2039,36 @@ const ctrlSessao3  = ref(_navSalvo?.ctrlSessao3 || null)
 function salvarNavState() {
   localStorage.setItem('wms_nav_state', JSON.stringify({
     activeNav:   activeNav.value,
+    regAberto:   regAberto.value,
     ctrlSessao1: ctrlSessao1.value,
     ctrlSessao2: ctrlSessao2.value,
     ctrlSessao3: ctrlSessao3.value,
   }))
 }
-watch([activeNav, ctrlSessao1, ctrlSessao2, ctrlSessao3], salvarNavState)
+watch([activeNav, regAberto, ctrlSessao1, ctrlSessao2, ctrlSessao3], salvarNavState)
+watch(regAberto, (id) => carregarDocsAnexados(id), { immediate: true })
 const mostrarSugestoes   = ref(false)
 const sugestoesFiltradas = ref([])
 const inputAnexoRef      = ref(null)
 const catAnexoAtiva      = ref('')
 const anexosExpandido    = ref(false)
-const docsAnexados       = ref(JSON.parse(localStorage.getItem('wms_docs_constituicao') || '{}'))
+const uploadAndo         = ref(false)
+const docsAnexados       = ref({})
 
 const totalAnexos = computed(() =>
   Object.values(docsAnexados.value).reduce((acc, arr) => acc + (arr?.length || 0), 0)
 )
+
+async function carregarDocsAnexados(processoId) {
+  if (!processoId) { docsAnexados.value = {}; return }
+  const { data } = await supabase.from('documentos').select('*').eq('processo_id', processoId).order('created_at')
+  const grouped = {}
+  for (const d of data || []) {
+    if (!grouped[d.categoria]) grouped[d.categoria] = []
+    grouped[d.categoria].push({ id: d.id, nome: d.nome, tamanho: d.tamanho, tipo: d.tipo, r2_key: d.r2_key })
+  }
+  docsAnexados.value = grouped
+}
 
 const categoriasDocs = [
   { key: 'contrato_social', label: 'CONTRATO SOCIAL AUTENTICADO' },
@@ -1925,7 +2128,7 @@ function carregarEtapas() {
         if (!subStatus[si.key]) subStatus[si.key] = { status: '', protocolo: '' }
       })
     }
-    return { ...e, status: s?.status || '', obs: s?.obs || '', valor: s?.valor || '', statusItens: s?.statusItens || {}, subStatus }
+    return { ...e, status: s?.status || '', obs: s?.obs || '', valor: s?.valor || '', concluidaEm: s?.concluidaEm || '', statusItens: s?.statusItens || {}, subStatus }
   })
 }
 
@@ -2182,25 +2385,7 @@ function blobParaBase64(blob) {
 }
 
 async function preencherRelatorioGeral(valores, nomeArquivo) {
-  const resp = await fetch('/relatorio_template.docx')
-  const buf  = await resp.arrayBuffer()
-  const zip  = await JSZip.loadAsync(buf)
-  let docXml = await zip.file('word/document.xml').async('string')
-  Object.entries(valores).forEach(([token, v]) => {
-    docXml = docXml.split(`{${token}}`).join(xmlValorRelatorio(v || ''))
-  })
-  zip.file('word/document.xml', docXml)
-  const blob = await zip.generateAsync({
-    type: 'blob',
-    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  })
-  ultimoRelatorio.value = { nome: nomeArquivo, base64: await blobParaBase64(blob) }
-  const url = URL.createObjectURL(blob)
-  const a   = document.createElement('a')
-  a.href     = url
-  a.download = nomeArquivo
-  a.click()
-  URL.revokeObjectURL(url)
+  await gerarRelatorioPDF(valores, nomeArquivo)
 }
 
 function quadroSocietarioTexto(soc) {
@@ -2247,7 +2432,7 @@ async function gerarRelatorioBaixa() {
       `FCN: ${statusLabel('fcn')}`,
       `TAXA: ${statusLabel('taxa')}`,
       tax('Jucema')              ? `JUCEMA: R$ ${tax('Jucema')}`                        : '',
-      tax('Certificado digital da empresa') ? `CERT. DIGITAL: R$ ${tax('Certificado digital da empresa')}` : '',
+      tax('Certificado digital da empresa') ? `CERT. DIGITAL: ${tax('Certificado digital da empresa')}` : '',
       tax('Alvará da prefeitura') ? `ALVARÁ PREFEITURA: R$ ${tax('Alvará da prefeitura')}` : '',
     ].filter(Boolean).join('\n')
 
@@ -2409,8 +2594,11 @@ const rlStats = computed(() => rlGrupos.value.map(g => ({
 
 // Carrega logo como base64 para embed nos relatórios
 async function rlLogoBase64() {
+  return imgBase64('/logo.png')
+}
+async function imgBase64(path) {
   try {
-    const res = await fetch('/logo.png')
+    const res = await fetch(path)
     const blob = await res.blob()
     return await new Promise((resolve) => {
       const reader = new FileReader()
@@ -2418,6 +2606,72 @@ async function rlLogoBase64() {
       reader.readAsDataURL(blob)
     })
   } catch { return null }
+}
+
+// Endpoint de conversão DOCX → PDF (proxy no Cloudflare Worker → Gotenberg/LibreOffice)
+const CONVERSOR_URL = import.meta.env.VITE_CONVERSOR_URL
+  || 'https://wms-alertas.cgbconsultoria.workers.dev/converter'
+
+// ── Relatório de Informações Cadastrais — preenche o modelo Word e converte em PDF ──
+async function gerarRelatorioPDF(valores, nomeArquivo) {
+  const baseNome = nomeArquivo.replace(/\.(docx|pdf)$/i, '')
+
+  // 1. Preencher o modelo Word (layout 100% preservado)
+  const resp = await fetch('/relatorio_template.docx')
+  const buf  = await resp.arrayBuffer()
+  const zip  = await JSZip.loadAsync(buf)
+  let docXml = await zip.file('word/document.xml').async('string')
+  Object.entries(valores).forEach(([token, v]) => {
+    docXml = docXml.split(`{${token}}`).join(xmlValorRelatorio(v || ''))
+  })
+  zip.file('word/document.xml', docXml)
+  const docxBlob = await zip.generateAsync({
+    type: 'blob',
+    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  })
+
+  // 2. Converter para PDF via serviço; se falhar, cai para o .docx
+  let blob = docxBlob
+  let ext  = 'docx'
+  try {
+    const fd = new FormData()
+    fd.append('files', docxBlob, `${baseNome}.docx`)
+    const res = await fetch(CONVERSOR_URL, { method: 'POST', body: fd })
+    if (!res.ok) throw new Error(`Conversor respondeu ${res.status}`)
+    blob = await res.blob()
+    ext  = 'pdf'
+  } catch (err) {
+    $q.notify({
+      icon: 'warning', color: 'warning', position: 'top', timeout: 6000,
+      message: 'Não consegui converter para PDF (serviço indisponível). Baixando em Word.',
+    })
+  }
+
+  const nomeFinal = `${baseNome}.${ext}`
+  ultimoRelatorio.value = { nome: nomeFinal, base64: await blobParaBase64(blob) }
+
+  // 3. Salvar — seletor de pasta nativo ou download direto
+  if (window.showSaveFilePicker) {
+    const accept = ext === 'pdf'
+      ? { 'application/pdf': ['.pdf'] }
+      : { 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'] }
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: nomeFinal,
+        types: [{ description: ext.toUpperCase(), accept }],
+      })
+      const writable = await handle.createWritable()
+      await writable.write(blob)
+      await writable.close()
+      return
+    } catch (err) {
+      if (err.name === 'AbortError') return
+    }
+  }
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = nomeFinal; a.click()
+  URL.revokeObjectURL(url)
 }
 
 // ── Exportar PDF ──
@@ -2551,6 +2805,7 @@ const processosConsultar = computed(() => {
     const pct = h.pct ?? 100
     return {
       id:          h.id,
+      processoId:  h.processoId || null,
       empresa:     h.empresa || '—',
       protocolo:   h.protocolo || '—',
       localizacao: h.localizacao || '—',
@@ -2570,13 +2825,14 @@ const processosConsultar = computed(() => {
     const pct   = total ? Math.round((ok / total) * 100) : 0
     if (!jaConsta || pct < 100) {
       emAndamento.push({
-        id:         'atual',
-        empresa:    empAtual,
-        protocolo:  etapaValor('protocolo') || '—',
+        id:          'atual',
+        processoId:  regAberto.value || null,
+        empresa:     empAtual,
+        protocolo:   etapaValor('protocolo') || '—',
         localizacao: etapaValor('localizacao') || '—',
-        data:       'Em andamento',
+        data:        'Em andamento',
         pct,
-        status:     pct === 100 ? 'concluido' : pct > 0 ? 'andamento' : 'nao_iniciado',
+        status:      pct === 100 ? 'concluido' : pct > 0 ? 'andamento' : 'nao_iniciado',
       })
     }
   }
@@ -2596,33 +2852,58 @@ function abrirAnexo(catKey) {
   const el = Array.isArray(inputAnexoRef.value) ? inputAnexoRef.value[0] : inputAnexoRef.value
   el?.click()
 }
-function onAnexoSelecionado(e) {
+async function onAnexoSelecionado(e) {
   const files = Array.from(e.target.files)
   if (!files.length) return
-  const cat = catAnexoAtiva.value
-  if (!docsAnexados.value[cat]) docsAnexados.value[cat] = []
-  files.forEach(file => {
-    const reader = new FileReader()
-    reader.onload = ev => {
-      docsAnexados.value[cat].push({
-        id: Date.now() + Math.random(),
-        nome: file.name,
-        tamanho: file.size,
-        tipo: file.type,
-        dataUrl: ev.target.result,
-      })
-      salvarDocsAnexados()
+
+  // Se não houver processo aberto, tenta encontrar pelo nome da empresa
+  if (!regAberto.value) {
+    const empAtual = etapaValor('empresa')
+    const encontrado = empAtual
+      ? registros.value.find(r => r.razaoSocial === empAtual)
+      : null
+    if (encontrado) {
+      regAberto.value = encontrado.id
+    } else {
+      $q.notify({ icon: 'warning', color: 'warning', message: 'Crie o processo no Gestão de Prazos antes de anexar documentos.', position: 'top', timeout: 4000 })
+      e.target.value = ''
+      return
     }
-    reader.readAsDataURL(file)
-  })
+  }
+
+  uploadAndo.value = true
+  const cat      = catAnexoAtiva.value
+  const catLabel = categoriasDocs.find(c => c.key === cat)?.label || cat
+  for (const file of files) {
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const key = `processos/${regAberto.value}/${cat}/${Date.now()}_${safeName}`
+    try {
+      await r2Upload(key, file)
+      const { data, error } = await supabase.from('documentos').insert({
+        processo_id:     regAberto.value,
+        empresa:         etapaValor('empresa') || '',
+        categoria:       cat,
+        categoria_label: catLabel,
+        nome:            file.name,
+        tamanho:         file.size,
+        tipo:            file.type || 'application/octet-stream',
+        r2_key:          key,
+      }).select().single()
+      if (error) throw error
+      if (!docsAnexados.value[cat]) docsAnexados.value[cat] = []
+      docsAnexados.value[cat].push({ id: data.id, nome: file.name, tamanho: file.size, tipo: file.type, r2_key: key })
+    } catch (err) {
+      $q.notify({ icon: 'error', color: 'negative', message: `Erro ao enviar ${file.name}: ${err.message}`, position: 'top', timeout: 5000 })
+    }
+  }
+  uploadAndo.value = false
   e.target.value = ''
 }
-function removerAnexo(catKey, id) {
+async function removerAnexo(catKey, id) {
+  const arq = docsAnexados.value[catKey]?.find(a => a.id === id)
+  if (arq?.r2_key) await r2Delete(arq.r2_key)
+  await supabase.from('documentos').delete().eq('id', id)
   docsAnexados.value[catKey] = (docsAnexados.value[catKey] || []).filter(a => a.id !== id)
-  salvarDocsAnexados()
-}
-function salvarDocsAnexados() {
-  localStorage.setItem('wms_docs_constituicao', JSON.stringify(docsAnexados.value))
 }
 
 // ── SUB-DOCS (Ativar no Estado) ──
@@ -2698,12 +2979,16 @@ function selecionarSugestao(etapa, nome) {
 
 function salvarEtapas() {
   localStorage.setItem('wms_constituicao', JSON.stringify(
-    etapas.value.map(e => ({ key: e.key, status: e.status, obs: e.obs, valor: e.valor }))
+    etapas.value.map(e => ({ key: e.key, status: e.status, obs: e.obs, valor: e.valor, concluidaEm: e.concluidaEm || '' }))
   ))
 }
 
 function setStatusEtapa(etapa, status) {
-  etapa.status = etapa.status === status ? '' : status
+  const novoStatus = etapa.status === status ? '' : status
+  etapa.status = novoStatus
+  etapa.concluidaEm = novoStatus === 'concluida'
+    ? new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : ''
   salvarEtapas()
 }
 function setStatusItemConst(etapa, item, status) {
@@ -2717,16 +3002,21 @@ const dialogConfig = ref(false)
 const configAPI = ref({
   provider: 'zapi',
   zInstanceId: '', zToken: '', zClientToken: '',
-  url: '', token: '', telefone: '',
+  url: '', token: '', evolutionInstance: 'wms', telefone: '',
   emailUrl: '', emailKey: '', emailFrom: '',
+  responsavel: '',
 })
 const filtroUrgencia = ref('todos')
 const filtroTempo    = ref('todos')
 
 const ordemPrazo = { urgente: 0, priorizar: 1, normal: 2 }
 
+const registrosAtivos    = computed(() => registros.value.filter(r => !r.concluido))
+const registrosConcluidos = computed(() => registros.value.filter(r => r.concluido))
+const abaPrazos = ref('ativos') // 'ativos' | 'concluidos'
+
 const registrosFiltrados = computed(() => {
-  let lista = registros.value.map(r => ({ ...r, _dias: diasRestantes(r) }))
+  let lista = registrosAtivos.value.map(r => ({ ...r, _dias: diasRestantes(r) }))
 
   if (filtroUrgencia.value !== 'todos')
     lista = lista.filter(r => (r.prazo || 'normal') === filtroUrgencia.value)
@@ -2748,11 +3038,11 @@ const registrosFiltrados = computed(() => {
   return lista
 })
 
-const statsVencidos   = computed(() => registros.value.filter(r => diasRestantes(r) < 0).length)
-const statsUrgentes   = computed(() => registros.value.filter(r => (r.prazo || 'normal') === 'urgente').length)
-const statsProximos3  = computed(() => registros.value.filter(r => { const d = diasRestantes(r); return d >= 0 && d <= 3 }).length)
-const statsNormal     = computed(() => registros.value.filter(r => (r.prazo || 'normal') === 'normal').length)
-const statsPriorizar  = computed(() => registros.value.filter(r => r.prazo === 'priorizar').length)
+const statsVencidos   = computed(() => registrosAtivos.value.filter(r => diasRestantes(r) < 0).length)
+const statsUrgentes   = computed(() => registrosAtivos.value.filter(r => (r.prazo || 'normal') === 'urgente').length)
+const statsProximos3  = computed(() => registrosAtivos.value.filter(r => { const d = diasRestantes(r); return d >= 0 && d <= 3 }).length)
+const statsNormal     = computed(() => registrosAtivos.value.filter(r => (r.prazo || 'normal') === 'normal').length)
+const statsPriorizar  = computed(() => registrosAtivos.value.filter(r => r.prazo === 'priorizar').length)
 const registrosRecentes = computed(() => registros.value.slice(0, 5).map(r => ({ ...r, _dias: diasRestantes(r) })))
 
 // ── Dashboard ──
@@ -2999,9 +3289,10 @@ async function enviarWhatsAppPara(numero, texto) {
       )
       return res.ok
     } else {
-      const { url, token } = cfg
+      const { url, token, evolutionInstance } = cfg
       if (!url || !token) return false
-      const res = await fetch(`${url.replace(/\/$/, '')}/message/sendText/default`, {
+      const instance = evolutionInstance || 'wms'
+      const res = await fetch(`${url.replace(/\/$/, '')}/message/sendText/${instance}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'apikey': token },
         body: JSON.stringify({ number: numero, text: texto }),
@@ -3045,33 +3336,62 @@ function agendarProximoAlerta() {
   }, menorDiff)
 }
 
-function montarMensagemConsolidada(processos) {
-  const hoje = new Date().toLocaleDateString('pt-BR')
+function montarMensagemConsolidada(processos, hist = []) {
+  const hoje = new Date()
+  const hojeStr = hoje.toLocaleDateString('pt-BR')
   const vencidos  = processos.filter(r => diasRestantes(r) < 0)
   const urgentes  = processos.filter(r => { const d = diasRestantes(r); return d >= 0 && ((r.prazo || 'normal') === 'urgente' || d === 0) })
   const priorizar = processos.filter(r => { const d = diasRestantes(r); return d > 0 && r.prazo !== 'urgente' && (r.prazo === 'priorizar' || d <= 3) })
 
-  let msg = `⚠️ *WMS Consultoria — Resumo de Prazos*\n📅 ${hoje}\n`
+  // Concluídos nos últimos 7 dias
+  const seteAtras = new Date(hoje)
+  seteAtras.setDate(seteAtras.getDate() - 7)
+  const recentes = hist.filter(h => {
+    if (!h.data) return false
+    const [d, m, y] = h.data.split('/').map(Number)
+    return new Date(y, m - 1, d) >= seteAtras
+  })
+
+  let msg = `⚠️ *WMS Consultoria — Resumo de Prazos*\n📅 ${hojeStr}\n`
 
   if (vencidos.length) {
     msg += `\n🔴 *VENCIDOS (${vencidos.length})*\n`
     vencidos.forEach(r => {
       const d = Math.abs(diasRestantes(r))
-      msg += `• ${r.razaoSocial || 'Sem nome'} — vencido há ${d} dia${d !== 1 ? 's' : ''}\n`
+      msg += `• *${r.razaoSocial || 'Sem nome'}*`
+      if (r.dataVencFormatada) msg += ` — prazo encerrou em ${r.dataVencFormatada}`
+      msg += ` (${d} dia${d !== 1 ? 's' : ''} atrás)\n`
     })
   }
+
   if (urgentes.length) {
     msg += `\n🚨 *URGENTE (${urgentes.length})*\n`
     urgentes.forEach(r => {
       const d = diasRestantes(r)
-      msg += `• ${r.razaoSocial || 'Sem nome'} — ${d === 0 ? 'vence hoje' : `vence em ${d} dia${d !== 1 ? 's' : ''}`}\n`
+      msg += `• *${r.razaoSocial || 'Sem nome'}*`
+      if (r.dataVencFormatada) msg += ` — vence em ${r.dataVencFormatada}`
+      msg += ` (${d === 0 ? 'hoje' : `${d} dia${d !== 1 ? 's' : ''}`})\n`
     })
   }
+
   if (priorizar.length) {
     msg += `\n🟡 *PRIORIZAR (${priorizar.length})*\n`
     priorizar.forEach(r => {
       const d = diasRestantes(r)
-      msg += `• ${r.razaoSocial || 'Sem nome'} — vence em ${d} dia${d !== 1 ? 's' : ''}\n`
+      msg += `• *${r.razaoSocial || 'Sem nome'}*`
+      if (r.dataVencFormatada) msg += ` — vence em ${r.dataVencFormatada}`
+      msg += ` (${d} dia${d !== 1 ? 's' : ''})\n`
+    })
+  }
+
+  if (recentes.length) {
+    msg += `\n✅ *CONCLUÍDOS RECENTES*\n`
+    recentes.forEach(h => {
+      msg += `• *${h.empresa || '—'}*`
+      if (h.protocolo && h.protocolo !== '—') msg += ` · Protocolo: ${h.protocolo}`
+      if (h.localizacao && h.localizacao !== '—') msg += ` · ${h.localizacao}`
+      if (h.pct != null) msg += ` (${h.pct}%)`
+      msg += ` — ${h.data}\n`
     })
   }
 
@@ -3096,7 +3416,7 @@ async function alertarPrazosWhatsApp() {
 
   if (!novos.length) return
 
-  const msg = montarMensagemConsolidada(novos)
+  const msg = montarMensagemConsolidada(novos, historico.value)
   await Promise.all(NUMEROS_ALERTA.map(num => enviarWhatsAppPara(num, msg)))
   novos.forEach(r => jaAlertados.add(String(r.id)))
   localStorage.setItem(chave, JSON.stringify([...jaAlertados]))
@@ -3126,7 +3446,7 @@ async function testarAlertasAgora() {
   // Sincroniza dados com o servidor antes de testar
   await sincronizarServidor()
 
-  const msg = montarMensagemConsolidada(processos)
+  const msg = montarMensagemConsolidada(processos, historico.value)
   const results = await Promise.all(NUMEROS_ALERTA.map(num => enviarWhatsAppPara(num, msg)))
 
   if (results.some(ok => ok)) {
@@ -3137,13 +3457,14 @@ async function testarAlertasAgora() {
 }
 
 async function sincronizarServidor() {
+  if (import.meta.env.DEV) return
   try {
     await fetch('/api/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ registros: registros.value, config: configAPI.value }),
     })
-  } catch { /* silencioso em dev local */ }
+  } catch { /* silencioso */ }
 }
 
 async function salvarConfig() {
@@ -3152,7 +3473,7 @@ async function salvarConfig() {
   $q.notify({ icon: 'check', color: 'positive', message: 'Configuração salva!', position: 'top', timeout: 2000 })
 }
 
-function salvarRegistro(prazo = 'normal') {
+async function salvarRegistro(prazo = 'normal') {
   const agora = new Date()
   const vencimento = new Date(agora)
   vencimento.setDate(vencimento.getDate() + 10)
@@ -3175,8 +3496,18 @@ function salvarRegistro(prazo = 'normal') {
     taxas:   taxas.value.map(t => ({ label: t.label, valor: t.valor })),
   }
   registros.value.unshift(reg)
-  supabase.from('processos').insert(processoToDb(reg))
   regAberto.value = reg.id
+
+  const { error } = await supabase.from('processos').insert(processoToDb(reg))
+  if (error) {
+    $q.notify({
+      icon: 'error',
+      color: 'negative',
+      message: 'Erro ao salvar no banco: ' + error.message,
+      position: 'top',
+      timeout: 6000,
+    })
+  }
 }
 
 function diasRestantes(reg) {
@@ -3227,14 +3558,65 @@ async function solicitarPermissaoNotif() {
 
 function dispararNotificacoes() {
   if (notifPermissao.value !== 'granted' || !swReg?.active) return
-  swReg.active.postMessage({ type: 'CHECK_PRAZOS', registros: registros.value })
+  swReg.active.postMessage({ type: 'CHECK_PRAZOS', registros: JSON.parse(JSON.stringify(registros.value)) })
 }
 
 // ── GERADOR DE RELATÓRIO ──
 const gerandoRelatorio   = ref(false)
 const historico          = ref([])
 const historicoExpandido = ref(false)
-const dialogComplementar = ref(false)
+const dialogComplementar  = ref(false)
+const dialogNovoProcesso  = ref(false)
+const dialogDocs           = ref(false)
+const docsDialogEmpresa    = ref('')
+const docsDialogProcessoId = ref(null)
+const docsDialogDocs       = ref([])
+const docsDialogLoading    = ref(false)
+
+const docsDialogLista = computed(() => {
+  const grouped = {}
+  for (const d of docsDialogDocs.value) {
+    if (!grouped[d.categoria]) grouped[d.categoria] = []
+    grouped[d.categoria].push(d)
+  }
+  return grouped
+})
+const docsDialogTotal = computed(() => docsDialogDocs.value.length)
+
+async function abrirDialogDocs(p, e) {
+  e?.stopPropagation()
+  docsDialogEmpresa.value    = p.empresa
+  docsDialogProcessoId.value = p.processoId
+  docsDialogDocs.value       = []
+  docsDialogLoading.value    = true
+  dialogDocs.value           = true
+  if (p.processoId) {
+    const { data } = await supabase.from('documentos').select('*').eq('processo_id', p.processoId).order('created_at')
+    docsDialogDocs.value = data || []
+  }
+  docsDialogLoading.value = false
+}
+
+async function verDoc(arq) {
+  const url = await r2ViewUrl(arq.r2_key)
+  window.open(url, '_blank')
+}
+
+async function baixarDoc(arq) {
+  const url = await r2DownloadUrl(arq.r2_key, arq.nome)
+  if (url) {
+    const a = document.createElement('a')
+    a.href = url; a.download = arq.nome; a.click()
+  } else {
+    const viewUrl = await r2ViewUrl(arq.r2_key)
+    const resp = await fetch(viewUrl)
+    const blob = await resp.blob()
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = arq.nome; a.click()
+    URL.revokeObjectURL(a.href)
+  }
+}
 const camposComplementar = ref([])
 const _valoresPendentes  = ref(null)
 const _nomePendente      = ref('')
@@ -3263,9 +3645,10 @@ const LABEL_CAMPO = {
   GOVBR:    'Senha Gov.Br',
 }
 
-function salvarHistorico(empresa, protocolo, localizacao) {
+async function salvarHistorico(empresa, protocolo, localizacao) {
   const h = {
     id:          Date.now(),
+    processoId:  regAberto.value || null,
     empresa,
     protocolo,
     localizacao,
@@ -3274,7 +3657,23 @@ function salvarHistorico(empresa, protocolo, localizacao) {
     hora:        new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
   }
   historico.value.unshift(h)
-  supabase.from('historico').insert(historicoToDb(h))
+  localStorage.setItem('wms_historico', JSON.stringify(historico.value))
+
+  const { error } = await supabase.from('historico').insert(historicoToDb(h))
+  if (error) {
+    $q.notify({
+      icon: 'error',
+      color: 'negative',
+      message: 'Erro ao salvar histórico: ' + error.message,
+      position: 'top',
+      timeout: 6000,
+    })
+  }
+
+  if (regAberto.value) {
+    const proxPasso = etapas.value.find(e => e.status !== 'concluida' && e.titulo)?.titulo || ''
+    await supabase.from('processos').update({ proximo_passo: proxPasso }).eq('id', regAberto.value)
+  }
 }
 function removerHistorico(id) {
   historico.value = historico.value.filter(h => h.id !== id)
@@ -3366,6 +3765,18 @@ function _coletarValoresRelatorio() {
 }
 
 async function gerarRelatorio() {
+  // Se o Resumo está vazio, tenta carregar do processo salvo antes de montar os valores
+  if (!docsEmpresa.value.some(d => d.valor)) {
+    const nomeAtual = etapaValor('empresa')
+    const reg = registros.value.find(r => r.id === regAberto.value)
+      || (nomeAtual ? registros.value.find(r => r.razaoSocial === nomeAtual && r.empresa?.length) : null)
+    if (reg) {
+      reg.empresa?.forEach((s, i) => { if (docsEmpresa.value[i] && s.valor) docsEmpresa.value[i].valor = s.valor })
+      reg.socio?.forEach((s, i)   => { if (docsSocio.value[i]   && s.valor) docsSocio.value[i].valor   = s.valor })
+      reg.taxas?.forEach((s, i)   => { if (taxas.value[i]       && s.valor) taxas.value[i].valor         = s.valor })
+    }
+  }
+
   const { valores, nomeArquivo, razaoSocial, municipioEstado } = _coletarValoresRelatorio()
 
   // Campos que o usuário pode complementar (excluindo campos computados)
@@ -3386,7 +3797,8 @@ async function gerarRelatorio() {
   gerandoRelatorio.value = true
   try {
     await preencherRelatorioGeral(valores, nomeArquivo)
-    salvarHistorico(razaoSocial, etapaValor('protocolo'), municipioEstado)
+    await salvarHistorico(razaoSocial, etapaValor('protocolo'), municipioEstado)
+    resetarFormConstituicao()
   } finally {
     gerandoRelatorio.value = false
   }
@@ -3397,16 +3809,82 @@ async function confirmarComplementar() {
   dialogComplementar.value = false
 
   const { valores, nomeArquivo, razaoSocial, municipioEstado } = _valoresPendentes.value
-  camposComplementar.value.forEach(c => { if (c.valor) valores[c.token] = c.valor })
+
+  // Mapeamento token → campo do Resumo para persistência
+  const TOKEN_EMPRESA = { RAZAO: 'Razão social', CNPJ: 'CNPJ', CAPITAL: 'Capital Social', INSC_EST: 'Inscrição Estadual', INSC_MUN: 'Inscrição Municipal', NIRE: 'NIRE' }
+  const TOKEN_SOCIO   = { SOCIO: 'Nome do Sócio', CPF: 'CPF', GOVBR: 'Senha do Gov.Br (Nível Ouro)' }
+
+  camposComplementar.value.forEach(c => {
+    if (!c.valor) return
+    valores[c.token] = c.valor
+    const labelEmp = TOKEN_EMPRESA[c.token]
+    const labelSoc = TOKEN_SOCIO[c.token]
+    if (labelEmp) { const d = docsEmpresa.value.find(x => x.label === labelEmp); if (d) d.valor = c.valor }
+    if (labelSoc) { const d = docsSocio.value.find(x => x.label === labelSoc);   if (d) d.valor = c.valor }
+  })
+  salvarResumo()
+  sincronizarResumoNoBanco()
 
   gerandoRelatorio.value = true
   try {
     await preencherRelatorioGeral(valores, nomeArquivo)
-    salvarHistorico(razaoSocial, etapaValor('protocolo'), municipioEstado)
+    await salvarHistorico(razaoSocial, etapaValor('protocolo'), municipioEstado)
+    resetarFormConstituicao()
   } finally {
     gerandoRelatorio.value = false
     _valoresPendentes.value = null
   }
+}
+
+function resetarFormConstituicao() {
+  // Se o processo não está 100% concluído, só navega de volta sem apagar os dados
+  if (progressoEtapas.value < 100) {
+    ctrlSessao1.value = null
+    $q.notify({
+      icon: 'download',
+      color: 'positive',
+      message: 'Relatório gerado! Conclua as etapas restantes quando quiser.',
+      position: 'top',
+      timeout: 4000,
+    })
+    return
+  }
+  // Processo 100% concluído: marca como concluído no banco e limpa o formulário
+  if (regAberto.value) {
+    const reg = registros.value.find(r => r.id === regAberto.value)
+    if (reg) {
+      reg.concluido = true
+      supabase.from('processos').update({ concluido: true }).eq('id', regAberto.value)
+    }
+  }
+  _limparFormulario()
+  ctrlSessao1.value = null
+  $q.notify({
+    icon: 'check_circle',
+    color: 'positive',
+    message: 'Processo concluído! Formulário reiniciado.',
+    position: 'top',
+    timeout: 3000,
+  })
+}
+
+function _limparFormulario() {
+  localStorage.removeItem('wms_constituicao')
+  localStorage.removeItem('wms_resumo')
+  regAberto.value = null
+  etapas.value = etapasPadrao.map(e => ({
+    ...e, status: '', obs: '', valor: '', concluidaEm: '', statusItens: {},
+    subStatus: e.subItens ? Object.fromEntries(e.subItens.map(si => [si.key, { status: '', protocolo: '' }])) : {},
+  }))
+  docsEmpresa.value.forEach(d => { d.valor = '' })
+  docsSocio.value.forEach(d => { d.valor = '' })
+  taxas.value.forEach(t => { t.valor = '' })
+}
+
+function novoProcesso() {
+  dialogNovoProcesso.value = false
+  _limparFormulario()
+  $q.notify({ icon: 'add_circle', color: 'positive', message: 'Formulário limpo. Preencha os dados do novo processo.', position: 'top', timeout: 3000 })
 }
 
 onMounted(async () => {
@@ -3415,12 +3893,25 @@ onMounted(async () => {
   // Carrega dados do Supabase
   const [{ data: procs }, { data: hist }, { data: cfg }] = await Promise.all([
     supabase.from('processos').select('*').order('created_at', { ascending: false }),
-    supabase.from('historico').select('*').order('created_at', { ascending: false }),
+    supabase.from('historico').select('*').order('id', { ascending: false }),
     supabase.from('configuracoes').select('*').eq('id', 1).single(),
   ])
 
   if (procs && procs.length > 0) {
     registros.value = procs.map(processoFromDb)
+    // Se o Resumo local está vazio, restaura do banco pelo regAberto ou pelo nome da empresa
+    if (!docsEmpresa.value.some(d => d.valor)) {
+      const nomeAtual = etapaValor('empresa')
+      const reg = registros.value.find(r => r.id === regAberto.value)
+        || (nomeAtual ? registros.value.find(r => r.razaoSocial === nomeAtual && r.empresa?.length) : null)
+      if (reg) {
+        // Index-based para evitar falha de encoding nos labels
+        reg.empresa?.forEach((s, i) => { if (docsEmpresa.value[i] && s.valor) docsEmpresa.value[i].valor = s.valor })
+        reg.socio?.forEach((s, i)   => { if (docsSocio.value[i]   && s.valor) docsSocio.value[i].valor   = s.valor })
+        reg.taxas?.forEach((s, i)   => { if (taxas.value[i]       && s.valor) taxas.value[i].valor         = s.valor })
+        salvarResumo()
+      }
+    }
   } else {
     // Migra dados existentes do localStorage para Supabase (primeira vez)
     const local = JSON.parse(localStorage.getItem('wms_registros') || '[]')
@@ -3435,11 +3926,19 @@ onMounted(async () => {
   if (hist && hist.length > 0) {
     historico.value = hist.map(historicoFromDb)
   } else {
-    const localHist = JSON.parse(localStorage.getItem('wms_historico') || '[]')
+    // Tenta recuperar do localStorage (chave nova ou chave legada)
+    const localHist = JSON.parse(
+      localStorage.getItem('wms_historico') ||
+      localStorage.getItem('wms_historico_constituicao') ||
+      '[]'
+    )
     if (localHist.length > 0) {
       historico.value = localHist
-      supabase.from('historico').insert(localHist.map(historicoToDb)).then(() => {
-        localStorage.removeItem('wms_historico')
+      supabase.from('historico').insert(localHist.map(historicoToDb)).then(({ error }) => {
+        if (!error) {
+          localStorage.removeItem('wms_historico')
+          localStorage.removeItem('wms_historico_constituicao')
+        }
       })
     }
   }
@@ -3473,14 +3972,13 @@ function concluir() {
   dialogPrazo.value = true
 }
 
-function selecionarPrazo(nivel) {
+async function selecionarPrazo(nivel) {
   dialogPrazo.value = false
-  // Carimbo automático do sistema
   const agora = new Date()
   const stamp = `WMS Sistema ✓ — ${agora.toLocaleDateString('pt-BR')} às ${agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
   const etapaCarimbo = etapas.value.find(e => e.key === 'assinatura_u')
   if (etapaCarimbo) { etapaCarimbo.valor = stamp; salvarEtapas() }
-  salvarRegistro(nivel)
+  await salvarRegistro(nivel)
   $q.notify({
     icon: 'check_circle',
     color: 'positive',
@@ -3520,6 +4018,30 @@ function excluirRegistro(id) {
   if (regAberto.value === id) regAberto.value = null
 }
 
+function marcarConcluido(reg) {
+  $q.dialog({
+    title: 'Marcar como concluído?',
+    message: `"${reg.razaoSocial || 'Sem nome'}" será movido para a aba Concluídos.`,
+    cancel: { label: 'Cancelar', flat: true, color: 'white' },
+    ok:     { label: 'Concluir', flat: true, color: 'positive' },
+    persistent: true,
+  }).onOk(() => {
+    reg.concluido = true
+    supabase.from('processos').update({ concluido: true }).eq('id', reg.id)
+    $q.notify({ icon: 'check_circle', color: 'positive', message: 'Processo marcado como concluído.', position: 'top', timeout: 2500 })
+  })
+}
+
+function confirmarExcluir(reg) {
+  $q.dialog({
+    title: 'Excluir processo?',
+    message: `"${reg.razaoSocial || 'Sem nome'}" será removido permanentemente.`,
+    cancel: { label: 'Cancelar', flat: true, color: 'white' },
+    ok:     { label: 'Excluir',  flat: true, color: 'negative' },
+    persistent: true,
+  }).onOk(() => excluirRegistro(reg.id))
+}
+
 function limparHistorico() {
   registros.value = []
   localStorage.removeItem('wms_registros')
@@ -3544,9 +4066,45 @@ function copiarParaWhatsApp() {
 
 const taxas = ref([
   { label: 'Jucema',                        valor: '', tipo: 'moeda' },
-  { label: 'Certificado digital da empresa', valor: '', tipo: 'moeda' },
+  { label: 'Certificado digital da empresa', valor: '', tipo: 'simnom' },
   { label: 'Alvará da prefeitura',           valor: '', tipo: 'moeda' },
 ])
+
+// Carrega valores salvos do Resumo (docsEmpresa / docsSocio / taxas)
+;(() => {
+  const salvo = JSON.parse(localStorage.getItem('wms_resumo') || 'null')
+  if (!salvo) return
+  salvo.empresa?.forEach(s => { const d = docsEmpresa.value.find(x => x.label === s.label); if (d) d.valor = s.valor })
+  salvo.socio?.forEach(s => { const d = docsSocio.value.find(x => x.label === s.label); if (d) d.valor = s.valor })
+  salvo.taxas?.forEach(s => { const t = taxas.value.find(x => x.label === s.label); if (t) t.valor = s.valor })
+})()
+
+function salvarResumo() {
+  localStorage.setItem('wms_resumo', JSON.stringify({
+    empresa: docsEmpresa.value.map(d => ({ label: d.label, valor: d.valor })),
+    socio:   docsSocio.value.map(d => ({ label: d.label, valor: d.valor })),
+    taxas:   taxas.value.map(t => ({ label: t.label, valor: t.valor })),
+  }))
+}
+
+let _syncResumoTimer = null
+function sincronizarResumoNoBanco() {
+  clearTimeout(_syncResumoTimer)
+  _syncResumoTimer = setTimeout(() => {
+    if (!regAberto.value) return
+    supabase.from('processos').update({
+      razao_social: docsEmpresa.value.find(d => d.label === 'Razão social')?.valor || '',
+      empresa: docsEmpresa.value.map(d => ({ label: d.label, valor: d.valor })),
+      socio:   docsSocio.value.map(d => ({ label: d.label, valor: d.valor })),
+      taxas:   taxas.value.map(t => ({ label: t.label, valor: t.valor })),
+    }).eq('id', regAberto.value)
+  }, 1500)
+}
+
+watch([docsEmpresa, docsSocio, taxas], () => {
+  salvarResumo()
+  sincronizarResumoNoBanco()
+}, { deep: true })
 
 const today = new Intl.DateTimeFormat('pt-BR', {
   weekday: 'long', day: '2-digit', month: 'long', year: 'numeric'
@@ -4255,6 +4813,17 @@ const alerts = [
   border-color: rgba(239,68,68,0.45) !important;
 }
 
+.rp-simnom-wrap { display: flex; gap: 8px; margin-top: 2px; }
+.rp-simnom-btn {
+  flex: 1; padding: 8px 0; border-radius: 8px; font-size: 0.82rem; font-weight: 700;
+  border: 1.5px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.45); cursor: pointer; font-family: inherit;
+  transition: all 0.15s;
+}
+.rp-simnom-btn:hover { border-color: rgba(255,255,255,0.25); color: rgba(255,255,255,0.7); }
+.rp-simnom-btn--sim { background: rgba(90,184,46,0.15); border-color: rgba(90,184,46,0.5); color: #5ab82e; }
+.rp-simnom-btn--nom { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.4); color: #f87171; }
+
 .rp-prefix {
   color: rgba(255,255,255,0.35);
   font-size: 0.85rem;
@@ -4511,6 +5080,16 @@ const alerts = [
   transition: background 0.2s, color 0.2s;
 }
 .rp-btn-back:hover { background: rgba(255,255,255,0.13); color: white; }
+.rp-btn-novo-proc {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 10px;
+  background: rgba(90,184,46,0.12);
+  border: 1px solid rgba(90,184,46,0.3);
+  color: #5ab82e; font-size: 0.82rem; font-weight: 600;
+  font-family: inherit; cursor: pointer; flex-shrink: 0;
+  transition: background 0.2s, color 0.2s;
+}
+.rp-btn-novo-proc:hover { background: rgba(90,184,46,0.22); color: #7fda52; }
 
 .prazos-legend { color: rgba(255,255,255,0.5); font-size: 0.78rem; font-weight: 600; }
 .prazos-legend-item { display: flex; align-items: center; gap: 6px; }
@@ -4597,6 +5176,25 @@ const alerts = [
 .pz-stat--vencido  { border-color: rgba(239,68,68,0.18); }
 .pz-stat--vencido  .pz-stat-num { color: #ef4444; }
 
+/* ══ PRAZOS: TABS ══ */
+.pz-tabs { display: flex; gap: 8px; }
+.pz-tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 18px; border-radius: 10px; cursor: pointer; font-family: inherit;
+  font-size: 0.83rem; font-weight: 600;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.5); transition: all 0.15s;
+}
+.pz-tab:hover { background: rgba(255,255,255,0.09); color: rgba(255,255,255,0.8); }
+.pz-tab--active { background: rgba(90,184,46,0.12); border-color: rgba(90,184,46,0.35); color: #5ab82e; }
+.pz-tab-count {
+  padding: 1px 7px; border-radius: 20px; font-size: 0.72rem; font-weight: 700;
+  background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.6);
+}
+.pz-tab-count--green { background: rgba(90,184,46,0.2); color: #5ab82e; }
+.prazo-card--concluido-item { opacity: 0.85; }
+.prazo-badge--concluido-item { background: rgba(34,197,94,0.15); color: #86efac; display:flex; align-items:center; gap:4px; }
+
 /* ══ PRAZOS: FILTROS ══ */
 .pz-filters {
   display: flex; flex-direction: column; gap: 10px;
@@ -4648,6 +5246,30 @@ const alerts = [
 }
 .prazo-dots {
   display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.prazo-concluir-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 8px;
+  background: transparent; border: 1px solid transparent;
+  color: rgba(255,255,255,0.2); cursor: pointer;
+  transition: all 0.15s;
+}
+.prazo-concluir-btn:hover {
+  background: rgba(90,184,46,0.12);
+  border-color: rgba(90,184,46,0.35);
+  color: #5ab82e;
+}
+.prazo-excluir-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 8px;
+  background: transparent; border: 1px solid transparent;
+  color: rgba(255,255,255,0.2); cursor: pointer;
+  transition: all 0.15s;
+}
+.prazo-excluir-btn:hover {
+  background: rgba(239,68,68,0.12);
+  border-color: rgba(239,68,68,0.35);
+  color: #f87171;
 }
 
 /* ══ DIALOG DE PRAZO ══ */
@@ -4872,7 +5494,9 @@ const alerts = [
 .et-num--nao_concluida { background: #ef4444; border-color: #ef4444; color: white; }
 .et-num--pendente      { background: rgba(245,158,11,0.15); border-color: rgba(245,158,11,0.4); color: #fcd34d; }
 
-.et-titulo { flex: 1; min-width: 0; color: white; font-size: 0.86rem; font-weight: 700; line-height: 1.3; }
+.et-titulo-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.et-titulo { color: white; font-size: 0.86rem; font-weight: 700; line-height: 1.3; }
+.et-concluida-em { display: flex; align-items: center; gap: 3px; font-size: 0.7rem; color: #5ab82e; opacity: 0.9; }
 
 .et-campo { width: 100%; }
 .et-autocomplete { position: relative; width: 100%; }
@@ -5065,6 +5689,60 @@ const alerts = [
   background: rgba(90,184,46,0.15); color: #5ab82e;
   font-size: 0.72rem; font-weight: 700;
 }
+.cons-docs-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 12px; border-radius: 8px;
+  background: rgba(99,179,237,0.1); border: 1px solid rgba(99,179,237,0.2);
+  color: rgba(99,179,237,0.85); font-size: 0.72rem; font-weight: 600;
+  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.cons-docs-btn:hover {
+  background: rgba(99,179,237,0.2); border-color: rgba(99,179,237,0.45);
+  color: #63b3ed;
+}
+
+/* ── Dialog Documentos ── */
+.docs-dialog {
+  background: #1a2035; border-radius: 16px;
+  padding: 24px; min-width: 480px; max-width: 620px; width: 100%;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+}
+.docs-dialog-header {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+  padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.docs-dialog-empresa { font-size: 1rem; font-weight: 700; color: #fff; }
+.docs-dialog-sub { font-size: 0.75rem; color: rgba(255,255,255,0.4); margin-top: 2px; }
+.docs-dialog-titulo { flex: 1; }
+.docs-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 40px 0; color: rgba(255,255,255,0.3); font-size: 0.85rem; text-align: center;
+}
+.docs-empty p { margin: 0; }
+.docs-cats { display: flex; flex-direction: column; gap: 16px; }
+.docs-cat-label {
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em;
+  color: rgba(255,255,255,0.3); text-transform: uppercase; margin-bottom: 8px;
+}
+.docs-cat-files { display: flex; flex-direction: column; gap: 6px; }
+.docs-file {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px; border-radius: 10px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
+}
+.docs-file-icon { color: rgba(255,255,255,0.4); flex-shrink: 0; }
+.docs-file-info { flex: 1; min-width: 0; }
+.docs-file-nome { font-size: 0.82rem; color: #fff; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.docs-file-tamanho { font-size: 0.7rem; color: rgba(255,255,255,0.3); margin-top: 2px; }
+.docs-file-acoes { display: flex; gap: 6px; flex-shrink: 0; }
+.docs-btn-ver, .docs-btn-baixar {
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: 8px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.5); cursor: pointer; transition: all 0.15s;
+}
+.docs-btn-ver:hover { background: rgba(99,179,237,0.15); border-color: rgba(99,179,237,0.3); color: #63b3ed; }
+.docs-btn-baixar:hover { background: rgba(90,184,46,0.15); border-color: rgba(90,184,46,0.3); color: #5ab82e; }
 
 .cons-card-left { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
 .cons-status-dot {
@@ -5100,9 +5778,15 @@ const alerts = [
   display: flex; align-items: center; justify-content: center;
   font-size: 0.62rem; font-weight: 700; color: white;
 }
+.cons-badge-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .cons-badge {
   padding: 4px 10px; border-radius: 20px;
   font-size: 0.72rem; font-weight: 700; letter-spacing: 0.03em;
+}
+.cons-assinatura {
+  display: flex; align-items: center; gap: 3px;
+  font-size: 0.68rem; font-weight: 600; color: #86efac; opacity: 0.75;
+  white-space: nowrap;
 }
 .cons-badge--concluido   { background: rgba(34,197,94,0.15);  color: #86efac; }
 .cons-badge--andamento   { background: rgba(251,191,36,0.15); color: #fde68a; }

@@ -10,3 +10,6 @@ alert-server/wms-data.json
 alert-server/wms-config.json
 
 .vercel
+
+# Wrangler local cache
+.wrangler/
