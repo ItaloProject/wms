@@ -354,13 +354,46 @@
             </button>
           </div>
 
-          <!-- KPI Cards -->
+          <!-- Cards de estágio -->
+          <div class="db-stages q-mb-md">
+            <button class="db-stage db-stage--nao" @click="irParaConsultar">
+              <div class="db-stage-top">
+                <div class="db-stage-icon"><q-icon name="radio_button_unchecked" size="20px" /></div>
+                <div class="db-stage-pct">{{ dbTotalEstagios ? Math.round(dbNaoIniciados.length / dbTotalEstagios * 100) : 0 }}%</div>
+              </div>
+              <div class="db-stage-num">{{ dbNaoIniciados.length }}</div>
+              <div class="db-stage-label">Não iniciados</div>
+              <div class="db-stage-bar"><div class="db-stage-fill" :style="{ width: dbTotalEstagios ? (dbNaoIniciados.length / dbTotalEstagios * 100) + '%' : '0%' }" /></div>
+            </button>
+
+            <button class="db-stage db-stage--and" @click="irParaConsultar">
+              <div class="db-stage-top">
+                <div class="db-stage-icon"><q-icon name="autorenew" size="20px" /></div>
+                <div class="db-stage-pct">média {{ dbProgressoMedio }}%</div>
+              </div>
+              <div class="db-stage-num">{{ dbEmAndamento.length }}</div>
+              <div class="db-stage-label">Em andamento</div>
+              <div class="db-stage-bar"><div class="db-stage-fill" :style="{ width: dbTotalEstagios ? (dbEmAndamento.length / dbTotalEstagios * 100) + '%' : '0%' }" /></div>
+            </button>
+
+            <button class="db-stage db-stage--ok" @click="irParaConsultar">
+              <div class="db-stage-top">
+                <div class="db-stage-icon"><q-icon name="check_circle" size="20px" /></div>
+                <div class="db-stage-pct">{{ dbTotalEstagios ? Math.round(dbConcluidosCount / dbTotalEstagios * 100) : 0 }}%</div>
+              </div>
+              <div class="db-stage-num">{{ dbConcluidosCount }}</div>
+              <div class="db-stage-label">Concluídos</div>
+              <div class="db-stage-bar"><div class="db-stage-fill" :style="{ width: dbTotalEstagios ? (dbConcluidosCount / dbTotalEstagios * 100) + '%' : '0%' }" /></div>
+            </button>
+          </div>
+
+          <!-- KPI Cards (prazos) -->
           <div class="db-kpis q-mb-md">
             <div class="db-kpi-card">
-              <div class="db-kpi-accent" style="background:#5ab82e"></div>
+              <div class="db-kpi-accent" style="background:#60a5fa"></div>
               <div class="db-kpi-body">
                 <div class="db-kpi-label">Total de processos</div>
-                <div class="db-kpi-val" style="color:#86efac">{{ registros.length }}</div>
+                <div class="db-kpi-val" style="color:#bfdbfe">{{ registros.length }}</div>
                 <div class="db-kpi-sub">ativos no momento</div>
               </div>
             </div>
@@ -396,11 +429,11 @@
               </div>
             </div>
             <div class="db-kpi-card">
-              <div class="db-kpi-accent" style="background:#5ab82e"></div>
+              <div class="db-kpi-accent" style="background:#ef4444"></div>
               <div class="db-kpi-body">
-                <div class="db-kpi-label">Concluídos</div>
-                <div class="db-kpi-val" style="color:#86efac">{{ historico.length }}</div>
-                <div class="db-kpi-sub">{{ historico.filter(h => h.pct === 100).length }} finalizados · {{ historico.length }} total</div>
+                <div class="db-kpi-label">Vencidos</div>
+                <div class="db-kpi-val" :style="{ color: statsVencidos > 0 ? '#fca5a5' : '#86efac' }">{{ statsVencidos }}</div>
+                <div class="db-kpi-sub">{{ statsVencidos > 0 ? 'requerem ação imediata' : 'nenhum em atraso' }}</div>
               </div>
             </div>
           </div>
@@ -410,6 +443,40 @@
 
             <!-- Coluna principal -->
             <div class="db-col-main">
+
+              <!-- Em andamento -->
+              <div class="db-panel q-mb-md">
+                <div class="db-panel-head">
+                  <q-icon name="autorenew" size="17px" style="color:#f59e0b" />
+                  <span class="db-panel-title">Em andamento</span>
+                  <span v-if="dbEmAndamento.length" class="db-head-count">{{ dbEmAndamento.length }}</span>
+                  <q-space />
+                  <button class="db-link-btn" @click="irParaConsultar">
+                    consultar <q-icon name="chevron_right" size="14px" />
+                  </button>
+                </div>
+                <div v-if="dbEmAndamento.length === 0" class="db-empty">
+                  <q-icon name="inbox" size="32px" style="color:rgba(255,255,255,0.15)" />
+                  <span>Nenhum processo em andamento</span>
+                </div>
+                <div v-else class="db-and-list">
+                  <div v-for="p in dbEmAndamento.slice(0, 6)" :key="p.id" class="db-and-row" @click="irParaConsultar">
+                    <div class="db-and-info">
+                      <div class="db-and-nome">{{ p.nome }}</div>
+                      <div class="db-and-meta">
+                        <template v-if="p.local">{{ p.local }} · </template>vence {{ p.venc }}
+                      </div>
+                    </div>
+                    <div class="db-and-progress">
+                      <div class="db-and-bar-bg">
+                        <div class="db-and-bar" :style="{ width: p.pct + '%', background: p.pct >= 70 ? '#5ab82e' : p.pct >= 40 ? '#f59e0b' : '#fcd34d' }" />
+                      </div>
+                      <span class="db-and-pct" :style="{ color: p.pct >= 70 ? '#86efac' : '#fcd34d' }">{{ p.pct }}%</span>
+                    </div>
+                  </div>
+                  <div v-if="dbEmAndamento.length > 6" class="db-pend-more">+{{ dbEmAndamento.length - 6 }} mais</div>
+                </div>
+              </div>
 
               <!-- Prazos críticos -->
               <div class="db-panel q-mb-md">
@@ -3197,6 +3264,60 @@ const dbTimeline = computed(() => {
 const dbTimelineMax = computed(() => Math.max(1, ...dbTimeline.value.map(b => b.count)))
 const dbPendencias  = computed(() => registros.value.filter(r => !r.razaoSocial))
 
+// ── Dashboard: classificação por estágio (não iniciado / andamento / concluído) ──
+const dbProcessos = computed(() => {
+  const latestByProcesso = {}
+  for (const h of historico.value) {
+    if (h.processoId && !latestByProcesso[h.processoId]) latestByProcesso[h.processoId] = h
+  }
+  return registros.value
+    .filter(r => !r.concluido)
+    .map(r => {
+      const h = latestByProcesso[r.id]
+      let pct = h?.pct ?? 0
+      if (!h && r.id === regAberto.value) {
+        const total = etapas.value.length
+        const ok    = etapas.value.filter(e => e.status === 'concluida').length
+        pct = total ? Math.round((ok / total) * 100) : 0
+      }
+      const nome = r.razaoSocial
+        || r.empresa?.find?.(d => d.label === 'Razão social')?.valor
+        || 'Sem razão social'
+      return {
+        id:    r.id,
+        nome,
+        pct,
+        status: pct >= 100 ? 'concluido' : pct > 0 ? 'andamento' : 'nao_iniciado',
+        dias:  diasRestantes(r),
+        venc:  r.dataVencFormatada || '—',
+        prazo: r.prazo || 'normal',
+        local: (r.id === regAberto.value ? etapaValor('localizacao') : '') || h?.localizacao || '',
+      }
+    })
+})
+const dbNaoIniciados = computed(() => dbProcessos.value.filter(p => p.status === 'nao_iniciado'))
+const dbEmAndamento  = computed(() =>
+  dbProcessos.value.filter(p => p.status === 'andamento').sort((a, b) => b.pct - a.pct)
+)
+const dbConcluidosCount = computed(() =>
+  registros.value.filter(r => r.concluido).length +
+  dbProcessos.value.filter(p => p.status === 'concluido').length
+)
+const dbProgressoMedio = computed(() => {
+  const arr = dbEmAndamento.value
+  if (!arr.length) return 0
+  return Math.round(arr.reduce((s, p) => s + p.pct, 0) / arr.length)
+})
+const dbTotalEstagios = computed(() =>
+  dbNaoIniciados.value.length + dbEmAndamento.value.length + dbConcluidosCount.value
+)
+function irParaConsultar() {
+  activeNav.value = 'Controle'
+  ctrlSessao1.value = null
+  ctrlSessao2.value = null
+  ctrlSessao3.value = 'Consultar'
+}
+
 const steps = [
   { key: 'empresa', label: 'Empresa', icon: 'business' },
   { key: 'socio',   label: 'Sócio',   icon: 'person'   },
@@ -4550,6 +4671,74 @@ const alerts = [
   font-family: inherit; opacity: 0.75; transition: opacity 0.15s;
 }
 .db-alert-link:hover { opacity: 1; }
+
+/* ── Cards de estágio ── */
+.db-stages {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+@media (max-width: 700px) { .db-stages { grid-template-columns: 1fr; } }
+.db-stage {
+  position: relative; overflow: hidden;
+  display: flex; flex-direction: column; gap: 4px;
+  text-align: left; cursor: pointer; font-family: inherit;
+  padding: 18px 20px; border-radius: 18px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.09);
+  transition: transform 0.15s, border-color 0.2s, background 0.2s;
+}
+.db-stage::before {
+  content: ''; position: absolute; inset: 0 0 auto 0; height: 3px;
+}
+.db-stage:hover { transform: translateY(-3px); background: rgba(255,255,255,0.07); }
+.db-stage--nao:hover { border-color: rgba(148,163,184,0.4); }
+.db-stage--and:hover { border-color: rgba(245,158,11,0.4); }
+.db-stage--ok:hover  { border-color: rgba(90,184,46,0.4); }
+.db-stage--nao::before { background: linear-gradient(90deg,#94a3b8,#64748b); }
+.db-stage--and::before { background: linear-gradient(90deg,#fcd34d,#f59e0b); }
+.db-stage--ok::before  { background: linear-gradient(90deg,#86efac,#5ab82e); }
+.db-stage-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.db-stage-icon {
+  display: flex; align-items: center; justify-content: center;
+  width: 38px; height: 38px; border-radius: 11px;
+}
+.db-stage--nao .db-stage-icon { background: rgba(148,163,184,0.14); color: #cbd5e1; }
+.db-stage--and .db-stage-icon { background: rgba(245,158,11,0.16); color: #fcd34d; }
+.db-stage--ok  .db-stage-icon { background: rgba(90,184,46,0.16);  color: #86efac; }
+.db-stage-pct { font-size: 0.72rem; font-weight: 700; color: rgba(255,255,255,0.4); }
+.db-stage-num { font-size: 2.4rem; font-weight: 900; line-height: 1; }
+.db-stage--nao .db-stage-num { color: #e2e8f0; }
+.db-stage--and .db-stage-num { color: #fcd34d; }
+.db-stage--ok  .db-stage-num { color: #86efac; }
+.db-stage-label { color: rgba(255,255,255,0.55); font-size: 0.82rem; font-weight: 600; }
+.db-stage-bar { margin-top: 10px; height: 5px; border-radius: 4px; background: rgba(255,255,255,0.08); overflow: hidden; }
+.db-stage-fill { height: 100%; border-radius: 4px; transition: width 0.4s; }
+.db-stage--nao .db-stage-fill { background: #94a3b8; }
+.db-stage--and .db-stage-fill { background: #f59e0b; }
+.db-stage--ok  .db-stage-fill { background: #5ab82e; }
+
+/* ── Em andamento (lista) ── */
+.db-head-count {
+  background: rgba(245,158,11,0.18); color: #fcd34d;
+  font-size: 0.7rem; font-weight: 800; padding: 1px 8px; border-radius: 20px;
+}
+.db-and-list { display: flex; flex-direction: column; gap: 8px; }
+.db-and-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 10px 12px; border-radius: 12px; cursor: pointer;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  transition: background 0.15s, border-color 0.15s;
+}
+.db-and-row:hover { background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.2); }
+.db-and-info { flex: 1; min-width: 0; }
+.db-and-nome { font-size: 0.86rem; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.db-and-meta { font-size: 0.7rem; color: rgba(255,255,255,0.4); margin-top: 2px; }
+.db-and-progress { display: flex; align-items: center; gap: 8px; flex-shrink: 0; width: 130px; }
+.db-and-bar-bg { flex: 1; height: 6px; border-radius: 4px; background: rgba(255,255,255,0.1); overflow: hidden; }
+.db-and-bar { height: 100%; border-radius: 4px; transition: width 0.4s; }
+.db-and-pct { font-size: 0.78rem; font-weight: 800; min-width: 34px; text-align: right; }
 
 /* ── KPI Cards ── */
 .db-kpis {
@@ -6495,11 +6684,23 @@ const alerts = [
 
 /* ── Dashboard ── */
 .wms-app--light .db-panel,
-.wms-app--light .db-kpi-card {
+.wms-app--light .db-kpi-card,
+.wms-app--light .db-stage {
   background: rgba(255,255,255,0.78) !important;
   border-color: rgba(15,23,42,0.09) !important;
   backdrop-filter: blur(8px);
 }
+.wms-app--light .db-stage-label { color: rgba(15,23,42,0.55) !important; }
+.wms-app--light .db-stage-pct { color: rgba(15,23,42,0.45) !important; }
+.wms-app--light .db-stage--nao .db-stage-num { color: #334155 !important; }
+.wms-app--light .db-stage-bar { background: rgba(15,23,42,0.09) !important; }
+.wms-app--light .db-and-row {
+  background: rgba(15,23,42,0.03) !important;
+  border-color: rgba(15,23,42,0.08) !important;
+}
+.wms-app--light .db-and-nome { color: #0f172a !important; }
+.wms-app--light .db-and-meta { color: rgba(15,23,42,0.45) !important; }
+.wms-app--light .db-and-bar-bg { background: rgba(15,23,42,0.1) !important; }
 .wms-app--light .db-panel-head {
   border-bottom-color: rgba(15,23,42,0.07) !important;
 }
