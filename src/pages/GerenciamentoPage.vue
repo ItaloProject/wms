@@ -3693,6 +3693,7 @@ async function removerDocDialog(arq) {
     message: `Deseja excluir "${arq.nome}"?`,
     cancel: { label: 'Cancelar', flat: true },
     ok: { label: 'Excluir', color: 'negative' },
+    dark: true,
   }).onOk(async () => {
     if (arq.r2_key) await r2Delete(arq.r2_key)
     await supabase.from('documentos').delete().eq('id', arq.id)
@@ -4135,6 +4136,7 @@ function marcarConcluido(reg) {
     cancel: { label: 'Cancelar', flat: true, color: 'white' },
     ok:     { label: 'Concluir', flat: true, color: 'positive' },
     persistent: true,
+    dark: true,
   }).onOk(() => {
     reg.concluido = true
     supabase.from('processos').update({ concluido: true }).eq('id', reg.id)
@@ -4149,6 +4151,7 @@ function confirmarExcluir(reg) {
     cancel: { label: 'Cancelar', flat: true, color: 'white' },
     ok:     { label: 'Excluir',  flat: true, color: 'negative' },
     persistent: true,
+    dark: true,
   }).onOk(() => excluirRegistro(reg.id))
 }
 
