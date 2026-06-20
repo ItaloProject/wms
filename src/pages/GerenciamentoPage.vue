@@ -834,6 +834,29 @@
                         </button>
                       </div>
                     </div>
+                    <div v-else-if="etapa.tipo === 'texto' && etapa.key === 'localizacao'" class="et-autocomplete">
+                      <input
+                        v-model="etapa.valor"
+                        class="et-input"
+                        :placeholder="etapa.placeholder"
+                        autocomplete="off"
+                        @input="filtrarMunicipios(etapa.valor)"
+                        @focus="carregarMunicipios(); filtrarMunicipios(etapa.valor)"
+                        @blur="fecharMunicipios"
+                        @change="salvarEtapas"
+                      />
+                      <div v-if="municipiosFiltrados.length && mostrarMunicipios" class="et-sugest-list">
+                        <button
+                          v-for="m in municipiosFiltrados"
+                          :key="m"
+                          class="et-sugest-item"
+                          @mousedown.prevent="selecionarMunicipio(etapa, m, salvarEtapas)"
+                        >
+                          <q-icon name="location_on" size="13px" class="et-sugest-icon" />
+                          {{ m }}
+                        </button>
+                      </div>
+                    </div>
                     <input
                       v-else-if="etapa.tipo === 'texto'"
                       v-model="etapa.valor"
@@ -1139,6 +1162,31 @@
                         >
                           <q-icon name="business" size="13px" class="et-sugest-icon" />
                           {{ s }}
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Texto (localização com autocomplete de municípios) -->
+                    <div v-else-if="etapa.tipo === 'texto' && etapa.key === 'localizacao'" class="et-autocomplete">
+                      <input
+                        v-model="etapa.valor"
+                        class="et-input"
+                        :placeholder="etapa.placeholder"
+                        autocomplete="off"
+                        @input="filtrarMunicipios(etapa.valor)"
+                        @focus="carregarMunicipios(); filtrarMunicipios(etapa.valor)"
+                        @blur="fecharMunicipios"
+                        @change="salvarEtapasBaixa"
+                      />
+                      <div v-if="municipiosFiltrados.length && mostrarMunicipios" class="et-sugest-list">
+                        <button
+                          v-for="m in municipiosFiltrados"
+                          :key="m"
+                          class="et-sugest-item"
+                          @mousedown.prevent="selecionarMunicipio(etapa, m, salvarEtapasBaixa)"
+                        >
+                          <q-icon name="location_on" size="13px" class="et-sugest-icon" />
+                          {{ m }}
                         </button>
                       </div>
                     </div>
@@ -2157,6 +2205,45 @@ watch([activeNav, regAberto, ctrlSessao1, ctrlSessao2, ctrlSessao3], salvarNavSt
 watch(regAberto, (id) => carregarDocsAnexados(id), { immediate: true })
 const mostrarSugestoes   = ref(false)
 const sugestoesFiltradas = ref([])
+
+// ── Municípios do Brasil (IBGE, lazy-load) ──
+const municipiosBrasil   = ref([])
+const municipiosFiltrados = ref([])
+const mostrarMunicipios  = ref(false)
+let   _municipiosCarregados = false
+
+async function carregarMunicipios() {
+  if (_municipiosCarregados) return
+  try {
+    const res  = await fetch('https://servicodados.ibge.gov.br/api/v1/localidades/municipios?orderBy=nome')
+    const data = await res.json()
+    municipiosBrasil.value = data.map(m => {
+      const uf = m.microrregiao?.mesorregiao?.UF?.sigla || ''
+      return uf ? `${m.nome} - ${uf}` : m.nome
+    })
+    _municipiosCarregados = true
+  } catch { /* usa campo livre se a API falhar */ }
+}
+
+async function filtrarMunicipios(val) {
+  mostrarMunicipios.value = true
+  const q = (val || '').trim().toLowerCase()
+  if (!q || q.length < 2) { municipiosFiltrados.value = []; return }
+  await carregarMunicipios()
+  municipiosFiltrados.value = municipiosBrasil.value
+    .filter(m => m.toLowerCase().includes(q))
+    .slice(0, 10)
+}
+
+function fecharMunicipios() {
+  setTimeout(() => { mostrarMunicipios.value = false }, 150)
+}
+
+function selecionarMunicipio(etapa, nome, saveFn) {
+  etapa.valor = nome
+  mostrarMunicipios.value = false
+  saveFn()
+}
 const inputAnexoRef      = ref(null)
 const catAnexoAtiva      = ref('')
 const anexosExpandido    = ref(false)
