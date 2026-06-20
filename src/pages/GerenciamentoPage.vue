@@ -2451,6 +2451,7 @@ const emailsBaixa = [
 const mostrarModalEnvio  = ref(false)
 const empresaBaixaEnvio  = ref('')
 const processoBaixaEnvio = ref('')
+const _docsAnexadosSnap  = ref([])
 
 const todosAnexosBaixa = computed(() => {
   const lista = []
@@ -2520,7 +2521,7 @@ async function enviarRelatorioWhatsApp() {
   statusWhats.value = 'sending'
   try {
     const ok = await enviarWhatsApp(
-      `*Processo de Baixa*\nEmpresa: *${empresaBaixaEnvio.value}*\nTipo: ${processoBaixaEnvio.value}\n\n📎 Enviando relatório e documentos...\n\n_WMS Consultoria_`
+      `*${processoBaixaEnvio.value || 'Processo'}*\nEmpresa: *${empresaBaixaEnvio.value}*\n\n📎 Enviando relatório e documentos...\n\n_WMS Consultoria_`
     )
     if (!ok) throw new Error('Falha no envio')
     for (const anexo of anexosParaEnvio()) {
@@ -2532,6 +2533,20 @@ async function enviarRelatorioWhatsApp() {
   }
 }
 
+async function baixarDocsR2ParaEnvio() {
+  const lista = []
+  for (const arq of _docsAnexadosSnap.value) {
+    if (!arq.r2_key || arq.categoria === 'relatorio') continue
+    try {
+      const url  = await r2ViewUrl(arq.r2_key)
+      const resp = await fetch(url)
+      const blob = await resp.blob()
+      lista.push({ nome: arq.nome, base64: await blobParaBase64(blob) })
+    } catch { /* ignora arquivo que falhou no download */ }
+  }
+  return lista
+}
+
 // Payload genérico: { from, to[], subject, text, attachments: [{ filename, content(base64) }] }
 async function enviarRelatorioEmail() {
   const { emailUrl, emailKey, emailFrom } = configAPI.value
@@ -2541,15 +2556,18 @@ async function enviarRelatorioEmail() {
   }
   statusEmail.value = 'sending'
   try {
+    const r2Docs  = await baixarDocsR2ParaEnvio()
+    const tipo    = processoBaixaEnvio.value || 'Processo'
+    const empresa = empresaBaixaEnvio.value  || ''
     const res = await fetch(emailUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${emailKey}` },
       body: JSON.stringify({
         from:        emailFrom || 'sistema@wmsconsultoria.com.br',
         to:          emailsBaixa.map(e => e.email),
-        subject:     `Processo de Baixa – ${empresaBaixaEnvio.value}`,
-        text:        `Processo de Baixa\nEmpresa: ${empresaBaixaEnvio.value}\nTipo: ${processoBaixaEnvio.value}\n\nSegue o relatório e documentos em anexo.\n\nAtenciosamente,\nWMS Consultoria`,
-        attachments: anexosParaEnvio().map(a => ({ filename: a.nome, content: a.base64 })),
+        subject:     `${tipo} – ${empresa}`,
+        text:        `${tipo}\nEmpresa: ${empresa}\n\nSegue o relatório e documentos em anexo.\n\nAtenciosamente,\nWMS Consultoria`,
+        attachments: [...anexosParaEnvio(), ...r2Docs].map(a => ({ filename: a.nome, content: a.base64 })),
       }),
     })
     if (!res.ok) throw new Error(`E-mail API: ${res.status}`)
@@ -2688,6 +2706,7 @@ async function gerarRelatorioBaixa() {
     })
     localStorage.setItem('wms_historico_constituicao', JSON.stringify(historico.value))
 
+    _docsAnexadosSnap.value  = Object.values(docsAnexados.value).flat()
     empresaBaixaEnvio.value  = empresa
     processoBaixaEnvio.value = processo
     mostrarModalEnvio.value  = true
@@ -4158,6 +4177,10 @@ async function gerarRelatorio() {
   try {
     await preencherRelatorioGeral(valores, nomeArquivo)
     await salvarHistorico(razaoSocial, etapaValor('protocolo'), municipioEstado)
+    _docsAnexadosSnap.value  = Object.values(docsAnexados.value).flat()
+    empresaBaixaEnvio.value  = razaoSocial
+    processoBaixaEnvio.value = etapaValor('processo') || 'Constituição'
+    mostrarModalEnvio.value  = true
     resetarFormConstituicao()
   } finally {
     gerandoRelatorio.value = false
@@ -4200,6 +4223,10 @@ async function confirmarComplementar() {
   try {
     await preencherRelatorioGeral(valores, nomeArquivo)
     await salvarHistorico(razaoSocial, etapaValor('protocolo'), municipioEstado)
+    _docsAnexadosSnap.value  = Object.values(docsAnexados.value).flat()
+    empresaBaixaEnvio.value  = razaoSocial
+    processoBaixaEnvio.value = etapaValor('processo') || 'Constituição'
+    mostrarModalEnvio.value  = true
     resetarFormConstituicao()
   } finally {
     gerandoRelatorio.value = false
