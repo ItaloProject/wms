@@ -927,6 +927,10 @@
 
               <!-- Botão Concluir Guia -->
               <div class="et-concluir-wrap">
+                <button class="et-concluir-btn--depois" @click="concluirDepois" :disabled="gerandoRelatorio">
+                  <q-icon name="schedule" size="18px" />
+                  Concluir Depois
+                </button>
                 <button class="et-concluir-btn" @click="gerarRelatorio" :disabled="gerandoRelatorio">
                   <q-icon :name="gerandoRelatorio ? 'hourglass_empty' : 'download'" size="18px" />
                   {{ gerandoRelatorio ? 'Gerando...' : 'Concluir e Gerar Relatório' }}
@@ -1189,6 +1193,10 @@
 
               <!-- Botão Concluir -->
               <div class="et-concluir-wrap">
+                <button class="et-concluir-btn--depois" @click="concluirDepois" :disabled="gerandoRelatorioBaixa">
+                  <q-icon name="schedule" size="18px" />
+                  Concluir Depois
+                </button>
                 <button class="et-concluir-btn" @click="gerarRelatorioBaixa" :disabled="gerandoRelatorioBaixa">
                   <q-icon :name="gerandoRelatorioBaixa ? 'hourglass_empty' : 'download'" size="18px" />
                   {{ gerandoRelatorioBaixa ? 'Gerando...' : 'Concluir e Gerar Relatório' }}
@@ -3912,6 +3920,17 @@ async function gerarRelatorio() {
   }
 }
 
+async function concluirDepois() {
+  salvarEtapas()
+  const empresa     = etapaValor('empresa')     || etapaValor('empresa_baixa') || ''
+  const protocolo   = etapaValor('protocolo')   || ''
+  const localizacao = etapaValor('localizacao') || ''
+  await salvarHistorico(empresa, protocolo, localizacao)
+  $q.notify({ icon: 'schedule', color: 'primary', message: 'Progresso salvo. Você pode continuar depois.', position: 'top', timeout: 2500 })
+  ctrlSessao3.value = 'Consultar'
+  ctrlSessao1.value = null
+}
+
 async function confirmarComplementar() {
   if (!_valoresPendentes.value) return
   dialogComplementar.value = false
@@ -5959,7 +5978,8 @@ const alerts = [
 
 /* ══ BOTÃO CONCLUIR GUIA ══ */
 .et-concluir-wrap {
-  display: flex; justify-content: center;
+  display: flex; justify-content: center; align-items: center;
+  gap: 14px; flex-wrap: wrap;
   padding: 32px 0 16px;
 }
 .et-concluir-btn {
@@ -5973,6 +5993,17 @@ const alerts = [
 }
 .et-concluir-btn:hover:not(:disabled) { opacity: 0.9; transform: translateY(-2px); }
 .et-concluir-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.et-concluir-btn--depois {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 28px; border-radius: 14px;
+  background: transparent;
+  border: 2px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.7);
+  font-size: 1rem; font-weight: 600;
+  font-family: inherit; letter-spacing: 0.04em; cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, transform 0.15s;
+}
+.et-concluir-btn--depois:hover:not(:disabled) { border-color: rgba(255,255,255,0.5); color: #fff; transform: translateY(-2px); }
+.et-concluir-btn--depois:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ══ ARQUIVAMENTO DE INFORMAÇÕES — dropdown com upload ══ */
 .et-arquiv {
