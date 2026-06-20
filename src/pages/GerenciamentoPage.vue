@@ -1922,6 +1922,9 @@
                     <button class="docs-btn-baixar" @click="baixarDoc(arq)" title="Baixar">
                       <q-icon name="download" size="15px" />
                     </button>
+                    <button class="docs-btn-del" @click="removerDocDialog(arq)" title="Excluir">
+                      <q-icon name="delete_outline" size="15px" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -3682,6 +3685,23 @@ async function abrirDialogDocs(p, e) {
     docsDialogDocs.value = data || []
   }
   docsDialogLoading.value = false
+}
+
+async function removerDocDialog(arq) {
+  $q.dialog({
+    title: 'Excluir documento',
+    message: `Deseja excluir "${arq.nome}"?`,
+    cancel: { label: 'Cancelar', flat: true },
+    ok: { label: 'Excluir', color: 'negative' },
+  }).onOk(async () => {
+    if (arq.r2_key) await r2Delete(arq.r2_key)
+    await supabase.from('documentos').delete().eq('id', arq.id)
+    docsDialogDocs.value = docsDialogDocs.value.filter(d => d.id !== arq.id)
+    // Sincroniza docsAnexados se for o processo aberto
+    if (arq.categoria && docsAnexados.value[arq.categoria]) {
+      docsAnexados.value[arq.categoria] = docsAnexados.value[arq.categoria].filter(d => d.id !== arq.id)
+    }
+  })
 }
 
 async function verDoc(arq) {
@@ -5825,7 +5845,7 @@ const alerts = [
 .docs-file-nome { font-size: 0.82rem; color: #fff; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .docs-file-tamanho { font-size: 0.7rem; color: rgba(255,255,255,0.3); margin-top: 2px; }
 .docs-file-acoes { display: flex; gap: 6px; flex-shrink: 0; }
-.docs-btn-ver, .docs-btn-baixar {
+.docs-btn-ver, .docs-btn-baixar, .docs-btn-del {
   display: flex; align-items: center; justify-content: center;
   width: 30px; height: 30px; border-radius: 8px;
   background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
@@ -5833,6 +5853,7 @@ const alerts = [
 }
 .docs-btn-ver:hover { background: rgba(99,179,237,0.15); border-color: rgba(99,179,237,0.3); color: #63b3ed; }
 .docs-btn-baixar:hover { background: rgba(90,184,46,0.15); border-color: rgba(90,184,46,0.3); color: #5ab82e; }
+.docs-btn-del:hover { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.3); color: #ef4444; }
 
 .cons-card-left { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
 .cons-status-dot {
