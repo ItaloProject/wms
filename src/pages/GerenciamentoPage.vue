@@ -1118,7 +1118,32 @@
                       <option v-for="op in etapa.opcoes" :key="op" :value="op">{{ op }}</option>
                     </select>
 
-                    <!-- Texto -->
+                    <!-- Texto (empresa com autocomplete) -->
+                    <div v-else-if="etapa.tipo === 'texto' && etapa.key === 'empresa'" class="et-autocomplete">
+                      <input
+                        v-model="etapa.valor"
+                        class="et-input"
+                        :placeholder="etapa.placeholder"
+                        autocomplete="off"
+                        @input="filtrarSugestoes(etapa.valor)"
+                        @focus="filtrarSugestoes(etapa.valor)"
+                        @blur="fecharSugestoes"
+                        @change="salvarEtapasBaixa"
+                      />
+                      <div v-if="sugestoesFiltradas.length && mostrarSugestoes" class="et-sugest-list">
+                        <button
+                          v-for="s in sugestoesFiltradas"
+                          :key="s"
+                          class="et-sugest-item"
+                          @mousedown.prevent="selecionarSugestao(etapa, s); salvarEtapasBaixa()"
+                        >
+                          <q-icon name="business" size="13px" class="et-sugest-icon" />
+                          {{ s }}
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Texto simples -->
                     <input
                       v-else-if="etapa.tipo === 'texto'"
                       v-model="etapa.valor"
