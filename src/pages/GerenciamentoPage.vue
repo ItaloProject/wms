@@ -2071,6 +2071,7 @@ async function carregarDocsAnexados(processoId) {
 }
 
 const categoriasDocs = [
+  { key: 'relatorio',       label: 'RELATÓRIO GERAL' },
   { key: 'contrato_social', label: 'CONTRATO SOCIAL AUTENTICADO' },
   { key: 'cnpj',            label: 'CNPJ' },
   { key: 'qsa',             label: 'QSA' },
@@ -2673,15 +2674,39 @@ async function gerarRelatorioPDF(valores, nomeArquivo) {
       const writable = await handle.createWritable()
       await writable.write(blob)
       await writable.close()
-      return
     } catch (err) {
       if (err.name === 'AbortError') return
     }
+  } else {
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = nomeFinal; a.click()
+    URL.revokeObjectURL(url)
   }
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url; a.download = nomeFinal; a.click()
-  URL.revokeObjectURL(url)
+
+  // 4. Anexar ao processo automaticamente (R2 + Supabase)
+  if (regAberto.value) {
+    try {
+      const tipo    = ext === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      const safeName = nomeFinal.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const r2Key  = `processos/${regAberto.value}/relatorio/${Date.now()}_${safeName}`
+      await r2Upload(r2Key, blob)
+      const { data, error } = await supabase.from('documentos').insert({
+        processo_id:     regAberto.value,
+        empresa:         etapaValor('empresa') || '',
+        categoria:       'relatorio',
+        categoria_label: 'RELATÓRIO GERAL',
+        nome:            nomeFinal,
+        tamanho:         blob.size,
+        tipo,
+        r2_key: r2Key,
+      }).select().single()
+      if (!error && data) {
+        if (!docsAnexados.value.relatorio) docsAnexados.value.relatorio = []
+        docsAnexados.value.relatorio.push({ id: data.id, nome: nomeFinal, tamanho: blob.size, tipo, r2_key: r2Key })
+      }
+    } catch { /* upload falhou silenciosamente — o arquivo local já foi salvo */ }
+  }
 }
 
 // ── Exportar PDF ──
