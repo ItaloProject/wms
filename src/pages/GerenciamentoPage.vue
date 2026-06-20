@@ -1086,7 +1086,12 @@
                       <q-icon v-else-if="etapa.status === 'nao_concluida'" name="close" size="15px" />
                       <span v-else>{{ i + 1 }}</span>
                     </div>
-                    <div class="et-titulo">{{ etapa.titulo }}</div>
+                    <div class="et-titulo-wrap">
+                      <div class="et-titulo">{{ etapa.titulo }}</div>
+                      <div v-if="etapa.status === 'concluida' && etapa.concluidaEm" class="et-concluida-em">
+                        <q-icon name="check_circle" size="11px" />{{ etapa.concluidaEm }}
+                      </div>
+                    </div>
                     <div class="et-status-btns">
                       <button class="et-st-btn et-st-btn--ok"   :class="{ 'et-st-active': etapa.status === 'concluida' }"    @click="setStatusEtapaBaixa(etapa, 'concluida')"    title="Concluída"><q-icon name="check"    size="14px" /></button>
                       <button class="et-st-btn et-st-btn--nao"  :class="{ 'et-st-active': etapa.status === 'nao_concluida' }" @click="setStatusEtapaBaixa(etapa, 'nao_concluida')" title="Não Concluída"><q-icon name="close"  size="14px" /></button>
@@ -2248,17 +2253,23 @@ function carregarEtapasBaixa() {
     const s = salvas?.find(x => x.key === e.key)
     const statusItens = { ...(s?.statusItens || {}) }
     if (e.itens) e.itens.forEach(item => { if (!statusItens[item]) statusItens[item] = '' })
-    return { ...e, status: s?.status || '', obs: s?.obs || '', valor: s?.valor || '', statusItens }
+    return { ...e, status: s?.status || '', obs: s?.obs || '', valor: s?.valor || '', concluidaEm: s?.concluidaEm || '', statusItens }
   })
 }
 
 const etapasBaixa = ref(carregarEtapasBaixa())
 
 function salvarEtapasBaixa() {
-  localStorage.setItem('wms_baixa', JSON.stringify(etapasBaixa.value))
+  localStorage.setItem('wms_baixa', JSON.stringify(
+    etapasBaixa.value.map(e => ({ key: e.key, status: e.status, obs: e.obs, valor: e.valor, concluidaEm: e.concluidaEm || '', statusItens: e.statusItens }))
+  ))
 }
 function setStatusEtapaBaixa(etapa, status) {
-  etapa.status = etapa.status === status ? '' : status
+  const novoStatus = etapa.status === status ? '' : status
+  etapa.status = novoStatus
+  etapa.concluidaEm = novoStatus === 'concluida'
+    ? new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : ''
   salvarEtapasBaixa()
 }
 function toggleCheckItemBaixa(etapa, item) {
