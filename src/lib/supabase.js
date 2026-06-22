@@ -41,27 +41,29 @@ export function processoFromDb(row) {
 // ── Histórico ─────────────────────────────────────────────────────────────────
 export function historicoToDb(h) {
   return {
-    id:          h.id,
-    processo_id: h.processoId  || null,
-    empresa:     h.empresa     || '',
-    protocolo:   h.protocolo   || '',
-    localizacao: h.localizacao || '',
-    pct:         h.pct         ?? 0,
-    data:        h.data        || '',
-    hora:        h.hora        || '',
+    id:           h.id,
+    processo_id:  h.processoId   || null,
+    empresa:      h.empresa      || '',
+    protocolo:    h.protocolo    || '',
+    localizacao:  h.localizacao  || '',
+    pct:          h.pct          ?? 0,
+    data:         h.data         || '',
+    hora:         h.hora         || '',
+    concluido_por: h.concluidoPor || '',
   }
 }
 
 export function historicoFromDb(row) {
   return {
-    id:          row.id,
-    processoId:  row.processo_id || null,
-    empresa:     row.empresa     || '',
-    protocolo:   row.protocolo   || '',
-    localizacao: row.localizacao || '',
-    pct:         row.pct         ?? 0,
-    data:        row.data        || '',
-    hora:        row.hora        || '',
+    id:           row.id,
+    processoId:   row.processo_id  || null,
+    empresa:      row.empresa      || '',
+    protocolo:    row.protocolo    || '',
+    localizacao:  row.localizacao  || '',
+    pct:          row.pct          ?? 0,
+    data:         row.data         || '',
+    hora:         row.hora         || '',
+    concluidoPor: row.concluido_por || '',
   }
 }
 

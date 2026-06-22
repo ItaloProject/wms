@@ -1443,8 +1443,12 @@
                       <div class="cons-badge" :class="`cons-badge--${p.status}`">
                         {{ p.status === 'concluido' ? 'Concluído' : p.status === 'andamento' ? 'Em andamento' : 'Não iniciado' }}
                       </div>
-                      <div v-if="p.status === 'concluido' && configAPI.responsavel" class="cons-assinatura">
-                        <q-icon name="verified" size="11px" /> {{ configAPI.responsavel }}
+                      <div v-if="p.status === 'concluido' && (p.concluidoPor || configAPI.responsavel)" class="cons-carimbo">
+                        <div class="cons-carimbo-nome">
+                          <q-icon name="verified" size="11px" />
+                          {{ p.concluidoPor || configAPI.responsavel }}
+                        </div>
+                        <div class="cons-carimbo-data">{{ p.data }}</div>
                       </div>
                     </div>
                     <button class="cons-docs-btn" @click.stop="abrirDialogDocs(p, $event)" title="Ver documentos anexados">
@@ -2768,14 +2772,15 @@ async function gerarRelatorioBaixa() {
     }, `Relatorio_Baixa_${empresa || 'Processo'}_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.docx`)
 
     historico.value.unshift({
-      id:          Date.now(),
+      id:           Date.now(),
       empresa,
       protocolo,
       localizacao,
-      pct:         progressoBaixa.value,
-      tipo:        'baixa',
-      data:        new Date().toLocaleDateString('pt-BR'),
-      hora:        new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      pct:          progressoBaixa.value,
+      tipo:         'baixa',
+      data:         new Date().toLocaleDateString('pt-BR'),
+      hora:         new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      concluidoPor: configAPI.value.responsavel || '',
     })
     localStorage.setItem('wms_historico_constituicao', JSON.stringify(historico.value))
 
@@ -3173,14 +3178,15 @@ const processosConsultar = computed(() => {
   const concluidos = historico.value
     .filter(h => (h.pct ?? 0) === 100)
     .map(h => ({
-      id:          h.id,
-      processoId:  h.processoId || null,
-      empresa:     h.empresa || '—',
-      protocolo:   h.protocolo || '—',
-      localizacao: h.localizacao || '—',
-      data:        h.data + ' ' + h.hora,
-      pct:         100,
-      status:      'concluido',
+      id:           h.id,
+      processoId:   h.processoId || null,
+      empresa:      h.empresa || '—',
+      protocolo:    h.protocolo || '—',
+      localizacao:  h.localizacao || '—',
+      data:         h.data + ' ' + h.hora,
+      pct:          100,
+      status:       'concluido',
+      concluidoPor: h.concluidoPor || '',
     }))
 
   const todos = [...ativos, ...concluidos]
@@ -4108,14 +4114,15 @@ const LABEL_CAMPO = {
 
 async function salvarHistorico(empresa, protocolo, localizacao) {
   const h = {
-    id:          Date.now(),
-    processoId:  regAberto.value || null,
+    id:           Date.now(),
+    processoId:   regAberto.value || null,
     empresa,
     protocolo,
     localizacao,
-    pct:         progressoEtapas.value,
-    data:        new Date().toLocaleDateString('pt-BR'),
-    hora:        new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+    pct:          progressoEtapas.value,
+    data:         new Date().toLocaleDateString('pt-BR'),
+    hora:         new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+    concluidoPor: configAPI.value.responsavel || '',
   }
   historico.value.unshift(h)
   localStorage.setItem('wms_historico', JSON.stringify(historico.value))
@@ -6337,10 +6344,21 @@ const alerts = [
   padding: 4px 10px; border-radius: 20px;
   font-size: 0.72rem; font-weight: 700; letter-spacing: 0.03em;
 }
-.cons-assinatura {
-  display: flex; align-items: center; gap: 3px;
-  font-size: 0.68rem; font-weight: 600; color: #86efac; opacity: 0.75;
-  white-space: nowrap;
+.cons-carimbo {
+  border: 1px solid rgba(34,197,94,0.35);
+  border-radius: 6px;
+  padding: 5px 10px;
+  background: rgba(34,197,94,0.06);
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.cons-carimbo-nome {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 0.68rem; font-weight: 700; color: #86efac;
+  white-space: nowrap; letter-spacing: 0.02em;
+}
+.cons-carimbo-data {
+  font-size: 0.6rem; color: rgba(134,239,172,0.6);
+  white-space: nowrap; letter-spacing: 0.01em;
 }
 .cons-badge--concluido   { background: rgba(34,197,94,0.15);  color: #86efac; }
 .cons-badge--andamento   { background: rgba(251,191,36,0.15); color: #fde68a; }
