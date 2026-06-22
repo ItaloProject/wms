@@ -1776,8 +1776,8 @@
               </div>
             </div>
 
-            <!-- Alertas automáticos WhatsApp -->
-            <div class="pref-section">
+            <!-- Alertas automáticos WhatsApp — visível apenas para admin -->
+            <div v-if="isAdmin" class="pref-section">
               <div class="pref-section-label">Alertas Automáticos</div>
               <div class="pref-card">
                 <div class="pref-card-head q-mb-md">
@@ -2219,6 +2219,7 @@ supabase.auth.getSession().then(({ data: { session } }) => {
 supabase.auth.onAuthStateChange((_event, session) => {
   currentUser.value = session?.user ?? null
 })
+const isAdmin = computed(() => currentUser.value?.user_metadata?.admin === true)
 const drawer = ref(true)
 const _navSalvo = JSON.parse(localStorage.getItem('wms_nav_state') || 'null')
 const activeNav  = ref(_navSalvo?.activeNav  || 'Dashboard')
