@@ -2499,11 +2499,19 @@ const _MIMES = {
   jpeg: 'image/jpeg',
 }
 
+function _mimeDoNome(nomeArquivo) {
+  const ext = (nomeArquivo.split('.').pop() || '').toLowerCase()
+  return _MIMES[ext] || 'application/octet-stream'
+}
+
 function _base64ComMime(base64, nomeArquivo) {
   if (base64.startsWith('data:')) return base64
-  const ext  = (nomeArquivo.split('.').pop() || '').toLowerCase()
-  const mime = _MIMES[ext] || 'application/octet-stream'
-  return `data:${mime};base64,${base64}`
+  return `data:${_mimeDoNome(nomeArquivo)};base64,${base64}`
+}
+
+function _base64Puro(base64) {
+  // remove o prefixo "data:...;base64," caso exista
+  return base64.startsWith('data:') ? base64.split(',').pop() : base64
 }
 
 // Envia um documento via WhatsApp
@@ -2525,13 +2533,24 @@ async function enviarWhatsAppDocumento(nomeArquivo, base64, legenda = '') {
       throw new Error(`Z-API ${res.status}: ${msg}`)
     }
   } else {
-    const { url, token, telefone } = cfg
-    const res = await fetch(`${url.replace(/\/$/, '')}/message/sendMedia/default`, {
+    const { url, token, telefone, evolutionInstance } = cfg
+    const instance = evolutionInstance || 'wms'
+    const res = await fetch(`${url.replace(/\/$/, '')}/message/sendMedia/${instance}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': token },
-      body: JSON.stringify({ number: telefone, mediatype: 'document', fileName: nomeArquivo, media: _base64ComMime(base64, nomeArquivo), caption: legenda }),
+      body: JSON.stringify({
+        number:    telefone,
+        mediatype: 'document',
+        mimetype:  _mimeDoNome(nomeArquivo),
+        fileName:  nomeArquivo,
+        media:     _base64Puro(base64),
+        caption:   legenda,
+      }),
     })
-    if (!res.ok) throw new Error(`WhatsApp API: ${res.status}`)
+    if (!res.ok) {
+      const msg = await res.text().catch(() => res.status)
+      throw new Error(`Evolution ${res.status}: ${msg}`)
+    }
   }
 }
 
@@ -2549,12 +2568,13 @@ async function enviarRelatorioWhatsApp() {
     const ok = await enviarWhatsApp(
       `*${processoBaixaEnvio.value || 'Processo'}*\nEmpresa: *${empresaBaixaEnvio.value}*\n\n📎 Enviando relatório e documentos...\n\n_WMS Consultoria_`
     )
-    if (!ok) throw new Error('Falha no envio')
+    if (!ok) throw new Error('Falha no envio da mensagem de texto')
     for (const anexo of anexosParaEnvio()) {
       await enviarWhatsAppDocumento(anexo.nome, anexo.base64)
     }
     statusWhats.value = 'ok'
-  } catch {
+  } catch (err) {
+    console.error('[WhatsApp] Falha no envio:', err?.message || err)
     statusWhats.value = 'error'
   }
 }
