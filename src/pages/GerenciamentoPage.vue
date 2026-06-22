@@ -754,6 +754,25 @@
                 </div>
               </div>
 
+              <!-- Caixa fixa com empresa e protocolo -->
+              <Teleport to="body">
+                <div
+                  v-if="etapaValor('empresa') || etapaValor('protocolo')"
+                  class="et-info-fixa"
+                >
+                  <div v-if="etapaValor('empresa')" class="et-info-fixa-item">
+                    <q-icon name="business" size="13px" class="et-info-fixa-icon" />
+                    <span class="et-info-fixa-label">Empresa</span>
+                    <span class="et-info-fixa-valor">{{ etapaValor('empresa') }}</span>
+                  </div>
+                  <div v-if="etapaValor('protocolo')" class="et-info-fixa-item">
+                    <q-icon name="tag" size="13px" class="et-info-fixa-icon" />
+                    <span class="et-info-fixa-label">Protocolo</span>
+                    <span class="et-info-fixa-valor">{{ etapaValor('protocolo') }}</span>
+                  </div>
+                </div>
+              </Teleport>
+
               <div class="et-list">
                 <div
                   v-for="(etapa, i) in etapas"
@@ -6031,6 +6050,48 @@ const alerts = [
 .et-guia-head {
   display: flex; align-items: center; justify-content: space-between;
   gap: 20px; flex-wrap: wrap; margin-bottom: 18px;
+}
+
+/* Caixa fixa empresa + protocolo */
+.et-info-fixa {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  background: rgba(13, 31, 60, 0.95);
+  border: 1px solid rgba(90, 184, 46, 0.35);
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  min-width: 220px;
+  max-width: 320px;
+}
+.et-info-fixa-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.et-info-fixa-icon { color: #5ab82e; flex-shrink: 0; }
+.et-info-fixa-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
+}
+.et-info-fixa-valor {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .et-guia-title { color: white; font-size: 1.05rem; font-weight: 800; }
 .et-guia-sub   { color: rgba(255,255,255,0.4); font-size: 0.78rem; margin-top: 2px; }
