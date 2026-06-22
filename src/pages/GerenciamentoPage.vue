@@ -2122,18 +2122,22 @@
               'env-status-item--ok':      statusEmail === 'ok',
               'env-status-item--error':   statusEmail === 'error',
               'env-status-item--sending': statusEmail === 'sending',
+              'env-status-item--skip':    statusEmail === 'skip',
             }">
               <div class="env-status-icon" :class="{
                 'env-si--ok':      statusEmail === 'ok',
                 'env-si--error':   statusEmail === 'error',
                 'env-si--sending': statusEmail === 'sending',
-                'env-si--idle':    statusEmail === 'idle',
+                'env-si--idle':    statusEmail === 'idle' || statusEmail === 'skip',
               }">
                 <q-icon name="mail" size="16px" />
               </div>
-              <span class="env-status-label">Enviado por E-mail</span>
-              <q-icon v-if="statusEmail === 'ok'"    name="check_circle" size="20px" class="env-si-check" />
-              <q-icon v-else-if="statusEmail === 'error'"  name="cancel"       size="20px" class="env-si-x" />
+              <span class="env-status-label">
+                E-mail
+                <span v-if="statusEmail === 'skip'" class="env-status-hint">— não configurado</span>
+              </span>
+              <q-icon v-if="statusEmail === 'ok'"      name="check_circle" size="20px" class="env-si-check" />
+              <q-icon v-else-if="statusEmail === 'error'"   name="cancel"       size="20px" class="env-si-x" />
               <q-spinner v-else-if="statusEmail === 'sending'" size="20px" color="blue-4" />
             </div>
 
@@ -2142,18 +2146,22 @@
               'env-status-item--ok':      statusWhats === 'ok',
               'env-status-item--error':   statusWhats === 'error',
               'env-status-item--sending': statusWhats === 'sending',
+              'env-status-item--skip':    statusWhats === 'skip',
             }">
               <div class="env-status-icon" :class="{
                 'env-si--ok':      statusWhats === 'ok',
                 'env-si--error':   statusWhats === 'error',
                 'env-si--sending': statusWhats === 'sending',
-                'env-si--idle':    statusWhats === 'idle',
+                'env-si--idle':    statusWhats === 'idle' || statusWhats === 'skip',
               }">
                 <q-icon name="chat" size="16px" />
               </div>
-              <span class="env-status-label">Enviado por WhatsApp</span>
-              <q-icon v-if="statusWhats === 'ok'"    name="check_circle" size="20px" class="env-si-check" />
-              <q-icon v-else-if="statusWhats === 'error'"  name="cancel"       size="20px" class="env-si-x" />
+              <span class="env-status-label">
+                WhatsApp
+                <span v-if="statusWhats === 'skip'" class="env-status-hint">— não configurado</span>
+              </span>
+              <q-icon v-if="statusWhats === 'ok'"      name="check_circle" size="20px" class="env-si-check" />
+              <q-icon v-else-if="statusWhats === 'error'"   name="cancel"       size="20px" class="env-si-x" />
               <q-spinner v-else-if="statusWhats === 'sending'" size="20px" color="green-4" />
             </div>
           </div>
@@ -2516,7 +2524,7 @@ async function enviarRelatorioWhatsApp() {
     ? (cfg.zInstanceId && cfg.zToken && cfg.telefone)
     : (cfg.url && cfg.token && cfg.telefone)
   if (!pronto) {
-    statusWhats.value = 'error'
+    statusWhats.value = 'skip'
     return
   }
   statusWhats.value = 'sending'
@@ -2552,7 +2560,7 @@ async function baixarDocsR2ParaEnvio() {
 async function enviarRelatorioEmail() {
   const { emailUrl, emailKey, emailFrom } = configAPI.value
   if (!emailUrl || !emailKey) {
-    statusEmail.value = 'error'
+    statusEmail.value = 'skip'
     return
   }
   statusEmail.value = 'sending'
@@ -6787,6 +6795,11 @@ const alerts = [
   background: rgba(239,68,68,0.08);
   border-color: rgba(239,68,68,0.25);
 }
+.env-status-item--skip {
+  background: rgba(255,255,255,0.03);
+  border-color: rgba(255,255,255,0.08);
+  opacity: 0.6;
+}
 .env-status-item--sending {
   background: rgba(59,130,246,0.06);
   border-color: rgba(59,130,246,0.2);
@@ -6802,6 +6815,9 @@ const alerts = [
 .env-si--idle    { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.3); }
 .env-status-label {
   flex: 1; font-size: 0.88rem; font-weight: 700; color: rgba(255,255,255,0.85);
+}
+.env-status-hint {
+  font-size: 0.78rem; font-weight: 400; color: rgba(255,255,255,0.35); margin-left: 4px;
 }
 .env-si-check { color: #86efac; margin-left: auto; flex-shrink: 0; }
 .env-si-x     { color: #fca5a5; margin-left: auto; flex-shrink: 0; }
