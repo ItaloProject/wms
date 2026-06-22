@@ -3785,21 +3785,25 @@ let alertaInterval = null
 
 function agendarProximoAlerta() {
   const agora = new Date()
-  const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate())
+  const hoje  = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate())
   let menorDiff = null
-  for (const { h, m } of HORARIOS_ALERTA) {
-    const alvo = new Date(hoje.getTime() + h * 3600000 + m * 60000)
+  let proximoSlot = HORARIOS_ALERTA[0]
+  for (const slot of HORARIOS_ALERTA) {
+    const alvo = new Date(hoje.getTime() + slot.h * 3600000 + slot.m * 60000)
     const diff = alvo - agora
-    if (diff > 0 && (menorDiff === null || diff < menorDiff)) menorDiff = diff
+    if (diff > 0 && (menorDiff === null || diff < menorDiff)) {
+      menorDiff   = diff
+      proximoSlot = slot
+    }
   }
   // Se já passou de todos os horários de hoje, agenda para o primeiro de amanhã
   if (menorDiff === null) {
     const amanha = new Date(hoje.getTime() + 86400000)
-    const { h, m } = HORARIOS_ALERTA[0]
-    menorDiff = new Date(amanha.getTime() + h * 3600000 + m * 60000) - agora
+    proximoSlot = HORARIOS_ALERTA[0]
+    menorDiff   = new Date(amanha.getTime() + proximoSlot.h * 3600000 + proximoSlot.m * 60000) - agora
   }
   alertaInterval = setTimeout(async () => {
-    await alertarPrazosWhatsApp()
+    await alertarPrazosWhatsApp(proximoSlot)
     agendarProximoAlerta()
   }, menorDiff)
 }
@@ -3867,13 +3871,14 @@ function montarMensagemConsolidada(processos, hist = []) {
   return msg
 }
 
-async function alertarPrazosWhatsApp() {
+async function alertarPrazosWhatsApp(slot = HORARIOS_ALERTA[0]) {
   const cfg = configAPI.value
   const pronto = cfg.provider === 'zapi' ? (cfg.zInstanceId && cfg.zToken) : (cfg.url && cfg.token)
   if (!pronto) return
 
-  const hoje = new Date().toDateString()
-  const chave = `wms_alertas_${hoje}`
+  const hoje  = new Date().toDateString()
+  const slotId = `${String(slot.h).padStart(2,'0')}h${String(slot.m).padStart(2,'0')}`
+  const chave = `wms_alertas_${hoje}_${slotId}`
   const jaAlertados = new Set(JSON.parse(localStorage.getItem(chave) || '[]'))
 
   const novos = registros.value.filter(r => {

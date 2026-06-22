@@ -199,7 +199,7 @@ async function onSubmit() {
       password: password.value,
     })
     if (error) throw error
-    router.push({ name: 'gerenciamento' })
+    window.location.replace('/gerenciamento')
   } catch (err) {
     $q.notify({
       type:     'negative',
