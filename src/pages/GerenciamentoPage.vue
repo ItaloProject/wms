@@ -2577,7 +2577,7 @@ async function baixarDocsR2ParaEnvio() {
   return lista
 }
 
-// Payload genérico: { from, to[], subject, text, attachments: [{ filename, content(base64) }] }
+// Brevo (Sendinblue) — POST https://api.brevo.com/v3/smtp/email
 async function enviarRelatorioEmail() {
   const { emailUrl, emailKey, emailFrom } = configAPI.value
   if (!emailUrl || !emailKey) {
@@ -2586,21 +2586,25 @@ async function enviarRelatorioEmail() {
   }
   statusEmail.value = 'sending'
   try {
-    const r2Docs  = await baixarDocsR2ParaEnvio()
-    const tipo    = processoBaixaEnvio.value || 'Processo'
-    const empresa = empresaBaixaEnvio.value  || ''
+    const r2Docs     = await baixarDocsR2ParaEnvio()
+    const tipo       = processoBaixaEnvio.value || 'Processo'
+    const empresa    = empresaBaixaEnvio.value  || ''
+    const todosAnexos = [...anexosParaEnvio(), ...r2Docs]
     const res = await fetch(emailUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${emailKey}` },
+      headers: { 'Content-Type': 'application/json', 'api-key': emailKey },
       body: JSON.stringify({
-        from:        emailFrom || 'sistema@wmsconsultoria.com.br',
-        to:          emailsBaixa.map(e => e.email),
+        sender:      { name: 'WMS Consultoria', email: emailFrom },
+        to:          emailsBaixa.map(e => ({ email: e.email, name: e.nome })),
         subject:     `${tipo} – ${empresa}`,
-        text:        `${tipo}\nEmpresa: ${empresa}\n\nSegue o relatório e documentos em anexo.\n\nAtenciosamente,\nWMS Consultoria`,
-        attachments: [...anexosParaEnvio(), ...r2Docs].map(a => ({ filename: a.nome, content: a.base64 })),
+        textContent: `${tipo}\nEmpresa: ${empresa}\n\nSegue o relatório e documentos em anexo.\n\nAtenciosamente,\nWMS Consultoria`,
+        attachment:  todosAnexos.map(a => ({ name: a.nome, content: a.base64 })),
       }),
     })
-    if (!res.ok) throw new Error(`E-mail API: ${res.status}`)
+    if (!res.ok) {
+      const msg = await res.text().catch(() => res.status)
+      throw new Error(`Brevo ${res.status}: ${msg}`)
+    }
     statusEmail.value = 'ok'
   } catch {
     statusEmail.value = 'error'
