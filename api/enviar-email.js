@@ -30,7 +30,7 @@ export default async function handler(req, res) {
       auth: { user, pass },
     })
 
-    await transporter.sendMail({
+    const info = await transporter.sendMail({
       from:    `"WMS Consultoria" <${user}>`,
       to:      Array.isArray(to) ? to.join(', ') : to,
       subject,
@@ -42,7 +42,18 @@ export default async function handler(req, res) {
       })),
     })
 
-    return res.status(200).json({ ok: true })
+    console.log('[enviar-email] enviado:', JSON.stringify({
+      messageId: info.messageId, accepted: info.accepted,
+      rejected: info.rejected, response: info.response,
+    }))
+
+    return res.status(200).json({
+      ok: true,
+      messageId: info.messageId,
+      accepted:  info.accepted,
+      rejected:  info.rejected,
+      response:  info.response,
+    })
   } catch (err) {
     console.error('[enviar-email]', err)
     return res.status(500).json({ error: err.message })

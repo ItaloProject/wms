@@ -2598,6 +2598,8 @@ async function enviarRelatorioEmail() {
       const msg = await res.text().catch(() => res.status)
       throw new Error(`Email ${res.status}: ${msg}`)
     }
+    const info = await res.json().catch(() => ({}))
+    console.log('[Email] Resposta do servidor:', info)
     statusEmail.value = 'ok'
   } catch (err) {
     console.error('[Email] Falha no envio:', err?.message || err)
