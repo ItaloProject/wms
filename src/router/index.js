@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import HomePage from '../pages/HomePage.vue'
 import LoginPage from '../pages/LoginPage.vue'
 import GerenciamentoPage from '../pages/GerenciamentoPage.vue'
+import ResetSenhaPage from '../pages/ResetSenhaPage.vue'
 import { findSector } from '../sectors'
 import { supabase } from '../lib/supabase'
 
@@ -25,6 +26,7 @@ const router = createRouter({
       component: GerenciamentoPage,
       meta: { requiresAuth: true }
     },
+    { path: '/reset-senha', name: 'reset-senha', component: ResetSenhaPage },
     { path: '/:pathMatch(.*)*', redirect: '/' }
   ]
 })

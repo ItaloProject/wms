@@ -66,7 +66,7 @@
           <div class="field-group">
             <div class="row items-center justify-between">
               <label class="field-label">Senha</label>
-              <button type="button" class="forgot-btn">Esqueci a senha</button>
+              <button type="button" class="forgot-btn" @click="dialogReset = true">Esqueci a senha</button>
             </div>
             <div class="custom-input-wrap">
               <q-icon name="lock_outline" size="18px" class="field-icon" color="white" />
@@ -108,6 +108,32 @@
     </div>
 
   </div>
+
+  <!-- Modal esqueci a senha -->
+  <q-dialog v-model="dialogReset" persistent>
+    <div class="reset-dialog">
+      <div class="reset-dialog-title">Recuperar senha</div>
+      <p class="reset-dialog-desc">Informe seu e-mail e enviaremos um link para criar uma nova senha.</p>
+      <div class="custom-input-wrap" style="margin-bottom:16px">
+        <q-icon name="mail_outline" size="18px" class="field-icon" color="white" />
+        <input
+          v-model="resetEmail"
+          type="email"
+          placeholder="seu@email.com.br"
+          class="custom-input"
+          @keyup.enter="enviarReset"
+        />
+      </div>
+      <div class="row gap-sm justify-end" style="gap:10px">
+        <button class="reset-btn-cancel" @click="dialogReset = false">Cancelar</button>
+        <button class="reset-btn-send" :disabled="resetLoading || !resetEmail.trim()" @click="enviarReset">
+          <q-spinner v-if="resetLoading" size="16px" color="white" />
+          <span v-else>Enviar link</span>
+        </button>
+      </div>
+    </div>
+  </q-dialog>
+
 </template>
 
 <script setup>
@@ -129,6 +155,34 @@ const password     = ref('')
 const remember     = ref(false)
 const showPassword = ref(false)
 const loading      = ref(false)
+
+const dialogReset  = ref(false)
+const resetEmail   = ref('')
+const resetLoading = ref(false)
+
+async function enviarReset() {
+  if (!resetEmail.value.trim()) return
+  resetLoading.value = true
+  try {
+    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.value.trim(), {
+      redirectTo: window.location.origin + '/reset-senha',
+    })
+    if (error) throw error
+    dialogReset.value = false
+    resetEmail.value  = ''
+    $q.notify({
+      icon:     'mark_email_read',
+      color:    'positive',
+      message:  'Link enviado! Verifique sua caixa de entrada.',
+      position: 'top',
+      timeout:  5000,
+    })
+  } catch (err) {
+    $q.notify({ type: 'negative', message: err.message || 'Erro ao enviar link.', position: 'top' })
+  } finally {
+    resetLoading.value = false
+  }
+}
 
 const features = [
   'Gestão de processos contábeis',
@@ -467,4 +521,54 @@ async function onSubmit() {
   font-size: 0.74rem;
   margin-top: 20px;
 }
+
+/* Modal reset senha */
+.reset-dialog {
+  background: #0d1f3c;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 28px 28px 24px;
+  width: 100%;
+  max-width: 380px;
+}
+.reset-dialog-title {
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+.reset-dialog-desc {
+  color: rgba(255,255,255,0.5);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin: 0 0 18px;
+}
+.reset-btn-cancel {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  color: rgba(255,255,255,0.6);
+  font-size: 0.88rem;
+  font-weight: 600;
+  font-family: inherit;
+  padding: 9px 18px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.reset-btn-cancel:hover { background: rgba(255,255,255,0.12); }
+.reset-btn-send {
+  background: linear-gradient(135deg, #1a3fa0, #2563eb);
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 700;
+  font-family: inherit;
+  padding: 9px 22px;
+  cursor: pointer;
+  min-width: 110px;
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity 0.2s;
+}
+.reset-btn-send:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>
