@@ -764,11 +764,17 @@
                     <q-icon name="business" size="13px" class="et-info-fixa-icon" />
                     <span class="et-info-fixa-label">Empresa</span>
                     <span class="et-info-fixa-valor">{{ etapaValor('empresa') }}</span>
+                    <button class="et-info-fixa-copy" @click="copiarInfo('empresa')" :title="'Copiar'">
+                      <q-icon :name="copiado === 'empresa' ? 'check' : 'content_copy'" size="12px" />
+                    </button>
                   </div>
                   <div v-if="etapaValor('protocolo')" class="et-info-fixa-item">
                     <q-icon name="tag" size="13px" class="et-info-fixa-icon" />
                     <span class="et-info-fixa-label">Protocolo</span>
                     <span class="et-info-fixa-valor">{{ etapaValor('protocolo') }}</span>
+                    <button class="et-info-fixa-copy" @click="copiarInfo('protocolo')" :title="'Copiar'">
+                      <q-icon :name="copiado === 'protocolo' ? 'check' : 'content_copy'" size="12px" />
+                    </button>
                   </div>
                 </div>
               </Teleport>
@@ -2239,6 +2245,16 @@ supabase.auth.onAuthStateChange((_event, session) => {
   currentUser.value = session?.user ?? null
 })
 const isAdmin          = computed(() => currentUser.value?.user_metadata?.admin === true)
+
+const copiado = ref('')
+function copiarInfo(key) {
+  const valor = etapaValor(key)
+  if (!valor) return
+  navigator.clipboard.writeText(valor).then(() => {
+    copiado.value = key
+    setTimeout(() => { copiado.value = '' }, 2000)
+  })
+}
 const nomeUsuarioLogado = computed(() =>
   currentUser.value?.user_metadata?.nome
   || currentUser.value?.email?.split('@')[0]
@@ -6092,7 +6108,22 @@ const alerts = [
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
 }
+.et-info-fixa-copy {
+  flex-shrink: 0;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  width: 24px; height: 24px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  color: rgba(255,255,255,0.5);
+  transition: background 0.15s, color 0.15s;
+  padding: 0;
+}
+.et-info-fixa-copy:hover { background: rgba(90,184,46,0.2); color: #5ab82e; }
+.et-info-fixa-copy .q-icon { transition: color 0.15s; }
 .et-guia-title { color: white; font-size: 1.05rem; font-weight: 800; }
 .et-guia-sub   { color: rgba(255,255,255,0.4); font-size: 0.78rem; margin-top: 2px; }
 .et-guia-progress { display: flex; align-items: center; gap: 10px; min-width: 200px; }
