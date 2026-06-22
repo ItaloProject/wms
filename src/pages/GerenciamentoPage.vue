@@ -2443,9 +2443,10 @@ function removerAnexoBaixa(catKey, id) {
 }
 
 const emailsBaixa = [
-  { nome: 'WMS Gerência',               email: 'gerencia@wmsconsultoria.com.br' },
-  { nome: 'WMS Contábil – Fiscal',       email: 'fiscal@wmsconsultoria.com.br' },
-  { nome: 'WMS Contábil – DP',           email: 'pessoal@wmsconsultoria.com.br' },
+  { nome: 'WMS GERENCIA',                          email: 'gerencia@wmsconsultoria.com.br' },
+  { nome: 'WMS CONSULTORIA CONTABIL - FISCAL',     email: 'fiscal@wmsconsultoria.com.br' },
+  { nome: 'WMS CONSULTORIA CONTABIL - CONTABIL',   email: 'contabil@wmsconsultoria.com.br' },
+  { nome: 'WMS CONSULTORIA CONTABIL - DP',         email: 'pessoal@wmsconsultoria.com.br' },
 ]
 
 const mostrarModalEnvio  = ref(false)
