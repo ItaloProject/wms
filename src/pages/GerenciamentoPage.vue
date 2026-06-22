@@ -1952,20 +1952,16 @@
           </div>
 
           <div class="cfg-section-label" style="margin-top:10px">
-            <q-icon name="mail" size="14px" /> E-mail (API de envio)
+            <q-icon name="mail" size="14px" /> E-mail (envio automático)
           </div>
           <div class="cfg-field">
-            <label class="cfg-label">URL da API de e-mail</label>
-            <input v-model="configAPI.emailUrl" class="cfg-input" placeholder="https://sua-api.com/enviar-email" />
-          </div>
-          <div class="cfg-field">
-            <label class="cfg-label">Chave da API</label>
-            <input v-model="configAPI.emailKey" class="cfg-input" placeholder="sua-chave-aqui" type="password" />
-          </div>
-          <div class="cfg-field">
-            <label class="cfg-label">Remetente</label>
-            <input v-model="configAPI.emailFrom" class="cfg-input" placeholder="sistema@wmsconsultoria.com.br" />
-            <span class="cfg-hint">E-mail que aparecerá como remetente</span>
+            <div class="cfg-info-box">
+              <q-icon name="check_circle" size="16px" color="positive" />
+              <span>O envio de e-mail é feito pelo servidor (Vercel) de forma segura.
+              As credenciais ficam protegidas nas variáveis de ambiente
+              <code>GMAIL_USER</code> e <code>GMAIL_APP_PASSWORD</code> — não precisam ser
+              preenchidas aqui.</span>
+            </div>
           </div>
         </div>
 
@@ -2577,33 +2573,33 @@ async function baixarDocsR2ParaEnvio() {
   return lista
 }
 
-// Brevo (Sendinblue) — POST https://api.brevo.com/v3/smtp/email
+// Envio via função serverless do Vercel (Gmail SMTP). As credenciais ficam
+// em variáveis de ambiente do servidor — nunca expostas no navegador.
 async function enviarRelatorioEmail() {
-  const { emailUrl, emailKey, emailFrom } = configAPI.value
-  if (!emailUrl || !emailKey) {
+  // As funções serverless só existem em produção (Vercel); em dev (vite) não há /api.
+  if (import.meta.env.DEV) {
     statusEmail.value = 'skip'
     return
   }
   statusEmail.value = 'sending'
   try {
-    const r2Docs     = await baixarDocsR2ParaEnvio()
-    const tipo       = processoBaixaEnvio.value || 'Processo'
-    const empresa    = empresaBaixaEnvio.value  || ''
+    const r2Docs      = await baixarDocsR2ParaEnvio()
+    const tipo        = processoBaixaEnvio.value || 'Processo'
+    const empresa     = empresaBaixaEnvio.value  || ''
     const todosAnexos = [...anexosParaEnvio(), ...r2Docs]
-    const res = await fetch(emailUrl, {
+    const res = await fetch('/api/enviar-email', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'api-key': emailKey },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        sender:      { name: 'WMS Consultoria', email: emailFrom },
-        to:          emailsBaixa.map(e => ({ email: e.email, name: e.nome })),
+        to:          emailsBaixa.map(e => e.email),
         subject:     `${tipo} – ${empresa}`,
-        textContent: `${tipo}\nEmpresa: ${empresa}\n\nSegue o relatório e documentos em anexo.\n\nAtenciosamente,\nWMS Consultoria`,
-        attachment:  todosAnexos.map(a => ({ name: a.nome, content: a.base64 })),
+        text:        `${tipo}\nEmpresa: ${empresa}\n\nSegue o relatório e documentos em anexo.\n\nAtenciosamente,\nWMS Consultoria`,
+        attachments: todosAnexos.map(a => ({ filename: a.nome, content: a.base64 })),
       }),
     })
     if (!res.ok) {
       const msg = await res.text().catch(() => res.status)
-      throw new Error(`Brevo ${res.status}: ${msg}`)
+      throw new Error(`Email ${res.status}: ${msg}`)
     }
     statusEmail.value = 'ok'
   } catch (err) {
@@ -6736,6 +6732,16 @@ const alerts = [
 .cfg-input:focus  { border-color: rgba(90,184,46,0.5); }
 .cfg-input::placeholder { color: rgba(255,255,255,0.2); }
 .cfg-hint { color: rgba(255,255,255,0.3); font-size: 0.7rem; }
+.cfg-info-box {
+  display: flex; gap: 8px; align-items: flex-start;
+  background: rgba(90,184,46,0.08); border: 1px solid rgba(90,184,46,0.25);
+  border-radius: 10px; padding: 10px 12px;
+  font-size: 0.78rem; line-height: 1.45; color: rgba(255,255,255,0.7);
+}
+.cfg-info-box code {
+  background: rgba(255,255,255,0.1); border-radius: 4px;
+  padding: 1px 5px; font-size: 0.72rem; color: #a3e635;
+}
 .cfg-provider-row { display: flex; gap: 8px; margin-bottom: 12px; }
 .cfg-provider-btn {
   flex: 1; display: flex; align-items: center; gap: 7px;
