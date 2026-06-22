@@ -2493,26 +2493,47 @@ function anexosParaEnvio() {
   return lista
 }
 
+const _MIMES = {
+  pdf:  'application/pdf',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  doc:  'application/msword',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  png:  'image/png',
+  jpg:  'image/jpeg',
+  jpeg: 'image/jpeg',
+}
+
+function _base64ComMime(base64, nomeArquivo) {
+  if (base64.startsWith('data:')) return base64
+  const ext  = (nomeArquivo.split('.').pop() || '').toLowerCase()
+  const mime = _MIMES[ext] || 'application/octet-stream'
+  return `data:${mime};base64,${base64}`
+}
+
 // Envia um documento via WhatsApp
 async function enviarWhatsAppDocumento(nomeArquivo, base64, legenda = '') {
   const cfg = configAPI.value
   if (cfg.provider === 'zapi') {
-    const ext = nomeArquivo.split('.').pop() || 'pdf'
+    const ext      = (nomeArquivo.split('.').pop() || 'pdf').toLowerCase()
+    const document = _base64ComMime(base64, nomeArquivo)
     const res = await fetch(
       `https://api.z-api.io/instances/${cfg.zInstanceId}/token/${cfg.zToken}/send-document/${ext}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Client-Token': cfg.zClientToken || '' },
-        body: JSON.stringify({ phone: cfg.telefone, document: base64, fileName: nomeArquivo }),
+        body: JSON.stringify({ phone: cfg.telefone, document, fileName: nomeArquivo }),
       }
     )
-    if (!res.ok) throw new Error(`Z-API: ${res.status}`)
+    if (!res.ok) {
+      const msg = await res.text().catch(() => res.status)
+      throw new Error(`Z-API ${res.status}: ${msg}`)
+    }
   } else {
     const { url, token, telefone } = cfg
     const res = await fetch(`${url.replace(/\/$/, '')}/message/sendMedia/default`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': token },
-      body: JSON.stringify({ number: telefone, mediatype: 'document', fileName: nomeArquivo, media: base64, caption: legenda }),
+      body: JSON.stringify({ number: telefone, mediatype: 'document', fileName: nomeArquivo, media: _base64ComMime(base64, nomeArquivo), caption: legenda }),
     })
     if (!res.ok) throw new Error(`WhatsApp API: ${res.status}`)
   }
