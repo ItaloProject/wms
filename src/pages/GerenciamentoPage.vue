@@ -3718,7 +3718,7 @@ function montarMensagem(prazo = 'normal') {
 }
 
 // Números fixos que recebem alertas automáticos de prazo
-const NUMEROS_ALERTA = ['5599984491810']
+const NUMEROS_ALERTA = ['5599984491810', '559882624491', '559888435550']
 
 // Envia para um número específico (sem depender do configAPI.telefone)
 async function enviarWhatsAppPara(numero, texto) {
