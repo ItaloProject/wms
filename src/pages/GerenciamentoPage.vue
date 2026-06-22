@@ -1447,10 +1447,10 @@
                       <div class="cons-badge" :class="`cons-badge--${p.status}`">
                         {{ p.status === 'concluido' ? 'Concluído' : p.status === 'andamento' ? 'Em andamento' : 'Não iniciado' }}
                       </div>
-                      <div v-if="p.status === 'concluido' && (p.concluidoPor || configAPI.responsavel)" class="cons-carimbo">
+                      <div v-if="p.status === 'concluido' && p.concluidoPor" class="cons-carimbo">
                         <div class="cons-carimbo-nome">
                           <q-icon name="verified" size="11px" />
-                          {{ p.concluidoPor || configAPI.responsavel }}
+                          {{ p.concluidoPor }}
                         </div>
                         <div class="cons-carimbo-data">{{ p.data }}</div>
                       </div>
@@ -2219,7 +2219,12 @@ supabase.auth.getSession().then(({ data: { session } }) => {
 supabase.auth.onAuthStateChange((_event, session) => {
   currentUser.value = session?.user ?? null
 })
-const isAdmin = computed(() => currentUser.value?.user_metadata?.admin === true)
+const isAdmin          = computed(() => currentUser.value?.user_metadata?.admin === true)
+const nomeUsuarioLogado = computed(() =>
+  currentUser.value?.user_metadata?.nome
+  || currentUser.value?.email?.split('@')[0]
+  || ''
+)
 const drawer = ref(true)
 const _navSalvo = JSON.parse(localStorage.getItem('wms_nav_state') || 'null')
 const activeNav  = ref(_navSalvo?.activeNav  || 'Dashboard')
@@ -2794,7 +2799,7 @@ async function gerarRelatorioBaixa() {
       tipo:         'baixa',
       data:         new Date().toLocaleDateString('pt-BR'),
       hora:         new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      concluidoPor: configAPI.value.responsavel || '',
+      concluidoPor: nomeUsuarioLogado.value,
     })
     localStorage.setItem('wms_historico_constituicao', JSON.stringify(historico.value))
 
