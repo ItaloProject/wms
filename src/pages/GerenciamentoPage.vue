@@ -118,7 +118,7 @@
             <q-icon name="settings" size="20px" class="nav-icon" />
             <span class="nav-label">Preferências</span>
           </div>
-          <div class="nav-item nav-item--danger" @click="$router.push('/')">
+          <div class="nav-item nav-item--danger" @click="fazerLogout">
             <div class="nav-indicator" />
             <q-icon name="logout" size="20px" class="nav-icon" />
             <span class="nav-label">Sair</span>
@@ -131,9 +131,13 @@
             <div class="drawer-avatar flex flex-center">
               <q-icon name="person" size="18px" color="white" />
             </div>
-            <div class="q-ml-sm">
-              <div class="drawer-user-name">Administrador</div>
-              <div class="drawer-user-role">Gerenciamento</div>
+            <div class="q-ml-sm" style="min-width:0">
+              <div class="drawer-user-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                {{ currentUser?.user_metadata?.nome || currentUser?.email?.split('@')[0] || 'Usuário' }}
+              </div>
+              <div class="drawer-user-role" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.68rem;opacity:0.6">
+                {{ currentUser?.email || 'Gerenciamento' }}
+              </div>
             </div>
           </div>
         </div>
@@ -2196,6 +2200,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import JSZip from 'jszip'
 import { useQuasar } from 'quasar'
 import { jsPDF } from 'jspdf'
@@ -2204,7 +2209,16 @@ import * as XLSX from 'xlsx'
 import { supabase, processoToDb, processoFromDb, historicoToDb, historicoFromDb, configToDb, configFromDb } from '../lib/supabase.js'
 import { r2Upload, r2Delete, r2ViewUrl, r2DownloadUrl } from '../lib/r2.js'
 
-const $q = useQuasar()
+const $q     = useQuasar()
+const router = useRouter()
+
+const currentUser = ref(null)
+supabase.auth.getSession().then(({ data: { session } }) => {
+  currentUser.value = session?.user ?? null
+})
+supabase.auth.onAuthStateChange((_event, session) => {
+  currentUser.value = session?.user ?? null
+})
 const drawer = ref(true)
 const _navSalvo = JSON.parse(localStorage.getItem('wms_nav_state') || 'null')
 const activeNav  = ref(_navSalvo?.activeNav  || 'Dashboard')
@@ -4459,6 +4473,11 @@ function limparFormulario() {
 
 function concluir() {
   dialogPrazo.value = true
+}
+
+async function fazerLogout() {
+  await supabase.auth.signOut()
+  router.push({ name: 'login', params: { sector: 'gerenciamento' } })
 }
 
 async function selecionarPrazo(nivel) {

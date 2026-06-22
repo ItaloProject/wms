@@ -3,6 +3,7 @@ import HomePage from '../pages/HomePage.vue'
 import LoginPage from '../pages/LoginPage.vue'
 import GerenciamentoPage from '../pages/GerenciamentoPage.vue'
 import { findSector } from '../sectors'
+import { supabase } from '../lib/supabase'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -18,9 +19,21 @@ const router = createRouter({
         return true
       }
     },
-    { path: '/gerenciamento', name: 'gerenciamento', component: GerenciamentoPage },
+    {
+      path: '/gerenciamento',
+      name: 'gerenciamento',
+      component: GerenciamentoPage,
+      meta: { requiresAuth: true }
+    },
     { path: '/:pathMatch(.*)*', redirect: '/' }
   ]
+})
+
+router.beforeEach(async (to) => {
+  if (!to.meta.requiresAuth) return true
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) return { name: 'login', params: { sector: 'gerenciamento' } }
+  return true
 })
 
 export default router

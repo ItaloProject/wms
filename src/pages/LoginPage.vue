@@ -115,6 +115,7 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { findSector } from '../sectors'
+import { supabase } from '../lib/supabase'
 
 const route  = useRoute()
 const router = useRouter()
@@ -130,22 +131,33 @@ const showPassword = ref(false)
 const loading      = ref(false)
 
 const features = [
-  'Controle de estoque em tempo real',
-  'Movimentações com rastreamento',
+  'Gestão de processos contábeis',
+  'Controle de documentos e prazos',
   'Relatórios e indicadores gerenciais',
 ]
 
-function onSubmit() {
+async function onSubmit() {
   if (!user.value || !password.value) return
   loading.value = true
-  setTimeout(() => {
+  try {
+    const { error } = await supabase.auth.signInWithPassword({
+      email:    user.value.trim(),
+      password: password.value,
+    })
+    if (error) throw error
+    router.push({ name: 'gerenciamento' })
+  } catch (err) {
+    $q.notify({
+      type:     'negative',
+      message:  err.message === 'Invalid login credentials'
+                  ? 'E-mail ou senha incorretos.'
+                  : (err.message || 'Erro ao fazer login.'),
+      position: 'top',
+      timeout:  4000,
+    })
+  } finally {
     loading.value = false
-    if (sector.value?.slug === 'gerenciamento') {
-      router.push({ name: 'gerenciamento' })
-    } else {
-      $q.notify({ type: 'info', message: 'Módulo ainda não conectado à API.', position: 'top' })
-    }
-  }, 900)
+  }
 }
 </script>
 
