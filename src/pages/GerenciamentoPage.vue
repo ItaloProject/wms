@@ -2447,7 +2447,10 @@ function removerAnexoBaixa(catKey, id) {
 }
 
 const emailsBaixa = [
-  { nome: 'CyberStore', email: 'cyberstorebcb@gmail.com' },
+  { nome: 'WMS GERENCIA',                          email: 'gerencia@wmsconsultoria.com.br' },
+  { nome: 'WMS CONSULTORIA CONTABIL - FISCAL',     email: 'fiscal@wmsconsultoria.com.br' },
+  { nome: 'WMS CONSULTORIA CONTABIL - CONTABIL',   email: 'contabil@wmsconsultoria.com.br' },
+  { nome: 'WMS CONSULTORIA CONTABIL - DP',         email: 'pessoal@wmsconsultoria.com.br' },
 ]
 
 const mostrarModalEnvio  = ref(false)
