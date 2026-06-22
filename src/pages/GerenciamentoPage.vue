@@ -2606,7 +2606,8 @@ async function enviarRelatorioEmail() {
       throw new Error(`Brevo ${res.status}: ${msg}`)
     }
     statusEmail.value = 'ok'
-  } catch {
+  } catch (err) {
+    console.error('[Email] Falha no envio:', err?.message || err)
     statusEmail.value = 'error'
   }
 }
