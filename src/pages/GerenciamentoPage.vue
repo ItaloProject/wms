@@ -2337,7 +2337,6 @@ const etapasPadrao = [
   { key: 'sintegra_up',  titulo: 'Atualizar SINTEGRA',                     tipo: 'ok' },
   { key: 'regime_trib',  titulo: 'Atualizar Regime Tributário Município',  tipo: 'ok' },
   { key: 'contabilista', titulo: 'Verificar Contabilista',                 tipo: 'ok' },
-  { key: 'assinatura_u', titulo: 'Assinatura do Usuário',                  tipo: 'carimbo' },
 ]
 
 const etapas = ref(carregarEtapas(_navSalvo?.regAberto || null, true))
@@ -4464,10 +4463,6 @@ function concluir() {
 
 async function selecionarPrazo(nivel) {
   dialogPrazo.value = false
-  const agora = new Date()
-  const stamp = `WMS Sistema ✓ — ${agora.toLocaleDateString('pt-BR')} às ${agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
-  const etapaCarimbo = etapas.value.find(e => e.key === 'assinatura_u')
-  if (etapaCarimbo) { etapaCarimbo.valor = stamp; salvarEtapas() }
   await salvarRegistro(nivel)
   $q.notify({
     icon: 'check_circle',
