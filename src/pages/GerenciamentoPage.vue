@@ -764,17 +764,17 @@
                     <q-icon name="business" size="13px" class="et-info-fixa-icon" />
                     <span class="et-info-fixa-label">Empresa</span>
                     <span class="et-info-fixa-valor">{{ etapaValor('empresa') }}</span>
-                    <button class="et-info-fixa-copy" @click="copiarInfo('empresa')" :title="'Copiar'">
-                      <q-icon :name="copiado === 'empresa' ? 'check' : 'content_copy'" size="12px" />
-                    </button>
+                    <span class="et-info-fixa-copy" @click="copiarInfo('empresa')" title="Copiar">
+                      <q-icon :name="copiado === 'empresa' ? 'check' : 'content_copy'" size="14px" :style="{ color: copiado === 'empresa' ? '#5ab82e' : 'rgba(255,255,255,0.6)' }" />
+                    </span>
                   </div>
                   <div v-if="etapaValor('protocolo')" class="et-info-fixa-item">
                     <q-icon name="tag" size="13px" class="et-info-fixa-icon" />
                     <span class="et-info-fixa-label">Protocolo</span>
                     <span class="et-info-fixa-valor">{{ etapaValor('protocolo') }}</span>
-                    <button class="et-info-fixa-copy" @click="copiarInfo('protocolo')" :title="'Copiar'">
-                      <q-icon :name="copiado === 'protocolo' ? 'check' : 'content_copy'" size="12px" />
-                    </button>
+                    <span class="et-info-fixa-copy" @click="copiarInfo('protocolo')" title="Copiar">
+                      <q-icon :name="copiado === 'protocolo' ? 'check' : 'content_copy'" size="14px" :style="{ color: copiado === 'protocolo' ? '#5ab82e' : 'rgba(255,255,255,0.6)' }" />
+                    </span>
                   </div>
                 </div>
               </Teleport>
@@ -6115,15 +6115,12 @@ const alerts = [
   background: rgba(255,255,255,0.07);
   border: 1px solid rgba(255,255,255,0.12);
   border-radius: 6px;
-  width: 24px; height: 24px;
-  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px;
+  display: inline-flex; align-items: center; justify-content: center;
   cursor: pointer;
-  color: rgba(255,255,255,0.5);
-  transition: background 0.15s, color 0.15s;
-  padding: 0;
+  transition: background 0.15s;
 }
-.et-info-fixa-copy:hover { background: rgba(90,184,46,0.2); color: #5ab82e; }
-.et-info-fixa-copy .q-icon { transition: color 0.15s; }
+.et-info-fixa-copy:hover { background: rgba(90,184,46,0.2); }
 .et-guia-title { color: white; font-size: 1.05rem; font-weight: 800; }
 .et-guia-sub   { color: rgba(255,255,255,0.4); font-size: 0.78rem; margin-top: 2px; }
 .et-guia-progress { display: flex; align-items: center; gap: 10px; min-width: 200px; }
