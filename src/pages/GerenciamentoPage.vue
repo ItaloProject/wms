@@ -920,7 +920,7 @@
                       <div v-for="cat in categoriasDocs" :key="cat.key" class="et-anx-cat">
                         <div class="et-anx-cat-head">
                           <span class="et-anx-cat-label">{{ cat.label }}</span>
-                          <button class="et-anx-add-btn" @click="abrirAnexo(cat.key)" :title="'Anexar ' + cat.label" :disabled="uploadAndo">
+                          <button v-if="cat.key !== 'outros'" class="et-anx-add-btn" @click="abrirAnexo(cat.key)" :title="'Anexar ' + cat.label" :disabled="uploadAndo">
                             <q-spinner v-if="uploadAndo && catAnexoAtiva === cat.key" size="13px" />
                             <q-icon v-else name="add" size="13px" />
                           </button>
@@ -936,6 +936,25 @@
                           </div>
                         </div>
                         <div v-else class="et-anx-empty">Nenhum arquivo</div>
+
+                        <!-- OUTROS: linha para adicionar documentos com nome personalizado -->
+                        <div v-if="cat.key === 'outros'" class="et-arquiv-outros-row">
+                          <input
+                            v-model="outroNomeConstTemp"
+                            class="et-arquiv-outros-input"
+                            placeholder="Nome do documento (ex: Certidão de Débitos)..."
+                            @keyup.enter="outroNomeConstTemp.trim() && abrirAnexo('outros')"
+                          />
+                          <button
+                            class="et-arquiv-upload-btn"
+                            :class="{ 'et-arquiv-upload-btn--disabled': !outroNomeConstTemp.trim() || uploadAndo }"
+                            :disabled="!outroNomeConstTemp.trim() || uploadAndo"
+                            @click="abrirAnexo('outros')"
+                          >
+                            <q-spinner v-if="uploadAndo && catAnexoAtiva === 'outros'" size="13px" />
+                            <q-icon v-else name="upload" size="13px" /> Anexar
+                          </button>
+                        </div>
                       </div>
                     </div>
                     <input
@@ -2253,6 +2272,7 @@ const catAnexoAtiva      = ref('')
 const anexosExpandido    = ref(false)
 const uploadAndo         = ref(false)
 const docsAnexados       = ref({})
+const outroNomeConstTemp = ref('')   // nome personalizado para documentos da categoria OUTROS
 
 const totalAnexos = computed(() =>
   Object.values(docsAnexados.value).reduce((acc, arr) => acc + (arr?.length || 0), 0)
@@ -3230,9 +3250,17 @@ async function onAnexoSelecionado(e) {
   }
 
   uploadAndo.value = true
-  const cat      = catAnexoAtiva.value
-  const catLabel = categoriasDocs.find(c => c.key === cat)?.label || cat
+  const cat        = catAnexoAtiva.value
+  const catLabel   = categoriasDocs.find(c => c.key === cat)?.label || cat
+  const isOutros   = cat === 'outros'
+  const customBase = isOutros ? outroNomeConstTemp.value.trim() : ''
   for (const file of files) {
+    // OUTROS: usa o nome digitado pelo usuário, preservando a extensão do arquivo
+    let nomeFinal = file.name
+    if (isOutros && customBase) {
+      const ext = file.name.includes('.') ? '.' + file.name.split('.').pop() : ''
+      nomeFinal = customBase.toLowerCase().endsWith(ext.toLowerCase()) ? customBase : customBase + ext
+    }
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
     const key = `processos/${regAberto.value}/${cat}/${Date.now()}_${safeName}`
     try {
@@ -3242,18 +3270,19 @@ async function onAnexoSelecionado(e) {
         empresa:         etapaValor('empresa') || '',
         categoria:       cat,
         categoria_label: catLabel,
-        nome:            file.name,
+        nome:            nomeFinal,
         tamanho:         file.size,
         tipo:            file.type || 'application/octet-stream',
         r2_key:          key,
       }).select().single()
       if (error) throw error
       if (!docsAnexados.value[cat]) docsAnexados.value[cat] = []
-      docsAnexados.value[cat].push({ id: data.id, nome: file.name, tamanho: file.size, tipo: file.type, r2_key: key })
+      docsAnexados.value[cat].push({ id: data.id, nome: nomeFinal, tamanho: file.size, tipo: file.type, r2_key: key })
     } catch (err) {
       $q.notify({ icon: 'error', color: 'negative', message: `Erro ao enviar ${file.name}: ${err.message}`, position: 'top', timeout: 5000 })
     }
   }
+  if (isOutros) outroNomeConstTemp.value = ''
   uploadAndo.value = false
   e.target.value = ''
 }
