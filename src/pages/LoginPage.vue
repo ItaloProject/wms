@@ -436,9 +436,10 @@ async function onSubmit() {
 .custom-input:-webkit-autofill,
 .custom-input:-webkit-autofill:hover,
 .custom-input:-webkit-autofill:focus {
-  -webkit-box-shadow: 0 0 0 100px #0d1f3c inset;
+  -webkit-box-shadow: 0 0 0 100px #0b1a2e inset;
   -webkit-text-fill-color: #ffffff;
   caret-color: white;
+  transition: background-color 0s 600000s, color 0s 600000s;
 }
 .eye-btn {
   background: none;
