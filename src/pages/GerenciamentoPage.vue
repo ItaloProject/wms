@@ -1858,37 +1858,7 @@
               </div>
             </div>
 
-            <!-- Espaço para futuras seções -->
-            <div class="pref-section">
-              <div class="pref-section-label">Sistema</div>
-              <div class="pref-card pref-card--muted">
-                <div class="pref-row">
-                  <div class="pref-row-left">
-                    <div class="pref-row-icon-wrap" style="background:rgba(245,158,11,0.15)">
-                      <q-icon name="notifications" size="18px" style="color:#fcd34d" />
-                    </div>
-                    <div>
-                      <div class="pref-row-label">Notificações de prazo</div>
-                      <div class="pref-row-desc">Alertas automáticos por e-mail e WhatsApp</div>
-                    </div>
-                  </div>
-                  <span class="pref-tag-soon">Em breve</span>
-                </div>
-                <div class="pref-divider" />
-                <div class="pref-row">
-                  <div class="pref-row-left">
-                    <div class="pref-row-icon-wrap" style="background:rgba(59,130,246,0.15)">
-                      <q-icon name="language" size="18px" style="color:#93c5fd" />
-                    </div>
-                    <div>
-                      <div class="pref-row-label">Idioma</div>
-                      <div class="pref-row-desc">Português (Brasil)</div>
-                    </div>
-                  </div>
-                  <span class="pref-tag-soon">Em breve</span>
-                </div>
-              </div>
-            </div>
+
 
           </div>
         </div>
