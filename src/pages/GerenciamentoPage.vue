@@ -1744,8 +1744,13 @@
                     <span class="rl-row-data">{{ p.dataStr }}</span>
                   </div>
                 </div>
-                <div class="rl-row-badge" :style="{ background: grupo.corBg, color: grupo.cor }">
-                  {{ grupo.abbr }}
+                <div class="rl-row-right">
+                  <div class="rl-row-badge" :style="{ background: grupo.corBg, color: grupo.cor }">
+                    {{ grupo.abbr }}
+                  </div>
+                  <button class="rl-del-btn" @click.stop="excluirProcessoConsultar(p)" title="Excluir processo">
+                    <q-icon name="delete_outline" size="15px" />
+                  </button>
                 </div>
               </div>
             </div>
@@ -7806,10 +7811,19 @@ const alerts = [
 .rl-row-proto { font-size: 0.72rem; color: rgba(255,255,255,0.5); display: flex; align-items: center; gap: 3px; }
 .rl-row-sem-proto { font-size: 0.7rem; color: rgba(255,255,255,0.2); font-style: italic; }
 .rl-row-data { font-size: 0.7rem; color: rgba(255,255,255,0.3); }
+.rl-row-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto; }
 .rl-row-badge {
   font-size: 0.65rem; font-weight: 900; letter-spacing: 0.1em;
   padding: 3px 9px; border-radius: 20px; flex-shrink: 0;
 }
+.rl-del-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 7px; flex-shrink: 0;
+  background: transparent; border: none;
+  color: rgba(255,255,255,0.2); cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.rl-del-btn:hover { color: #f87171; background: rgba(248,113,113,0.1); }
 
 /* Light mode: Preferências */
 .wms-app--light .pref-section-label { color: rgba(15,23,42,0.4) !important; }
