@@ -4234,11 +4234,16 @@ function temEmailAgendado(p) {
 }
 
 function abrirDialogEmail(p) {
-  emailDialogEmpresa.value    = p.empresa || ''
-  emailDialogProcessoId.value = p.processoId || p.id || null
+  const pid = p.processoId || p.id || null
+  const reg = pid ? registros.value.find(r => r.id === pid) : null
+  const tipoProcesso = reg?.etapas?.find(e => e.key === 'processo')?.valor || ''
+  const cnpj         = reg?.empresa?.find(e => e.label === 'CNPJ')?.valor || ''
+  const nomeEmpresa  = p.empresa || ''
+  emailDialogEmpresa.value    = nomeEmpresa
+  emailDialogProcessoId.value = pid
   emailModo.value    = 'agora'
   emailPara.value    = ''
-  emailAssunto.value = `Processo – ${p.empresa || ''} | Protocolo: ${p.protocolo || ''}`
+  emailAssunto.value = [tipoProcesso, nomeEmpresa, cnpj].filter(Boolean).join(' - ')
   emailMensagem.value = ''
   emailData.value    = emailHoje.value
   emailHora.value    = ''
