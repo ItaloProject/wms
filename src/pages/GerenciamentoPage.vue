@@ -3355,14 +3355,22 @@ function excluirProcessoConsultar(p) {
     persistent: true,
     dark: true,
   }).onOk(async () => {
-    const pid = p.processoId || p.id
-    // Remove todas as entradas do histórico vinculadas a este processo
-    historico.value = historico.value.filter(h => h.processoId !== pid)
-    await supabase.from('historico').delete().eq('processo_id', pid)
-    // Remove o registro de processos
-    registros.value = registros.value.filter(r => r.id !== pid)
+    const pid = p.processoId ?? p.id
+    // Converte para string para evitar mismatch number vs string (bigint do Supabase)
+    const pidStr = String(pid)
+
+    if (p.processoId != null) {
+      historico.value = historico.value.filter(h => String(h.processoId) !== pidStr)
+      await supabase.from('historico').delete().eq('processo_id', pid)
+    } else {
+      // sem processoId: remove apenas esta entrada do histórico pelo id direto
+      historico.value = historico.value.filter(h => String(h.id) !== pidStr)
+      await supabase.from('historico').delete().eq('id', pid)
+    }
+
+    registros.value = registros.value.filter(r => String(r.id) !== pidStr)
     await supabase.from('processos').delete().eq('id', pid)
-    if (regAberto.value === pid) regAberto.value = null
+    if (String(regAberto.value) === pidStr) regAberto.value = null
     $q.notify({ icon: 'delete', color: 'negative', message: 'Processo excluído.', position: 'top', timeout: 2500 })
   })
 }
