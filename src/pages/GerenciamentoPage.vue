@@ -3009,26 +3009,26 @@ const rlGrupos = computed(() => {
   // CONC — concluídos (pct 100)
   const conc = historico.value
     .filter(h => h.pct === 100 && matchDMY(h.data))
-    .map(h => ({ id: h.id, empresa: h.empresa, protocolo: h.protocolo || '—', dataStr: h.data }))
+    .map(h => ({ id: h.id, processoId: h.processoId, empresa: h.empresa, protocolo: h.protocolo || '—', dataStr: h.data }))
 
   // AND — em andamento (pct entre 1 e 99)
   const and = historico.value
     .filter(h => (h.pct ?? 0) > 0 && (h.pct ?? 0) < 100 && matchDMY(h.data))
-    .map(h => ({ id: h.id, empresa: h.empresa, protocolo: h.protocolo || '—', dataStr: h.data }))
+    .map(h => ({ id: h.id, processoId: h.processoId, empresa: h.empresa, protocolo: h.protocolo || '—', dataStr: h.data }))
 
   // PEN — pendentes: processos urgentes/priorizar ou vencidos no mês
   const pen = registros.value
     .filter(r => matchISO(r.dataISO) && (r.prazo === 'urgente' || r.prazo === 'priorizar' || diasRestantes(r) < 0))
-    .map(r => ({ id: r.id, razaoSocial: r.razaoSocial, protocolo: '—', dataStr: r.dataFormatada }))
+    .map(r => ({ id: r.id, processoId: r.id, empresa: r.razaoSocial, protocolo: '—', dataStr: r.dataFormatada }))
 
   // Não iniciados — sem protocolo (pct 0 ou protocolo ausente)
   const naoIniciados = [
     ...historico.value
       .filter(h => (!h.pct || h.pct === 0) && matchDMY(h.data))
-      .map(h => ({ id: h.id, empresa: h.empresa, protocolo: '—', dataStr: h.data })),
+      .map(h => ({ id: h.id, processoId: h.processoId, empresa: h.empresa, protocolo: '—', dataStr: h.data })),
     ...registros.value
       .filter(r => matchISO(r.dataISO) && r.prazo === 'normal' && diasRestantes(r) >= 0)
-      .map(r => ({ id: r.id, razaoSocial: r.razaoSocial, protocolo: '—', dataStr: r.dataFormatada }))
+      .map(r => ({ id: r.id, processoId: r.id, empresa: r.razaoSocial, protocolo: '—', dataStr: r.dataFormatada }))
   ]
 
   // SUSPENSOS — placeholder (sem campo de status suspenso ainda)
