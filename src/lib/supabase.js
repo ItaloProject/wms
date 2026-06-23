@@ -19,6 +19,7 @@ export function processoToDb(r) {
     socio:              r.socio   || [],
     taxas:              r.taxas   || [],
     concluido:          r.concluido || false,
+    etapas:             r.etapas  || [],
   }
 }
 
@@ -35,6 +36,7 @@ export function processoFromDb(row) {
     socio:              row.socio   || [],
     taxas:              row.taxas   || [],
     concluido:          row.concluido || false,
+    etapas:             row.etapas  || [],
   }
 }
 

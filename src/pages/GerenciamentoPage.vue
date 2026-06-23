@@ -3382,8 +3382,19 @@ function continuarProcesso(p) {
   reg.taxas?.forEach((s, i)   => { if (taxas.value[i]       && s.valor) taxas.value[i].valor         = s.valor })
   salvarResumo()
 
-  // Carrega etapas específicas do processo (sem fallback para outro processo)
-  etapas.value = carregarEtapas(reg.id, false)
+  // Carrega etapas: localStorage primeiro, fallback para etapas salvas no banco
+  const etapasLocal = carregarEtapas(reg.id, false)
+  const temDadosLocal = etapasLocal.some(e => e.status || e.valor || e.obs)
+  if (temDadosLocal) {
+    etapas.value = etapasLocal
+  } else if (reg.etapas && reg.etapas.length) {
+    etapas.value = etapasPadrao.map(e => {
+      const salva = reg.etapas.find(s => s.key === e.key)
+      return salva ? { ...e, ...salva } : { ...e, status: '', obs: '', valor: '', concluidaEm: '', statusItens: {}, subStatus: e.subItens ? Object.fromEntries(e.subItens.map(si => [si.key, { status: '', protocolo: '' }])) : {} }
+    })
+  } else {
+    etapas.value = etapasLocal
+  }
 }
 
 function abrirAnexo(catKey) {
@@ -4617,12 +4628,17 @@ function resetarFormConstituicao() {
     })
     return
   }
-  // Processo 100% concluído: marca como concluído no banco e limpa o formulário
+  // Processo 100% concluído: salva etapas, marca concluído e limpa formulário
   if (regAberto.value) {
     const reg = registros.value.find(r => r.id === regAberto.value)
     if (reg) {
+      const etapasSnapshot = etapas.value.map(e => ({
+        key: e.key, status: e.status, obs: e.obs, valor: e.valor, concluidaEm: e.concluidaEm || '',
+        statusItens: e.statusItens || {}, subStatus: e.subStatus || {},
+      }))
       reg.concluido = true
-      supabase.from('processos').update({ concluido: true }).eq('id', regAberto.value)
+      reg.etapas = etapasSnapshot
+      supabase.from('processos').update({ concluido: true, etapas: etapasSnapshot }).eq('id', regAberto.value)
     }
   }
   _limparFormulario()
@@ -4637,7 +4653,7 @@ function resetarFormConstituicao() {
 }
 
 function _limparFormulario() {
-  if (regAberto.value) localStorage.removeItem(`wms_etapas_${regAberto.value}`)
+  // Mantém wms_etapas_${id} para permitir visualizar o processo depois de concluído
   localStorage.removeItem('wms_constituicao')
   localStorage.removeItem('wms_resumo')
   regAberto.value = null
