@@ -167,8 +167,8 @@
                 Novo
               </button>
               <button class="prazos-nav-btn" @click="activeNav = 'Prazos'">
-                <div v-if="registros.some(r => r.prazo === 'urgente')" class="prazos-nav-dot prazos-nav-dot--urgente" />
-                <div v-else-if="registros.some(r => r.prazo === 'priorizar')" class="prazos-nav-dot prazos-nav-dot--priorizar" />
+                <div v-if="registrosAtivos.some(r => r.prazo === 'urgente')" class="prazos-nav-dot prazos-nav-dot--urgente" />
+                <div v-else-if="registrosAtivos.some(r => r.prazo === 'priorizar')" class="prazos-nav-dot prazos-nav-dot--priorizar" />
                 <q-icon name="schedule" size="16px" />
                 Prazos
               </button>
@@ -408,7 +408,7 @@
                 <div class="db-kpi-val" :style="{ color: dbAproveitamento >= 70 ? '#86efac' : dbAproveitamento >= 50 ? '#fcd34d' : '#fca5a5' }">
                   {{ dbAproveitamento }}%
                 </div>
-                <div class="db-kpi-sub">{{ dbEmDia }} de {{ registros.length }} em dia</div>
+                <div class="db-kpi-sub">{{ dbEmDia }} de {{ registrosAtivos.length }} em dia</div>
               </div>
               <svg width="42" height="42" viewBox="0 0 42 42" class="db-kpi-ring" aria-hidden="true">
                 <circle cx="21" cy="21" r="15" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="4"/>
@@ -573,7 +573,7 @@
                   {{ dbAproveitamento }}%
                 </div>
                 <div class="db-gauge-label">Aproveitamento geral</div>
-                <div class="db-gauge-sub">{{ dbEmDia }} de {{ registros.length }} processos em dia</div>
+                <div class="db-gauge-sub">{{ dbEmDia }} de {{ registrosAtivos.length }} processos em dia</div>
               </div>
 
               <!-- Distribuição -->
@@ -586,28 +586,28 @@
                   <div class="db-dist-row">
                     <span class="db-dist-label" style="color:#86efac">Em dia</span>
                     <div class="db-dist-bar-wrap">
-                      <div class="db-dist-bar" :style="{ width: registros.length ? (dbEmDia / registros.length * 100) + '%' : '0%', background:'#5ab82e' }" />
+                      <div class="db-dist-bar" :style="{ width: registrosAtivos.length ? (dbEmDia / registrosAtivos.length * 100) + '%' : '0%', background:'#5ab82e' }" />
                     </div>
                     <span class="db-dist-num" style="color:#86efac">{{ dbEmDia }}</span>
                   </div>
                   <div class="db-dist-row">
                     <span class="db-dist-label" style="color:#fcd34d">Priorizar</span>
                     <div class="db-dist-bar-wrap">
-                      <div class="db-dist-bar" :style="{ width: registros.length ? (statsPriorizar / registros.length * 100) + '%' : '0%', background:'#f59e0b' }" />
+                      <div class="db-dist-bar" :style="{ width: registrosAtivos.length ? (statsPriorizar / registrosAtivos.length * 100) + '%' : '0%', background:'#f59e0b' }" />
                     </div>
                     <span class="db-dist-num" style="color:#fcd34d">{{ statsPriorizar }}</span>
                   </div>
                   <div class="db-dist-row">
                     <span class="db-dist-label" style="color:#fca5a5">Urgente</span>
                     <div class="db-dist-bar-wrap">
-                      <div class="db-dist-bar" :style="{ width: registros.length ? (statsUrgentes / registros.length * 100) + '%' : '0%', background:'#ef4444' }" />
+                      <div class="db-dist-bar" :style="{ width: registrosAtivos.length ? (statsUrgentes / registrosAtivos.length * 100) + '%' : '0%', background:'#ef4444' }" />
                     </div>
                     <span class="db-dist-num" style="color:#fca5a5">{{ statsUrgentes }}</span>
                   </div>
                   <div class="db-dist-row">
                     <span class="db-dist-label" style="color:#f87171">Vencidos</span>
                     <div class="db-dist-bar-wrap">
-                      <div class="db-dist-bar" :style="{ width: registros.length ? (statsVencidos / registros.length * 100) + '%' : '0%', background:'#991b1b' }" />
+                      <div class="db-dist-bar" :style="{ width: registrosAtivos.length ? (statsVencidos / registrosAtivos.length * 100) + '%' : '0%', background:'#991b1b' }" />
                     </div>
                     <span class="db-dist-num" style="color:#f87171">{{ statsVencidos }}</span>
                   </div>
@@ -3495,12 +3495,12 @@ const statsPriorizar  = computed(() => registrosAtivos.value.filter(r => r.prazo
 const registrosRecentes = computed(() => registros.value.slice(0, 5).map(r => ({ ...r, _dias: diasRestantes(r) })))
 
 // ── Dashboard ──
-const dbEmDia = computed(() => registros.value.filter(r => diasRestantes(r) >= 0).length)
+const dbEmDia = computed(() => registrosAtivos.value.filter(r => diasRestantes(r) >= 0).length)
 const dbAproveitamento = computed(() =>
-  registros.value.length ? Math.round(dbEmDia.value / registros.value.length * 100) : 100
+  registrosAtivos.value.length ? Math.round(dbEmDia.value / registrosAtivos.value.length * 100) : 100
 )
 const dbVencendo7 = computed(() =>
-  registros.value.filter(r => { const d = diasRestantes(r); return d >= 0 && d <= 7 }).length
+  registrosAtivos.value.filter(r => { const d = diasRestantes(r); return d >= 0 && d <= 7 }).length
 )
 // SVG ring: circumference 2π×15 ≈ 94.25
 const dbRingDash = computed(() => {
@@ -3513,7 +3513,7 @@ const dbGaugeDash = computed(() => {
   return `${filled} 182.2`
 })
 const dbProcessosCriticos = computed(() => {
-  const lista = registros.value
+  const lista = registrosAtivos.value
     .map(r => ({ ...r, _dias: diasRestantes(r) }))
     .filter(r => r._dias < 0 || r.prazo === 'urgente' || r.prazo === 'priorizar')
   lista.sort((a, b) => {
@@ -3537,7 +3537,7 @@ const dbTimeline = computed(() => {
     { label: 'Em 10d', min: 8,  max: 10, cor: '#5ab82e', count: 0 },
     { label: 'Em 14d', min: 11, max: 14, cor: '#5ab82e', count: 0 },
   ]
-  registros.value.forEach(r => {
+  registrosAtivos.value.forEach(r => {
     const d = diasRestantes(r)
     for (const b of buckets) {
       if (d >= b.min && d <= b.max) { b.count++; break }
@@ -3916,7 +3916,7 @@ async function alertarPrazosWhatsApp(slot = HORARIOS_ALERTA[0]) {
   const chave = `wms_alertas_${hoje}_${slotId}`
   const jaAlertados = new Set(JSON.parse(localStorage.getItem(chave) || '[]'))
 
-  const novos = registros.value.filter(r => {
+  const novos = registrosAtivos.value.filter(r => {
     if (jaAlertados.has(String(r.id))) return false
     const d = diasRestantes(r)
     return d < 0 || d <= 3 || (r.prazo || 'normal') === 'urgente'
@@ -3939,7 +3939,7 @@ async function testarAlertasAgora() {
     return
   }
 
-  const processos = registros.value.filter(r => {
+  const processos = registrosAtivos.value.filter(r => {
     const d = diasRestantes(r)
     return d < 0 || d <= 3 || (r.prazo || 'normal') === 'urgente'
   })
