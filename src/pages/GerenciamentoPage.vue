@@ -2245,30 +2245,6 @@
               <q-icon name="check_circle" size="20px" class="env-si-check" />
             </div>
 
-            <!-- E-mail -->
-            <div class="env-status-item" :class="{
-              'env-status-item--ok':      statusEmail === 'ok',
-              'env-status-item--error':   statusEmail === 'error',
-              'env-status-item--sending': statusEmail === 'sending',
-              'env-status-item--skip':    statusEmail === 'skip',
-            }">
-              <div class="env-status-icon" :class="{
-                'env-si--ok':      statusEmail === 'ok',
-                'env-si--error':   statusEmail === 'error',
-                'env-si--sending': statusEmail === 'sending',
-                'env-si--idle':    statusEmail === 'idle' || statusEmail === 'skip',
-              }">
-                <q-icon name="mail" size="16px" />
-              </div>
-              <span class="env-status-label">
-                E-mail
-                <span v-if="statusEmail === 'skip'" class="env-status-hint">— não configurado</span>
-              </span>
-              <q-icon v-if="statusEmail === 'ok'"      name="check_circle" size="20px" class="env-si-check" />
-              <q-icon v-else-if="statusEmail === 'error'"   name="cancel"       size="20px" class="env-si-x" />
-              <q-spinner v-else-if="statusEmail === 'sending'" size="20px" color="blue-4" />
-            </div>
-
             <!-- WhatsApp -->
             <div class="env-status-item" :class="{
               'env-status-item--ok':      statusWhats === 'ok',
