@@ -4034,6 +4034,12 @@ async function alertarPrazosWhatsApp(slot = HORARIOS_ALERTA[0]) {
 
   const hoje  = new Date().toDateString()
   const slotId = `${String(slot.h).padStart(2,'0')}h${String(slot.m).padStart(2,'0')}`
+
+  // Lock por slot/dia — impede envio duplicado de múltiplas abas ou retries
+  const lockKey = `wms_alerta_lock_${hoje}_${slotId}`
+  if (localStorage.getItem(lockKey)) return
+  localStorage.setItem(lockKey, '1')
+
   const chave = `wms_alertas_${hoje}_${slotId}`
   const jaAlertados = new Set(JSON.parse(localStorage.getItem(chave) || '[]'))
 
