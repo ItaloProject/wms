@@ -1443,6 +1443,12 @@
                       <div class="cons-empresa">
                         {{ p.empresa }}
                         <span v-if="p.protocolo && p.protocolo !== '—'" class="cons-empresa-proto"># {{ p.protocolo }}</span>
+                        <button
+                          v-if="p.empresa || (p.protocolo && p.protocolo !== '—')"
+                          class="cons-copiar-btn"
+                          @click.stop="copiarInfoProcesso(p)"
+                          title="Copiar nome e protocolo"
+                        ><q-icon name="content_copy" size="12px" /></button>
                       </div>
                       <div class="cons-meta">
                         <span class="cons-meta-item" v-if="p.protocolo !== '—'">
@@ -4231,6 +4237,12 @@ const emailsAgendadosDoProcesso = computed(() =>
     }))
 )
 
+function copiarInfoProcesso(p) {
+  const partes = [p.empresa, p.protocolo && p.protocolo !== '—' ? `#${p.protocolo}` : ''].filter(Boolean)
+  navigator.clipboard.writeText(partes.join(' - '))
+  $q.notify({ icon: 'content_copy', color: 'positive', message: 'Copiado!', position: 'top', timeout: 1500 })
+}
+
 function temEmailAgendado(p) {
   const pid = p.processoId || p.id || null
   return emailsAgendados.value.some(ag => ag.processoId === pid)
@@ -6847,6 +6859,14 @@ const alerts = [
   color: rgba(255,255,255,0.35);
   letter-spacing: 0.02em; flex-shrink: 0;
 }
+.cons-copiar-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 5px; flex-shrink: 0;
+  background: transparent; border: none;
+  color: rgba(255,255,255,0.25); cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.cons-copiar-btn:hover { color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.08); }
 .cons-meta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .cons-meta-item {
   display: flex; align-items: center; gap: 4px;
