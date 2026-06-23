@@ -4,7 +4,7 @@
         <div class="blob blob-2" />
         <div class="blob blob-3" />
 
-        <header class="home-header row items-center q-px-xl q-py-md">
+        <header class="home-header">
           <div class="brand row items-center no-wrap">
             <div class="brand-badge flex flex-center">
               <img v-if="logoExists" src="/logo.png" alt="WMS" class="brand-logo" />
@@ -24,7 +24,7 @@
 
             <div class="info-segment">
               <div class="info-label">Data</div>
-              <div class="info-value row items-center no-wrap">
+              <div class="info-value">
                 <q-icon name="calendar_today" size="13px" class="q-mr-xs info-icon" />
                 <span style="text-transform: capitalize">{{ today }}</span>
               </div>
@@ -34,7 +34,7 @@
 
             <div class="info-segment">
               <div class="info-label">Horário</div>
-              <div class="info-value row items-center no-wrap">
+              <div class="info-value">
                 <q-icon name="schedule" size="13px" class="q-mr-xs info-icon" />
                 <span class="info-mono">{{ time }}</span>
               </div>
@@ -44,7 +44,7 @@
 
             <div class="info-segment info-segment--weather">
               <div class="info-label">São Luís · MA</div>
-              <div class="info-value row items-center no-wrap">
+              <div class="info-value">
                 <q-icon :name="weatherIcon" size="15px" class="q-mr-xs info-icon--weather" />
                 <span class="info-temp" v-if="temp !== null">{{ temp }}°C</span>
                 <span class="info-temp" v-else>—</span>
@@ -54,7 +54,7 @@
           </div>
         </header>
 
-        <div class="home-content column flex-center q-px-md">
+        <div class="home-content">
           <div class="text-center q-mb-xl">
             <h1 class="home-title">Bem-vindo ao <span class="highlight">WMS</span></h1>
             <p class="home-caption">Selecione o setor para acessar o sistema</p>
@@ -143,11 +143,11 @@ function updateTime() {
 async function fetchWeather() {
   try {
     const res = await fetch(
-      'https://api.open-meteo.com/v1/forecast?latitude=-2.5297&longitude=-44.3028&current=temperature_2m,weathercode&timezone=America%2FFortaleza'
+      'https://api.open-meteo.com/v1/forecast?latitude=-2.5297&longitude=-44.3028&current_weather=true&temperature_unit=celsius&timezone=America%2FFortaleza'
     )
     const data = await res.json()
-    temp.value = Math.round(data.current.temperature_2m)
-    const code = data.current.weathercode
+    temp.value = Math.round(data.current_weather.temperature)
+    const code = data.current_weather.weathercode
     // WMO weather code → ícone Material
     if (code === 0) weatherIcon.value = 'wb_sunny'
     else if (code <= 3) weatherIcon.value = 'partly_cloudy_day'
@@ -243,6 +243,10 @@ function handleCard(sector) {
 .home-header {
   position: relative;
   z-index: 2;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 12px 24px;
 }
 .brand {
   cursor: default;
@@ -352,6 +356,10 @@ function handleCard(sector) {
 }
 
 .info-value {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
   font-size: 0.82rem;
   font-weight: 600;
   color: white;
@@ -361,10 +369,14 @@ function handleCard(sector) {
 
 .info-icon {
   color: rgba(255, 255, 255, 0.5);
+  margin-right: 4px;
+  flex-shrink: 0;
 }
 
 .info-icon--weather {
   color: #a3e635;
+  margin-right: 4px;
+  flex-shrink: 0;
 }
 
 .info-mono {
@@ -390,7 +402,11 @@ function handleCard(sector) {
   flex: 1;
   position: relative;
   z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
+  padding: 0 16px;
 }
 .home-title {
   color: white;
