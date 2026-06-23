@@ -684,7 +684,7 @@
             <div class="ctrl-grid">
 
               <!-- Sessão 1: Constituição -->
-              <button class="ctrl-card" @click="ctrlSessao1 = 'Constituição'">
+              <button class="ctrl-card" @click="abrirNovaConstituicao()">
                 <div class="ctrl-card-icon" style="background:rgba(90,184,46,0.12)">
                   <q-icon name="domain_add" size="30px" style="color:#5ab82e" />
                 </div>
@@ -696,7 +696,7 @@
               </button>
 
               <!-- Sessão 2: Baixa -->
-              <button class="ctrl-card ctrl-card--baixa" @click="ctrlSessao2 = 'Baixa'">
+              <button class="ctrl-card ctrl-card--baixa" @click="abrirNovaBaixa()">
                 <div class="ctrl-card-icon" style="background:rgba(239,68,68,0.12)">
                   <q-icon name="domain_disabled" size="30px" style="color:#ef4444" />
                 </div>
@@ -4684,6 +4684,17 @@ function novoProcesso() {
   dialogNovoProcesso.value = false
   _limparFormulario()
   $q.notify({ icon: 'add_circle', color: 'positive', message: 'Formulário limpo. Preencha os dados do novo processo.', position: 'top', timeout: 3000 })
+}
+
+function abrirNovaConstituicao() {
+  _limparFormulario()
+  ctrlSessao1.value = 'Constituição'
+}
+
+function abrirNovaBaixa() {
+  localStorage.removeItem('wms_baixa')
+  etapasBaixa.value = carregarEtapasBaixa()
+  ctrlSessao2.value = 'Baixa'
 }
 
 onMounted(async () => {
