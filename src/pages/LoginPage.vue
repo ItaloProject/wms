@@ -427,6 +427,7 @@ async function onSubmit() {
   color: #ffffff;
   font-family: inherit;
   min-width: 0;
+  color-scheme: dark;
 }
 .custom-input::placeholder {
   color: rgba(255, 255, 255, 0.3);
@@ -436,11 +437,8 @@ async function onSubmit() {
 .custom-input:-webkit-autofill:hover,
 .custom-input:-webkit-autofill:focus,
 .custom-input:-webkit-autofill:active {
-  -webkit-box-shadow: 0 0 0 1000px #0b1a2e inset !important;
-  box-shadow: 0 0 0 1000px #0b1a2e inset !important;
   -webkit-text-fill-color: #ffffff !important;
   caret-color: white;
-  transition: background-color 600000s ease-in-out 0s;
 }
 .eye-btn {
   background: none;
