@@ -3306,6 +3306,7 @@ const processosConsultar = computed(() => {
         status:      pct === 100 ? 'concluido' : pct > 0 ? 'andamento' : 'nao_iniciado',
       }
     })
+    .filter(p => p.pct < 100) // 100% já aparece em concluidos via historico
 
   // Processos concluídos — do histórico (pct = 100)
   const concluidos = historico.value
@@ -4395,7 +4396,7 @@ async function salvarHistorico(empresa, protocolo, localizacao) {
     pct:          progressoEtapas.value,
     data:         new Date().toLocaleDateString('pt-BR'),
     hora:         new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-    concluidoPor: configAPI.value.responsavel || '',
+    concluidoPor: nomeUsuarioLogado.value,
   }
   historico.value.unshift(h)
   localStorage.setItem('wms_historico', JSON.stringify(historico.value))
@@ -4414,6 +4415,13 @@ async function salvarHistorico(empresa, protocolo, localizacao) {
   if (regAberto.value) {
     const proxPasso = etapas.value.find(e => e.status !== 'concluida' && e.titulo)?.titulo || ''
     await supabase.from('processos').update({ proximo_passo: proxPasso }).eq('id', regAberto.value)
+
+    // Se atingiu 100%, marca o processo como concluído no banco
+    if (h.pct === 100) {
+      const original = registros.value.find(r => r.id === regAberto.value)
+      if (original) original.concluido = true
+      await supabase.from('processos').update({ concluido: true }).eq('id', regAberto.value)
+    }
   }
 }
 function removerHistorico(id) {
