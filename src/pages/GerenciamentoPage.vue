@@ -1484,6 +1484,10 @@
                       <q-icon name="folder_open" size="14px" />
                       Documentos
                     </button>
+                    <button class="cons-email-btn" @click.stop="abrirDialogEmail(p)" title="Enviar e-mail">
+                      <q-icon name="email" size="14px" />
+                      E-mail
+                    </button>
                     <div v-if="p.status !== 'concluido'" class="cons-continuar-btn">
                       <q-icon name="play_arrow" size="14px" /> Continuar
                     </div>
@@ -2073,6 +2077,78 @@
           <button class="prazo-cancel" @click="dialogNovoProcesso = false">Cancelar</button>
           <button class="rp-btn-concluir" style="background:#e53e3e" @click="novoProcesso">
             <q-icon name="restart_alt" size="16px" /> Limpar e iniciar novo
+          </button>
+        </div>
+      </div>
+    </q-dialog>
+
+    <!-- Dialog: E-mail do processo -->
+    <q-dialog v-model="dialogEmail" persistent>
+      <div class="email-dialog">
+        <div class="email-dialog-header">
+          <q-icon name="email" size="17px" style="color:#60a5fa" />
+          <span class="email-dialog-title">Enviar E-mail</span>
+          <span v-if="emailDialogEmpresa" class="email-dialog-sub">— {{ emailDialogEmpresa }}</span>
+          <q-btn flat round dense icon="close" style="margin-left:auto;color:#aaa" @click="dialogEmail = false" />
+        </div>
+
+        <!-- Abas: Enviar agora / Agendar -->
+        <div class="email-tabs">
+          <button class="email-tab" :class="{ 'email-tab--active': emailModo === 'agora' }" @click="emailModo = 'agora'">
+            <q-icon name="send" size="14px" /> Enviar agora
+          </button>
+          <button class="email-tab" :class="{ 'email-tab--active': emailModo === 'agendar' }" @click="emailModo = 'agendar'">
+            <q-icon name="schedule_send" size="14px" /> Agendar
+          </button>
+        </div>
+
+        <div class="email-form">
+          <div class="email-field">
+            <label class="email-label">Para</label>
+            <input v-model="emailPara" class="email-input" type="email" placeholder="destinatario@email.com" />
+          </div>
+          <div class="email-field">
+            <label class="email-label">Assunto</label>
+            <input v-model="emailAssunto" class="email-input" type="text" placeholder="Assunto do e-mail" />
+          </div>
+          <div class="email-field">
+            <label class="email-label">Mensagem</label>
+            <textarea v-model="emailMensagem" class="email-textarea" rows="5" placeholder="Digite a mensagem..." />
+          </div>
+
+          <!-- Agendamento -->
+          <div v-if="emailModo === 'agendar'" class="email-schedule-row">
+            <div class="email-field email-field--half">
+              <label class="email-label">Data</label>
+              <input v-model="emailData" class="email-input" type="date" :min="emailHoje" />
+            </div>
+            <div class="email-field email-field--half">
+              <label class="email-label">Horário</label>
+              <input v-model="emailHora" class="email-input" type="time" />
+            </div>
+          </div>
+
+          <!-- Agendamentos pendentes deste processo -->
+          <div v-if="emailsAgendadosDoProcesso.length" class="email-agendados">
+            <div class="email-agendados-title">Agendados</div>
+            <div v-for="ag in emailsAgendadosDoProcesso" :key="ag.id" class="email-ag-item">
+              <div class="email-ag-info">
+                <span class="email-ag-para">{{ ag.para }}</span>
+                <span class="email-ag-data">{{ ag.dataHoraFormatada }}</span>
+              </div>
+              <button class="email-ag-del" @click="cancelarAgendamento(ag.id)" title="Cancelar">
+                <q-icon name="close" size="13px" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="email-dialog-footer">
+          <button class="email-cancel-btn" @click="dialogEmail = false">Cancelar</button>
+          <button class="email-send-btn" :disabled="emailEnviando" @click="confirmarEmail">
+            <q-spinner v-if="emailEnviando" size="14px" color="white" />
+            <q-icon v-else :name="emailModo === 'agora' ? 'send' : 'schedule_send'" size="14px" />
+            {{ emailModo === 'agora' ? 'Enviar' : 'Agendar' }}
           </button>
         </div>
       </div>
@@ -4108,6 +4184,120 @@ const dialogComplementar  = ref(false)
 const dialogNovoProcesso  = ref(false)
 const dialogDocs           = ref(false)
 const docsDialogEmpresa    = ref('')
+
+// ── E-mail ──
+const dialogEmail        = ref(false)
+const emailDialogEmpresa = ref('')
+const emailDialogProcessoId = ref(null)
+const emailModo          = ref('agora')      // 'agora' | 'agendar'
+const emailPara          = ref('')
+const emailAssunto       = ref('')
+const emailMensagem      = ref('')
+const emailData          = ref('')
+const emailHora          = ref('')
+const emailEnviando      = ref(false)
+const emailsAgendados    = ref(JSON.parse(localStorage.getItem('wms_emails_agendados') || '[]'))
+const emailHoje          = computed(() => new Date().toISOString().slice(0, 10))
+
+const emailsAgendadosDoProcesso = computed(() =>
+  emailsAgendados.value
+    .filter(ag => ag.processoId === emailDialogProcessoId.value)
+    .map(ag => ({
+      ...ag,
+      dataHoraFormatada: new Date(ag.dataHoraISO).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
+    }))
+)
+
+function abrirDialogEmail(p) {
+  emailDialogEmpresa.value    = p.empresa || ''
+  emailDialogProcessoId.value = p.processoId || p.id || null
+  emailModo.value    = 'agora'
+  emailPara.value    = ''
+  emailAssunto.value = `Processo – ${p.empresa || ''} | Protocolo: ${p.protocolo || ''}`
+  emailMensagem.value = ''
+  emailData.value    = emailHoje.value
+  emailHora.value    = ''
+  dialogEmail.value  = true
+}
+
+async function confirmarEmail() {
+  if (!emailPara.value.trim() || !emailAssunto.value.trim()) {
+    $q.notify({ type: 'warning', message: 'Preencha Para e Assunto.', position: 'top' })
+    return
+  }
+
+  if (emailModo.value === 'agora') {
+    emailEnviando.value = true
+    try {
+      const res = await fetch('/api/enviar-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: emailPara.value.trim(), subject: emailAssunto.value.trim(), text: emailMensagem.value.trim() }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Erro ao enviar')
+      $q.notify({ icon: 'mark_email_read', color: 'positive', message: 'E-mail enviado com sucesso!', position: 'top', timeout: 3500 })
+      dialogEmail.value = false
+    } catch (err) {
+      $q.notify({ type: 'negative', message: err.message, position: 'top', timeout: 5000 })
+    } finally {
+      emailEnviando.value = false
+    }
+  } else {
+    if (!emailData.value || !emailHora.value) {
+      $q.notify({ type: 'warning', message: 'Selecione data e horário.', position: 'top' })
+      return
+    }
+    const dataHoraISO = new Date(`${emailData.value}T${emailHora.value}`).toISOString()
+    if (new Date(dataHoraISO) <= new Date()) {
+      $q.notify({ type: 'warning', message: 'A data/hora deve ser no futuro.', position: 'top' })
+      return
+    }
+    const ag = {
+      id: Date.now().toString(),
+      processoId: emailDialogProcessoId.value,
+      para: emailPara.value.trim(),
+      assunto: emailAssunto.value.trim(),
+      mensagem: emailMensagem.value.trim(),
+      dataHoraISO,
+    }
+    emailsAgendados.value.push(ag)
+    localStorage.setItem('wms_emails_agendados', JSON.stringify(emailsAgendados.value))
+    $q.notify({ icon: 'schedule_send', color: 'positive', message: 'E-mail agendado!', position: 'top', timeout: 3500 })
+    dialogEmail.value = false
+  }
+}
+
+function cancelarAgendamento(id) {
+  emailsAgendados.value = emailsAgendados.value.filter(ag => ag.id !== id)
+  localStorage.setItem('wms_emails_agendados', JSON.stringify(emailsAgendados.value))
+  $q.notify({ icon: 'event_busy', color: 'info', message: 'Agendamento cancelado.', position: 'top', timeout: 2000 })
+}
+
+let _emailCheckInterval = null
+function iniciarVerificadorEmails() {
+  if (_emailCheckInterval) return
+  _emailCheckInterval = setInterval(async () => {
+    const agora = new Date()
+    const pendentes = emailsAgendados.value.filter(ag => new Date(ag.dataHoraISO) <= agora)
+    if (!pendentes.length) return
+    for (const ag of pendentes) {
+      try {
+        await fetch('/api/enviar-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to: ag.para, subject: ag.assunto, text: ag.mensagem }),
+        })
+      } catch {}
+    }
+    const enviadosIds = new Set(pendentes.map(ag => ag.id))
+    emailsAgendados.value = emailsAgendados.value.filter(ag => !enviadosIds.has(ag.id))
+    localStorage.setItem('wms_emails_agendados', JSON.stringify(emailsAgendados.value))
+    if (pendentes.length) {
+      $q.notify({ icon: 'mark_email_read', color: 'positive', message: `${pendentes.length} e-mail(s) agendado(s) enviado(s).`, position: 'top', timeout: 4000 })
+    }
+  }, 30000) // verifica a cada 30 segundos
+}
 const docsDialogProcessoId = ref(null)
 const docsDialogDocs       = ref([])
 const docsDialogLoading    = ref(false)
@@ -4531,6 +4721,7 @@ onMounted(async () => {
   }
   notifInterval = setInterval(dispararNotificacoes, 30 * 60 * 1000)
   agendarProximoAlerta()
+  iniciarVerificadorEmails()
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') dispararNotificacoes()
   })
@@ -4539,6 +4730,7 @@ onMounted(async () => {
 onUnmounted(() => {
   clearInterval(notifInterval)
   clearTimeout(alertaInterval)
+  clearInterval(_emailCheckInterval)
 })
 
 function limparFormulario() {
@@ -6410,6 +6602,17 @@ const alerts = [
   background: rgba(99,179,237,0.2); border-color: rgba(99,179,237,0.45);
   color: #63b3ed;
 }
+.cons-email-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 12px; border-radius: 8px;
+  background: rgba(96,165,250,0.1); border: 1px solid rgba(96,165,250,0.2);
+  color: rgba(96,165,250,0.85); font-size: 0.72rem; font-weight: 600;
+  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.cons-email-btn:hover {
+  background: rgba(96,165,250,0.2); border-color: rgba(96,165,250,0.45);
+  color: #60a5fa;
+}
 .cons-excluir-btn {
   display: flex; align-items: center; justify-content: center;
   width: 30px; height: 30px; border-radius: 7px;
@@ -6421,6 +6624,81 @@ const alerts = [
   background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.5);
   color: #ef4444;
 }
+
+/* ── Dialog E-mail ── */
+.email-dialog {
+  width: 480px; max-width: 96vw;
+  background: #0f1e3a; border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 24px 60px rgba(0,0,0,0.55);
+  overflow: hidden;
+}
+.email-dialog-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.email-dialog-title { color: #fff; font-size: 0.95rem; font-weight: 700; }
+.email-dialog-sub   { color: rgba(255,255,255,0.4); font-size: 0.8rem; }
+.email-tabs {
+  display: flex; gap: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.email-tab {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 10px; background: none; border: none; cursor: pointer;
+  color: rgba(255,255,255,0.4); font-size: 0.78rem; font-weight: 600;
+  transition: all 0.15s; font-family: inherit;
+}
+.email-tab:hover { color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.04); }
+.email-tab--active { color: #60a5fa; border-bottom: 2px solid #60a5fa; }
+.email-form { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+.email-field { display: flex; flex-direction: column; gap: 5px; }
+.email-field--half { flex: 1; }
+.email-label { color: rgba(255,255,255,0.55); font-size: 0.75rem; font-weight: 600; }
+.email-input {
+  background: rgba(255,255,255,0.05); border: 1.5px solid rgba(255,255,255,0.1);
+  border-radius: 9px; padding: 9px 12px; color: #fff; font-size: 0.85rem;
+  font-family: inherit; outline: none; transition: border-color 0.15s;
+  color-scheme: dark;
+}
+.email-input:focus { border-color: #3b82f6; }
+.email-textarea {
+  background: rgba(255,255,255,0.05); border: 1.5px solid rgba(255,255,255,0.1);
+  border-radius: 9px; padding: 9px 12px; color: #fff; font-size: 0.85rem;
+  font-family: inherit; outline: none; resize: vertical; min-height: 90px;
+  transition: border-color 0.15s;
+}
+.email-textarea:focus { border-color: #3b82f6; }
+.email-schedule-row { display: flex; gap: 10px; }
+.email-agendados { margin-top: 4px; padding: 10px 12px; background: rgba(255,255,255,0.04); border-radius: 9px; }
+.email-agendados-title { color: rgba(255,255,255,0.4); font-size: 0.7rem; font-weight: 700; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+.email-ag-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.email-ag-info { flex: 1; display: flex; flex-direction: column; gap: 1px; }
+.email-ag-para { color: rgba(255,255,255,0.75); font-size: 0.78rem; }
+.email-ag-data { color: rgba(255,255,255,0.35); font-size: 0.7rem; }
+.email-ag-del { background: none; border: none; cursor: pointer; color: rgba(239,68,68,0.5); display: flex; align-items: center; padding: 2px; }
+.email-ag-del:hover { color: #ef4444; }
+.email-dialog-footer {
+  display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+  padding: 12px 18px 16px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+}
+.email-cancel-btn {
+  background: none; border: none; cursor: pointer; color: rgba(255,255,255,0.4);
+  font-size: 0.82rem; font-family: inherit; padding: 6px 12px; border-radius: 8px;
+  transition: color 0.15s;
+}
+.email-cancel-btn:hover { color: rgba(255,255,255,0.75); }
+.email-send-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: linear-gradient(135deg, #1a3fa0, #2563eb); border: none;
+  color: #fff; font-size: 0.82rem; font-weight: 700; font-family: inherit;
+  padding: 8px 18px; border-radius: 9px; cursor: pointer;
+  transition: box-shadow 0.2s; box-shadow: 0 4px 12px rgba(37,99,235,0.35);
+}
+.email-send-btn:hover:not(:disabled) { box-shadow: 0 6px 18px rgba(37,99,235,0.5); }
+.email-send-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* ── Dialog Documentos ── */
 .docs-dialog {
