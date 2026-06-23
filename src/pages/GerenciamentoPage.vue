@@ -1487,6 +1487,9 @@
                     <div v-if="p.status !== 'concluido'" class="cons-continuar-btn">
                       <q-icon name="play_arrow" size="14px" /> Continuar
                     </div>
+                    <button class="cons-excluir-btn" @click.stop="excluirProcessoConsultar(p)" title="Excluir processo">
+                      <q-icon name="delete_outline" size="15px" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -3252,6 +3255,34 @@ const processosConsultar = computed(() => {
     p.localizacao.toLowerCase().includes(q)
   )
 })
+
+function excluirProcessoConsultar(p) {
+  $q.dialog({
+    title: 'Excluir processo?',
+    message: `"${p.empresa || 'Sem nome'}" será removido permanentemente.`,
+    cancel: { label: 'Cancelar', flat: true, color: 'white' },
+    ok:     { label: 'Excluir',  flat: true, color: 'negative' },
+    persistent: true,
+    dark: true,
+  }).onOk(async () => {
+    if (p.status === 'concluido') {
+      // Concluídos vêm do historico
+      historico.value = historico.value.filter(h => h.id !== p.id)
+      await supabase.from('historico').delete().eq('id', p.id)
+      // Remove também o registro de processos vinculado, se existir
+      if (p.processoId) {
+        registros.value = registros.value.filter(r => r.id !== p.processoId)
+        await supabase.from('processos').delete().eq('id', p.processoId)
+      }
+    } else {
+      // Ativos vêm dos registros (processos)
+      registros.value = registros.value.filter(r => r.id !== p.processoId)
+      await supabase.from('processos').delete().eq('id', p.processoId)
+      if (regAberto.value === p.processoId) regAberto.value = null
+    }
+    $q.notify({ icon: 'delete', color: 'negative', message: 'Processo excluído.', position: 'top', timeout: 2500 })
+  })
+}
 
 function continuarProcesso(p) {
   if (p.status === 'concluido') return
@@ -6374,6 +6405,17 @@ const alerts = [
 .cons-docs-btn:hover {
   background: rgba(99,179,237,0.2); border-color: rgba(99,179,237,0.45);
   color: #63b3ed;
+}
+.cons-excluir-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: 7px;
+  background: transparent; border: 1px solid rgba(239,68,68,0.25);
+  color: rgba(239,68,68,0.5); cursor: pointer; transition: all 0.15s;
+  flex-shrink: 0;
+}
+.cons-excluir-btn:hover {
+  background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.5);
+  color: #ef4444;
 }
 
 /* ── Dialog Documentos ── */
