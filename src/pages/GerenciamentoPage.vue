@@ -2590,6 +2590,9 @@ const emailsBaixa = [
 const mostrarModalEnvio  = ref(false)
 const empresaBaixaEnvio  = ref('')
 const processoBaixaEnvio = ref('')
+const protocoloEnvio     = ref('')
+const senhaSemfazEnvio   = ref('')
+const senhaSefazEnvio    = ref('')
 const _docsAnexadosSnap  = ref([])
 
 const todosAnexosBaixa = computed(() => {
@@ -2699,9 +2702,23 @@ async function enviarRelatorioWhatsApp() {
   }
   statusWhats.value = 'sending'
   try {
-    const ok = await enviarWhatsApp(
-      `*${processoBaixaEnvio.value || 'Processo'}*\nEmpresa: *${empresaBaixaEnvio.value}*\n\n📎 Enviando relatório e documentos...\n\n_WMS Consultoria_`
-    )
+    const linhasSenhas = [
+      senhaSemfazEnvio.value  ? `🔑 *Senha SEMFAZ/Alvará:* ${senhaSemfazEnvio.value}`  : '',
+      senhaSefazEnvio.value   ? `🔑 *Senha SEFAZ NET:* ${senhaSefazEnvio.value}`        : '',
+    ].filter(Boolean).join('\n')
+
+    const msgTexto = [
+      `*${processoBaixaEnvio.value || 'Processo'}*`,
+      `🏢 Empresa: *${empresaBaixaEnvio.value}*`,
+      protocoloEnvio.value ? `📋 Protocolo: *${protocoloEnvio.value}*` : '',
+      linhasSenhas,
+      '',
+      '📎 Enviando relatório e documentos...',
+      '',
+      '_WMS Consultoria_',
+    ].filter(l => l !== null && l !== undefined).join('\n').replace(/\n{3,}/g, '\n\n')
+
+    const ok = await enviarWhatsApp(msgTexto)
     if (!ok) throw new Error('Falha no envio da mensagem de texto')
     for (const anexo of anexosParaEnvio()) {
       await enviarWhatsAppDocumento(anexo.nome, anexo.base64)
@@ -4552,6 +4569,9 @@ async function gerarRelatorio() {
     _docsAnexadosSnap.value  = Object.values(docsAnexados.value).flat()
     empresaBaixaEnvio.value  = razaoSocial
     processoBaixaEnvio.value = etapaValor('processo') || 'Constituição'
+    protocoloEnvio.value     = etapaValor('protocolo')
+    senhaSemfazEnvio.value   = etapaValor('semfaz')
+    senhaSefazEnvio.value    = etapaValor('sefaznet')
     mostrarModalEnvio.value  = true
     resetarFormConstituicao()
   } finally {
@@ -4598,6 +4618,9 @@ async function confirmarComplementar() {
     _docsAnexadosSnap.value  = Object.values(docsAnexados.value).flat()
     empresaBaixaEnvio.value  = razaoSocial
     processoBaixaEnvio.value = etapaValor('processo') || 'Constituição'
+    protocoloEnvio.value     = etapaValor('protocolo')
+    senhaSemfazEnvio.value   = etapaValor('semfaz')
+    senhaSefazEnvio.value    = etapaValor('sefaznet')
     mostrarModalEnvio.value  = true
     resetarFormConstituicao()
   } finally {
