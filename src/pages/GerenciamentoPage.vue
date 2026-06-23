@@ -1434,7 +1434,7 @@
                   v-for="p in processosConsultar"
                   :key="p.id"
                   class="cons-card"
-                  :class="[`cons-card--${p.status}`, p.status !== 'concluido' ? 'cons-card--clicavel' : '']"
+                  :class="[`cons-card--${p.status}`, 'cons-card--clicavel']"
                   @click="continuarProcesso(p)"
                 >
                   <div class="cons-card-left">
@@ -1488,8 +1488,9 @@
                       <q-icon name="email" size="14px" />
                       E-mail
                     </button>
-                    <div v-if="p.status !== 'concluido'" class="cons-continuar-btn">
-                      <q-icon name="play_arrow" size="14px" /> Continuar
+                    <div class="cons-continuar-btn" :class="{ 'cons-continuar-btn--ver': p.status === 'concluido' }">
+                      <q-icon :name="p.status === 'concluido' ? 'visibility' : 'play_arrow'" size="14px" />
+                      {{ p.status === 'concluido' ? 'Visualizar' : 'Continuar' }}
                     </div>
                     <button class="cons-excluir-btn" @click.stop="excluirProcessoConsultar(p)" title="Excluir processo">
                       <q-icon name="delete_outline" size="15px" />
@@ -3355,7 +3356,6 @@ function excluirProcessoConsultar(p) {
 }
 
 function continuarProcesso(p) {
-  if (p.status === 'concluido') return
   ctrlSessao3.value = null
   ctrlSessao1.value = 'Constituição'
   if (!p.processoId || p.processoId === regAberto.value) return
@@ -6591,6 +6591,9 @@ const alerts = [
   padding: 4px 10px; border-radius: 7px;
   background: rgba(90,184,46,0.15); color: #5ab82e;
   font-size: 0.72rem; font-weight: 700;
+}
+.cons-continuar-btn--ver {
+  background: rgba(96,165,250,0.12); color: #60a5fa;
 }
 .cons-docs-btn {
   display: flex; align-items: center; gap: 5px;
