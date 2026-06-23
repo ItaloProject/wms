@@ -409,9 +409,8 @@ async function onSubmit() {
   transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
 }
 .custom-input-wrap:focus-within {
-  border-color: #1a3fa0;
-  background: rgba(26, 63, 160, 0.12);
-  box-shadow: 0 0 0 3px rgba(26, 63, 160, 0.2);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
 }
 .field-icon {
   flex-shrink: 0;
@@ -435,11 +434,13 @@ async function onSubmit() {
 }
 .custom-input:-webkit-autofill,
 .custom-input:-webkit-autofill:hover,
-.custom-input:-webkit-autofill:focus {
-  -webkit-box-shadow: 0 0 0 100px #0b1a2e inset;
-  -webkit-text-fill-color: #ffffff;
+.custom-input:-webkit-autofill:focus,
+.custom-input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #0b1a2e inset !important;
+  box-shadow: 0 0 0 1000px #0b1a2e inset !important;
+  -webkit-text-fill-color: #ffffff !important;
   caret-color: white;
-  transition: background-color 0s 600000s, color 0s 600000s;
+  transition: background-color 600000s ease-in-out 0s;
 }
 .eye-btn {
   background: none;
