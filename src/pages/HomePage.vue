@@ -1,7 +1,5 @@
 <template>
-  <q-layout view="lHh Lpr lFf">
-    <q-page-container>
-      <q-page class="home-page">
+  <div class="home-page">
         <div class="blob blob-1" />
         <div class="blob blob-2" />
         <div class="blob blob-3" />
@@ -109,9 +107,7 @@
         <footer class="home-footer text-center q-py-md">
           © {{ new Date().getFullYear() }} WMS Consultoria
         </footer>
-      </q-page>
-    </q-page-container>
-  </q-layout>
+  </div>
 </template>
 
 <script setup>
