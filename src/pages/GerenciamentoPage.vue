@@ -1484,9 +1484,10 @@
                       <q-icon name="folder_open" size="14px" />
                       Documentos
                     </button>
-                    <button class="cons-email-btn" @click.stop="abrirDialogEmail(p)" title="Enviar e-mail">
+                    <button class="cons-email-btn" :class="{ 'cons-email-btn--agendado': temEmailAgendado(p) }" @click.stop="abrirDialogEmail(p)" title="Enviar e-mail">
                       <q-icon name="email" size="14px" />
                       E-mail
+                      <span v-if="temEmailAgendado(p)" class="cons-email-badge"></span>
                     </button>
                     <div class="cons-continuar-btn" :class="{ 'cons-continuar-btn--ver': p.status === 'concluido' }">
                       <q-icon :name="p.status === 'concluido' ? 'visibility' : 'play_arrow'" size="14px" />
@@ -4221,6 +4222,11 @@ const emailsAgendadosDoProcesso = computed(() =>
     }))
 )
 
+function temEmailAgendado(p) {
+  const pid = p.processoId || p.id || null
+  return emailsAgendados.value.some(ag => ag.processoId === pid)
+}
+
 function abrirDialogEmail(p) {
   emailDialogEmpresa.value    = p.empresa || ''
   emailDialogProcessoId.value = p.processoId || p.id || null
@@ -6649,6 +6655,7 @@ const alerts = [
   color: #63b3ed;
 }
 .cons-email-btn {
+  position: relative;
   display: flex; align-items: center; gap: 5px;
   padding: 5px 12px; border-radius: 8px;
   background: rgba(96,165,250,0.1); border: 1px solid rgba(96,165,250,0.2);
@@ -6658,6 +6665,22 @@ const alerts = [
 .cons-email-btn:hover {
   background: rgba(96,165,250,0.2); border-color: rgba(96,165,250,0.45);
   color: #60a5fa;
+}
+.cons-email-btn--agendado {
+  background: rgba(245,158,11,0.12);
+  border-color: rgba(245,158,11,0.3);
+  color: #f59e0b;
+}
+.cons-email-btn--agendado:hover {
+  background: rgba(245,158,11,0.2);
+  border-color: rgba(245,158,11,0.5);
+  color: #fbbf24;
+}
+.cons-email-badge {
+  position: absolute; top: -4px; right: -4px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #f59e0b;
+  border: 1.5px solid #0d1b3e;
 }
 .cons-excluir-btn {
   display: flex; align-items: center; justify-content: center;
