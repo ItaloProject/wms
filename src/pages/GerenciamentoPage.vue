@@ -3536,12 +3536,27 @@ function selecionarSugestao(etapa, nome) {
   salvarEtapas()
 }
 
+let _syncEtapasTimer = null
 function salvarEtapas() {
-  const data = JSON.stringify(
-    etapas.value.map(e => ({ key: e.key, status: e.status, obs: e.obs, valor: e.valor, concluidaEm: e.concluidaEm || '' }))
-  )
+  const etapasData = etapas.value.map(e => ({
+    key: e.key, status: e.status, obs: e.obs, valor: e.valor, concluidaEm: e.concluidaEm || '',
+    statusItens: e.statusItens || {}, subStatus: e.subStatus || {},
+  }))
+  const data = JSON.stringify(etapasData)
   if (regAberto.value) localStorage.setItem(`wms_etapas_${regAberto.value}`, data)
   localStorage.setItem('wms_constituicao', data)
+
+  // Sincroniza com Supabase após 1,5s de inatividade
+  if (regAberto.value) {
+    clearTimeout(_syncEtapasTimer)
+    _syncEtapasTimer = setTimeout(() => {
+      const reg = registros.value.find(r => r.id === regAberto.value)
+      if (reg) {
+        reg.etapas = etapasData
+        supabase.from('processos').update({ etapas: etapasData }).eq('id', regAberto.value)
+      }
+    }, 1500)
+  }
 }
 
 function setStatusEtapa(etapa, status) {
@@ -4748,6 +4763,7 @@ onUnmounted(() => {
   clearInterval(notifInterval)
   clearTimeout(alertaInterval)
   clearInterval(_emailCheckInterval)
+  clearTimeout(_syncEtapasTimer)
 })
 
 function limparFormulario() {
