@@ -2116,7 +2116,11 @@
         <div class="email-form">
           <div class="email-field">
             <label class="email-label">Para</label>
-            <input v-model="emailPara" class="email-input" type="email" placeholder="destinatario@email.com" />
+            <div class="email-destinatarios">
+              <span v-for="d in EMAIL_DESTINATARIOS" :key="d.email" class="email-dest-chip" :title="d.email">
+                {{ d.nome }}
+              </span>
+            </div>
           </div>
           <div class="email-field">
             <label class="email-label">Assunto</label>
@@ -4215,6 +4219,12 @@ const dialogDocs           = ref(false)
 const docsDialogEmpresa    = ref('')
 
 // ── E-mail ──
+const EMAIL_DESTINATARIOS = [
+  { nome: 'WMS GERENCIA',                       email: 'gerencia@wmsconsultoria.com.br' },
+  { nome: 'WMS CONSULTORIA CONTABIL - FISCAL',  email: 'fiscal@wmsconsultoria.com.br'   },
+  { nome: 'WMS CONSULTORIA CONTABIL - CONTABIL',email: 'contabil@wmsconsultoria.com.br' },
+  { nome: 'WMS CONSULTORIA CONTABIL - DP',      email: 'pessoal@wmsconsultoria.com.br'  },
+]
 const dialogEmail        = ref(false)
 const emailDialogEmpresa = ref('')
 const emailDialogProcessoId = ref(null)
@@ -4266,10 +4276,12 @@ function abrirDialogEmail(p) {
 }
 
 async function confirmarEmail() {
-  if (!emailPara.value.trim() || !emailAssunto.value.trim()) {
-    $q.notify({ type: 'warning', message: 'Preencha Para e Assunto.', position: 'top' })
+  if (!emailAssunto.value.trim()) {
+    $q.notify({ type: 'warning', message: 'Preencha o Assunto.', position: 'top' })
     return
   }
+
+  const toList = EMAIL_DESTINATARIOS.map(d => `"${d.nome}" <${d.email}>`)
 
   if (emailModo.value === 'agora') {
     emailEnviando.value = true
@@ -4277,7 +4289,7 @@ async function confirmarEmail() {
       const res = await fetch('/api/enviar-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: emailPara.value.trim(), subject: emailAssunto.value.trim(), text: emailMensagem.value.trim() }),
+        body: JSON.stringify({ to: toList, subject: emailAssunto.value.trim(), text: emailMensagem.value.trim() }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erro ao enviar')
@@ -4301,7 +4313,7 @@ async function confirmarEmail() {
     const ag = {
       id: Date.now().toString(),
       processoId: emailDialogProcessoId.value,
-      para: emailPara.value.trim(),
+      para: toList.join(', '),
       assunto: emailAssunto.value.trim(),
       mensagem: emailMensagem.value.trim(),
       dataHoraISO,
@@ -6752,6 +6764,18 @@ const alerts = [
 .email-field { display: flex; flex-direction: column; gap: 5px; }
 .email-field--half { flex: 1; }
 .email-label { color: rgba(255,255,255,0.55); font-size: 0.75rem; font-weight: 600; }
+.email-destinatarios {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  background: rgba(255,255,255,0.04); border: 1.5px solid rgba(255,255,255,0.1);
+  border-radius: 9px; padding: 8px 10px;
+}
+.email-dest-chip {
+  font-size: 0.72rem; font-weight: 600;
+  color: rgba(255,255,255,0.65);
+  background: rgba(96,165,250,0.1); border: 1px solid rgba(96,165,250,0.2);
+  border-radius: 20px; padding: 2px 8px;
+  white-space: nowrap;
+}
 .email-input {
   background: rgba(255,255,255,0.05); border: 1.5px solid rgba(255,255,255,0.1);
   border-radius: 9px; padding: 9px 12px; color: #fff; font-size: 0.85rem;
