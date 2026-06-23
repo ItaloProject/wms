@@ -4801,7 +4801,7 @@ async function fazerLogout() {
 async function selecionarPrazo(nivel) {
   dialogPrazo.value = false
   await salvarRegistro(nivel)
-  limparFormulario()
+  _limparFormulario()
   $q.notify({
     icon: 'check_circle',
     color: 'positive',
