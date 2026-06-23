@@ -3936,7 +3936,7 @@ async function enviarWhatsApp(texto) {
 }
 
 // ── Alertas automáticos de prazo ──
-const HORARIOS_ALERTA = [{ h: 7, m: 50 }, { h: 15, m: 0 }]
+const HORARIOS_ALERTA = [{ h: 7, m: 50 }]
 let alertaInterval = null
 
 function agendarProximoAlerta() {
