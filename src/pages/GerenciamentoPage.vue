@@ -330,7 +330,7 @@
               <q-icon name="check_circle" size="20px" />
               Concluir
             </button>
-            <button class="rp-btn-config" @click="dialogConfig = true" title="Configurar API WhatsApp">
+            <button v-if="isAdmin" class="rp-btn-config" @click="dialogConfig = true" title="Configurar API WhatsApp">
               <q-icon name="settings" size="18px" />
             </button>
           </div>
