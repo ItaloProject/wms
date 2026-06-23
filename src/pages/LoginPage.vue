@@ -1,4 +1,5 @@
 <template>
+  <div>
   <div class="login-root">
 
     <!-- ── Painel esquerdo: branding ── -->
@@ -133,6 +134,7 @@
       </div>
     </div>
   </q-dialog>
+  </div>
 
 </template>
 
