@@ -4607,10 +4607,14 @@ function marcarConcluido(reg) {
     ok:     { label: 'Concluir', flat: true, color: 'positive' },
     persistent: true,
     dark: true,
-  }).onOk(() => {
+  }).onOk(async () => {
+    const { error } = await supabase.from('processos').update({ concluido: true }).eq('id', reg.id)
+    if (error) {
+      $q.notify({ type: 'negative', message: 'Erro ao salvar: ' + error.message, position: 'top', timeout: 5000 })
+      return
+    }
     const original = registros.value.find(r => r.id === reg.id)
     if (original) original.concluido = true
-    supabase.from('processos').update({ concluido: true }).eq('id', reg.id)
     $q.notify({ icon: 'check_circle', color: 'positive', message: 'Processo marcado como concluído.', position: 'top', timeout: 2500 })
   })
 }
