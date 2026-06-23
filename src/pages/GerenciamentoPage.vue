@@ -1440,7 +1440,10 @@
                   <div class="cons-card-left">
                     <div class="cons-status-dot" :class="`cons-dot--${p.status}`"></div>
                     <div class="cons-info">
-                      <div class="cons-empresa">{{ p.empresa }}</div>
+                      <div class="cons-empresa">
+                        {{ p.empresa }}
+                        <span v-if="p.protocolo && p.protocolo !== '—'" class="cons-empresa-proto"># {{ p.protocolo }}</span>
+                      </div>
                       <div class="cons-meta">
                         <span class="cons-meta-item" v-if="p.protocolo !== '—'">
                           <q-icon name="tag" size="12px" /> {{ p.protocolo }}
@@ -6837,7 +6840,12 @@ const alerts = [
 .cons-empresa {
   font-size: 0.92rem; font-weight: 700; color: white;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  margin-bottom: 4px;
+  margin-bottom: 4px; display: flex; align-items: center; gap: 8px;
+}
+.cons-empresa-proto {
+  font-size: 0.72rem; font-weight: 600;
+  color: rgba(255,255,255,0.35);
+  letter-spacing: 0.02em; flex-shrink: 0;
 }
 .cons-meta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .cons-meta-item {
