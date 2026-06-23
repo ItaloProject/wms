@@ -2284,7 +2284,6 @@ function salvarNavState() {
   }))
 }
 watch([activeNav, regAberto, ctrlSessao1, ctrlSessao2, ctrlSessao3], salvarNavState)
-watch(regAberto, (id) => carregarDocsAnexados(id), { immediate: true })
 const mostrarSugestoes   = ref(false)
 const sugestoesFiltradas = ref([])
 
@@ -2332,6 +2331,7 @@ const anexosExpandido    = ref(false)
 const uploadAndo         = ref(false)
 const docsAnexados       = ref({})
 const outroNomeConstTemp = ref('')   // nome personalizado para documentos da categoria OUTROS
+watch(regAberto, (id) => carregarDocsAnexados(id), { immediate: true })
 
 const totalAnexos = computed(() =>
   Object.values(docsAnexados.value).reduce((acc, arr) => acc + (arr?.length || 0), 0)
