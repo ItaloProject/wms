@@ -4577,7 +4577,8 @@ function marcarConcluido(reg) {
     persistent: true,
     dark: true,
   }).onOk(() => {
-    reg.concluido = true
+    const original = registros.value.find(r => r.id === reg.id)
+    if (original) original.concluido = true
     supabase.from('processos').update({ concluido: true }).eq('id', reg.id)
     $q.notify({ icon: 'check_circle', color: 'positive', message: 'Processo marcado como concluído.', position: 'top', timeout: 2500 })
   })
