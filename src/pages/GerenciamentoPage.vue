@@ -3341,21 +3341,14 @@ function excluirProcessoConsultar(p) {
     persistent: true,
     dark: true,
   }).onOk(async () => {
-    if (p.status === 'concluido') {
-      // Concluídos vêm do historico
-      historico.value = historico.value.filter(h => h.id !== p.id)
-      await supabase.from('historico').delete().eq('id', p.id)
-      // Remove também o registro de processos vinculado, se existir
-      if (p.processoId) {
-        registros.value = registros.value.filter(r => r.id !== p.processoId)
-        await supabase.from('processos').delete().eq('id', p.processoId)
-      }
-    } else {
-      // Ativos vêm dos registros (processos)
-      registros.value = registros.value.filter(r => r.id !== p.processoId)
-      await supabase.from('processos').delete().eq('id', p.processoId)
-      if (regAberto.value === p.processoId) regAberto.value = null
-    }
+    const pid = p.processoId || p.id
+    // Remove todas as entradas do histórico vinculadas a este processo
+    historico.value = historico.value.filter(h => h.processoId !== pid)
+    await supabase.from('historico').delete().eq('processo_id', pid)
+    // Remove o registro de processos
+    registros.value = registros.value.filter(r => r.id !== pid)
+    await supabase.from('processos').delete().eq('id', pid)
+    if (regAberto.value === pid) regAberto.value = null
     $q.notify({ icon: 'delete', color: 'negative', message: 'Processo excluído.', position: 'top', timeout: 2500 })
   })
 }
