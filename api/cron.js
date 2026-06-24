@@ -5,7 +5,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-const NUMEROS_ALERTA = ['5599984491810']
+const NUMEROS_ALERTA = ['5599984491810', '559882624491', '559888435550', '559885928114']
 
 function diasRestantes(r) {
   if (!r.data_iso) return 999
