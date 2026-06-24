@@ -20,8 +20,17 @@
           <span class="status-online-txt">Online</span>
         </div>
 
-        <button class="theme-toggle-btn q-mr-sm" @click="lightMode = !lightMode" :title="lightMode ? 'Modo escuro' : 'Modo claro'">
-          <q-icon :name="lightMode ? 'dark_mode' : 'light_mode'" size="20px" />
+        <button
+          class="theme-toggle q-mr-sm"
+          :class="{ 'theme-toggle--light': lightMode }"
+          @click="lightMode = !lightMode"
+          :title="lightMode ? 'Ativar modo escuro' : 'Ativar modo claro'"
+        >
+          <span class="theme-toggle-thumb">
+            <transition name="t-icon" mode="out-in">
+              <q-icon :key="String(lightMode)" :name="lightMode ? 'light_mode' : 'dark_mode'" size="13px" />
+            </transition>
+          </span>
         </button>
 
         <q-btn
@@ -5091,24 +5100,58 @@ const alerts = [
   font-weight: 700;
   letter-spacing: 0.08em;
 }
-.theme-toggle-btn {
+/* ── Theme Toggle pill ── */
+.theme-toggle {
+  position: relative;
+  width: 56px; height: 28px; border-radius: 14px;
+  background: linear-gradient(135deg, #1e1b4b 0%, #1e3a8a 100%);
+  border: 1.5px solid rgba(99,102,241,0.55);
+  cursor: pointer; flex-shrink: 0;
+  transition: border-color 0.4s, box-shadow 0.4s, background 0.4s, transform 0.18s;
+  box-shadow: 0 0 12px rgba(99,102,241,0.3), inset 0 1px 1px rgba(255,255,255,0.06);
+}
+.theme-toggle:hover {
+  border-color: rgba(99,102,241,0.85);
+  box-shadow: 0 0 22px rgba(99,102,241,0.5), inset 0 1px 1px rgba(255,255,255,0.08);
+  transform: scale(1.06);
+}
+.theme-toggle:active { transform: scale(0.96); }
+.theme-toggle--light {
+  background: linear-gradient(135deg, #fde68a 0%, #f59e0b 100%);
+  border-color: rgba(245,158,11,0.7);
+  box-shadow: 0 0 14px rgba(245,158,11,0.4), inset 0 1px 1px rgba(255,255,255,0.3);
+}
+.theme-toggle--light:hover {
+  border-color: rgba(245,158,11,0.95);
+  box-shadow: 0 0 24px rgba(245,158,11,0.55), inset 0 1px 1px rgba(255,255,255,0.35);
+}
+.theme-toggle-thumb {
+  position: absolute;
+  top: 4px; left: 4px;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: rgba(255,255,255,0.95);
+  color: #312e81;
   display: flex; align-items: center; justify-content: center;
-  width: 36px; height: 36px; border-radius: 50%;
-  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
-  color: rgba(255,255,255,0.75); cursor: pointer;
-  transition: background 0.18s, color 0.18s, border-color 0.18s;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+  transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1),
+              background 0.35s ease, color 0.35s ease, box-shadow 0.35s ease;
 }
-.theme-toggle-btn:hover {
-  background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.25);
-  color: #fff;
+.theme-toggle--light .theme-toggle-thumb {
+  transform: translateX(28px);
+  background: #1e3a8a;
+  color: #fde68a;
+  box-shadow: 0 2px 10px rgba(245,158,11,0.45);
 }
-.wms-app--light .theme-toggle-btn {
-  background: rgba(15,23,42,0.07); border-color: rgba(15,23,42,0.15);
-  color: rgba(15,23,42,0.6);
+/* Icon spin inside thumb */
+.t-icon-enter-active { animation: t-spin-in 0.32s cubic-bezier(0.34,1.56,0.64,1); }
+.t-icon-leave-active { animation: t-spin-out 0.2s ease-in; position: absolute; }
+@keyframes t-spin-in {
+  from { transform: rotate(-100deg) scale(0.2); opacity: 0; }
+  to   { transform: rotate(0deg)    scale(1);   opacity: 1; }
 }
-.wms-app--light .theme-toggle-btn:hover {
-  background: rgba(15,23,42,0.13); border-color: rgba(15,23,42,0.25);
-  color: #0f172a;
+@keyframes t-spin-out {
+  from { transform: rotate(0deg)   scale(1);   opacity: 1; }
+  to   { transform: rotate(100deg) scale(0.2); opacity: 0; }
 }
 .user-avatar {
   background: rgba(255,255,255,0.08);
