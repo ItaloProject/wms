@@ -4784,13 +4784,20 @@ onMounted(async () => {
     const reg = registros.value.find(r => r.id === regAberto.value)
       || (nomeAtual ? registros.value.find(r => r.razaoSocial === nomeAtual) : null)
     if (reg) {
-      if (reg.id !== regAberto.value) regAberto.value = reg.id
-      // Restaura Resumo do banco se o local estiver vazio
-      if (!docsEmpresa.value.some(d => d.valor)) {
-        reg.empresa?.forEach((s, i) => { if (docsEmpresa.value[i] && s.valor) docsEmpresa.value[i].valor = s.valor })
-        reg.socio?.forEach((s, i)   => { if (docsSocio.value[i]   && s.valor) docsSocio.value[i].valor   = s.valor })
-        reg.taxas?.forEach((s, i)   => { if (taxas.value[i]       && s.valor) taxas.value[i].valor         = s.valor })
-        salvarResumo()
+      // Restaura Resumo do banco apenas se wms_resumo existir (ausência = usuário clicou Novo)
+      const temResumoLocal = localStorage.getItem('wms_resumo') !== null
+      if (!temResumoLocal) {
+        // Usuário clicou Novo antes de recarregar — descarta o regAberto salvo no nav state
+        regAberto.value = null
+        _docsLoadedFor.value = null
+      } else {
+        if (reg.id !== regAberto.value) regAberto.value = reg.id
+        if (!docsEmpresa.value.some(d => d.valor)) {
+          reg.empresa?.forEach((s, i) => { if (docsEmpresa.value[i] && s.valor) docsEmpresa.value[i].valor = s.valor })
+          reg.socio?.forEach((s, i)   => { if (docsSocio.value[i]   && s.valor) docsSocio.value[i].valor   = s.valor })
+          reg.taxas?.forEach((s, i)   => { if (taxas.value[i]       && s.valor) taxas.value[i].valor         = s.valor })
+          salvarResumo()
+        }
       }
     }
   } else {
