@@ -148,11 +148,11 @@ async function fetchWeather() {
     const data = await res.json()
     temp.value = Math.round(data.current_weather.temperature)
     const code = data.current_weather.weathercode
-    // WMO weather code → ícone Material
+    // WMO weather code → ícone Material Icons clássico (evita Material Symbols ausentes)
     if (code === 0) weatherIcon.value = 'wb_sunny'
-    else if (code <= 3) weatherIcon.value = 'partly_cloudy_day'
+    else if (code <= 3) weatherIcon.value = 'wb_cloudy'
     else if (code <= 48) weatherIcon.value = 'cloud'
-    else if (code <= 67) weatherIcon.value = 'rainy'
+    else if (code <= 67) weatherIcon.value = 'grain'
     else if (code <= 77) weatherIcon.value = 'ac_unit'
     else weatherIcon.value = 'thunderstorm'
   } catch {
