@@ -2327,6 +2327,7 @@ watch(lightMode, v => localStorage.setItem('wms_light_mode', JSON.stringify(v)))
 
 const activeStep = ref(0)
 const regAberto = ref(_navSalvo?.regAberto || null)
+const _docsLoadedFor = ref(_navSalvo?.regAberto || null) // qual processo está carregado em docsEmpresa/docsSocio/taxas
 const dialogPrazo  = ref(false)
 const ctrlSessao1  = ref(_navSalvo?.ctrlSessao1 || null)
 const ctrlSessao2  = ref(_navSalvo?.ctrlSessao2 || null)
@@ -3381,21 +3382,22 @@ async function continuarProcesso(p) {
   ctrlSessao1.value = 'Constituição'
   if (!p.processoId || p.processoId === regAberto.value) return
 
-  // Persiste etapas e resumo do processo atual antes de trocar
+  // Persiste etapas do processo ativo no guia antes de trocar
   if (regAberto.value) {
     const dataAtual = JSON.stringify(
       etapas.value.map(e => ({ key: e.key, status: e.status, obs: e.obs, valor: e.valor, concluidaEm: e.concluidaEm || '' }))
     )
     localStorage.setItem(`wms_etapas_${regAberto.value}`, dataAtual)
-    // Salva resumo imediatamente no banco (sem esperar o debounce)
+  }
+  // Salva resumo do processo cujos docs estão no formulário (pode ser diferente de regAberto)
+  if (_docsLoadedFor.value) {
     clearTimeout(_syncResumoTimer)
-    const id = regAberto.value
     await supabase.from('processos').update({
       razao_social: docsEmpresa.value.find(d => d.label === 'Razão social')?.valor || '',
       empresa: docsEmpresa.value.map(d => ({ label: d.label, valor: d.valor })),
       socio:   docsSocio.value.map(d => ({ label: d.label, valor: d.valor })),
       taxas:   taxas.value.map(t => ({ label: t.label, valor: t.valor })),
-    }).eq('id', id)
+    }).eq('id', _docsLoadedFor.value)
   }
 
   // Busca dados frescos do banco para o processo selecionado
@@ -3409,15 +3411,7 @@ async function continuarProcesso(p) {
   else registros.value.push(reg)
 
   regAberto.value = reg.id
-
-  // Carrega Resumo com dados frescos do banco
-  docsEmpresa.value.forEach(d => { d.valor = '' })
-  docsSocio.value.forEach(d => { d.valor = '' })
-  taxas.value.forEach(t => { t.valor = '' })
-  reg.empresa?.forEach((s, i) => { if (docsEmpresa.value[i] && s.valor) docsEmpresa.value[i].valor = s.valor })
-  reg.socio?.forEach((s, i)   => { if (docsSocio.value[i]   && s.valor) docsSocio.value[i].valor   = s.valor })
-  reg.taxas?.forEach((s, i)   => { if (taxas.value[i]       && s.valor) taxas.value[i].valor         = s.valor })
-  salvarResumo()
+  // Docs NÃO são carregados aqui: serão carregados lazily quando o usuário navegar para "Resumo"
 
   // Carrega etapas: localStorage primeiro, fallback para etapas salvas no banco
   const etapasLocal = carregarEtapas(reg.id, false)
@@ -4745,6 +4739,7 @@ function _limparFormulario() {
   localStorage.removeItem('wms_constituicao')
   localStorage.removeItem('wms_resumo')
   regAberto.value = null
+  _docsLoadedFor.value = null
   etapas.value = etapasPadrao.map(e => ({
     ...e, status: '', obs: '', valor: '', concluidaEm: '', statusItens: {},
     subStatus: e.subItens ? Object.fromEntries(e.subItens.map(si => [si.key, { status: '', protocolo: '' }])) : {},
@@ -4853,6 +4848,7 @@ onUnmounted(() => {
 function limparFormulario() {
   localStorage.removeItem('wms_resumo')
   regAberto.value = null
+  _docsLoadedFor.value = null
   docsEmpresa.value.forEach(d => d.valor = '')
   docsSocio.value.forEach(d => d.valor = '')
   taxas.value.forEach(t => t.valor = '')
@@ -4991,8 +4987,8 @@ let _syncResumoTimer = null
 function sincronizarResumoNoBanco() {
   clearTimeout(_syncResumoTimer)
   _syncResumoTimer = setTimeout(() => {
-    if (!regAberto.value) return
-    const id = regAberto.value
+    if (!_docsLoadedFor.value) return
+    const id = _docsLoadedFor.value
     const empresaSnap = docsEmpresa.value.map(d => ({ label: d.label, valor: d.valor }))
     const socioSnap   = docsSocio.value.map(d => ({ label: d.label, valor: d.valor }))
     const taxasSnap   = taxas.value.map(t => ({ label: t.label, valor: t.valor }))
@@ -5021,6 +5017,25 @@ watch([docsEmpresa, docsSocio, taxas], () => {
   salvarResumo()
   sincronizarResumoNoBanco()
 }, { deep: true })
+
+// Carrega docs do banco quando o usuário navega para "Resumo" e regAberto mudou desde o último load
+watch([activeNav, regAberto], async ([nav, id]) => {
+  if (nav !== 'Resumo' || !id) return
+  if (String(id) === String(_docsLoadedFor.value)) return
+  const { data } = await supabase.from('processos').select('*').eq('id', id).single()
+  if (!data) return
+  const reg = processoFromDb(data)
+  const memIdx = registros.value.findIndex(r => String(r.id) === String(reg.id))
+  if (memIdx !== -1) registros.value[memIdx] = reg
+  docsEmpresa.value.forEach(d => { d.valor = '' })
+  docsSocio.value.forEach(d => { d.valor = '' })
+  taxas.value.forEach(t => { t.valor = '' })
+  reg.empresa?.forEach((s, i) => { if (docsEmpresa.value[i] && s.valor) docsEmpresa.value[i].valor = s.valor })
+  reg.socio?.forEach((s, i)   => { if (docsSocio.value[i]   && s.valor) docsSocio.value[i].valor   = s.valor })
+  reg.taxas?.forEach((s, i)   => { if (taxas.value[i]       && s.valor) taxas.value[i].valor         = s.valor })
+  _docsLoadedFor.value = id
+  salvarResumo()
+})
 
 const today = new Intl.DateTimeFormat('pt-BR', {
   weekday: 'long', day: '2-digit', month: 'long', year: 'numeric'
