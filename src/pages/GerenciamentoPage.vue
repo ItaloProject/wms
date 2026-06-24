@@ -7823,6 +7823,47 @@ const alerts = [
 }
 .rl-del-btn:hover { color: #f87171; background: rgba(248,113,113,0.1); }
 
+/* ── Light mode: Relatórios ── */
+.wms-app--light .rl-title {
+  background: linear-gradient(135deg, #0f172a 0%, #1e40af 60%, #16a34a 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.wms-app--light .rl-subtitle { color: rgba(15,23,42,0.45) !important; }
+.wms-app--light .rl-select {
+  background: rgba(255,255,255,0.85) !important;
+  border-color: rgba(15,23,42,0.15) !important;
+  color: #0f172a !important;
+}
+.wms-app--light .rl-select option { background: #ffffff !important; color: #0f172a !important; }
+.wms-app--light .rl-stat-card {
+  background: rgba(255,255,255,0.85) !important;
+  border-color: rgba(15,23,42,0.1) !important;
+}
+.wms-app--light .rl-stat-num { color: #0f172a !important; }
+.wms-app--light .rl-stat-label { color: rgba(15,23,42,0.4) !important; }
+.wms-app--light .rl-section {
+  background: rgba(255,255,255,0.8) !important;
+  border-color: rgba(15,23,42,0.09) !important;
+}
+.wms-app--light .rl-section-head {
+  background: rgba(15,23,42,0.02) !important;
+  border-bottom-color: rgba(15,23,42,0.07) !important;
+}
+.wms-app--light .rl-section-title { color: #0f172a !important; }
+.wms-app--light .rl-section-label-full { color: rgba(15,23,42,0.45) !important; }
+.wms-app--light .rl-section-count {
+  background: rgba(15,23,42,0.07) !important;
+  color: rgba(15,23,42,0.45) !important;
+}
+.wms-app--light .rl-empty { color: rgba(15,23,42,0.35) !important; }
+.wms-app--light .rl-row { border-bottom-color: rgba(15,23,42,0.05) !important; }
+.wms-app--light .rl-row:hover { background: rgba(15,23,42,0.02) !important; }
+.wms-app--light .rl-row-nome { color: #0f172a !important; }
+.wms-app--light .rl-row-proto { color: rgba(15,23,42,0.5) !important; }
+.wms-app--light .rl-row-sem-proto { color: rgba(15,23,42,0.3) !important; }
+.wms-app--light .rl-row-data { color: rgba(15,23,42,0.35) !important; }
+.wms-app--light .rl-del-btn { color: rgba(15,23,42,0.25) !important; }
+
 /* Light mode: Preferências */
 .wms-app--light .pref-section-label { color: rgba(15,23,42,0.4) !important; }
 .wms-app--light .pref-card {
