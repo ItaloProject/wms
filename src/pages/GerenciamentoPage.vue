@@ -20,6 +20,10 @@
           <span class="status-online-txt">Online</span>
         </div>
 
+        <button class="theme-toggle-btn q-mr-sm" @click="lightMode = !lightMode" :title="lightMode ? 'Modo escuro' : 'Modo claro'">
+          <q-icon :name="lightMode ? 'dark_mode' : 'light_mode'" size="20px" />
+        </button>
+
         <q-btn
           flat dense round
           :icon="notifPermissao === 'granted' ? 'notifications' : 'notifications_off'"
@@ -5086,6 +5090,25 @@ const alerts = [
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.08em;
+}
+.theme-toggle-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 50%;
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.75); cursor: pointer;
+  transition: background 0.18s, color 0.18s, border-color 0.18s;
+}
+.theme-toggle-btn:hover {
+  background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.25);
+  color: #fff;
+}
+.wms-app--light .theme-toggle-btn {
+  background: rgba(15,23,42,0.07); border-color: rgba(15,23,42,0.15);
+  color: rgba(15,23,42,0.6);
+}
+.wms-app--light .theme-toggle-btn:hover {
+  background: rgba(15,23,42,0.13); border-color: rgba(15,23,42,0.25);
+  color: #0f172a;
 }
 .user-avatar {
   background: rgba(255,255,255,0.08);
