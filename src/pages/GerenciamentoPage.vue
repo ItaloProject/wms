@@ -4822,6 +4822,8 @@ onUnmounted(() => {
 })
 
 function limparFormulario() {
+  localStorage.removeItem('wms_resumo')
+  regAberto.value = null
   docsEmpresa.value.forEach(d => d.valor = '')
   docsSocio.value.forEach(d => d.valor = '')
   taxas.value.forEach(t => t.valor = '')
