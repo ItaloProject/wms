@@ -8048,10 +8048,20 @@ const alerts = [
   border-color: rgba(15,23,42,0.08) !important;
 }
 .wms-app--light .cons-card:hover { background: rgba(255,255,255,0.95) !important; }
-.wms-app--light .cons-razao { color: #0f172a !important; }
+.wms-app--light .cons-empresa { color: #0f172a !important; }
+.wms-app--light .cons-empresa-proto { color: rgba(15,23,42,0.4) !important; }
+.wms-app--light .cons-copiar-btn { color: rgba(15,23,42,0.3) !important; }
+.wms-app--light .cons-copiar-btn:hover { color: #0f172a !important; background: rgba(15,23,42,0.07) !important; }
 .wms-app--light .cons-meta { color: rgba(15,23,42,0.5) !important; }
+.wms-app--light .cons-meta-item { color: rgba(15,23,42,0.5) !important; }
 .wms-app--light .cons-data { color: rgba(15,23,42,0.35) !important; }
+.wms-app--light .cons-ring-bg { stroke: rgba(15,23,42,0.1) !important; }
+.wms-app--light .cons-ring--nao_iniciado { stroke: rgba(15,23,42,0.18) !important; }
+.wms-app--light .cons-pct-num { color: #0f172a !important; }
+.wms-app--light .cons-badge--concluido { background: rgba(34,197,94,0.12) !important; color: #16a34a !important; }
+.wms-app--light .cons-badge--andamento { background: rgba(251,191,36,0.15) !important; color: #b45309 !important; }
 .wms-app--light .cons-badge--nao_iniciado { background: rgba(15,23,42,0.07) !important; color: rgba(15,23,42,0.45) !important; }
+.wms-app--light .cons-dot--nao_iniciado { background: rgba(15,23,42,0.18) !important; box-shadow: none !important; }
 .wms-app--light .cons-empty { color: rgba(15,23,42,0.35) !important; }
 
 /* ── Light mode: Notificações ── */
