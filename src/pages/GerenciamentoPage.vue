@@ -3376,25 +3376,41 @@ function excluirProcessoConsultar(p) {
   })
 }
 
-function continuarProcesso(p) {
+async function continuarProcesso(p) {
   ctrlSessao3.value = null
   ctrlSessao1.value = 'Constituição'
   if (!p.processoId || p.processoId === regAberto.value) return
 
-  // Persiste etapas do processo atual antes de trocar
+  // Persiste etapas e resumo do processo atual antes de trocar
   if (regAberto.value) {
     const dataAtual = JSON.stringify(
       etapas.value.map(e => ({ key: e.key, status: e.status, obs: e.obs, valor: e.valor, concluidaEm: e.concluidaEm || '' }))
     )
     localStorage.setItem(`wms_etapas_${regAberto.value}`, dataAtual)
+    // Salva resumo imediatamente no banco (sem esperar o debounce)
+    clearTimeout(_syncResumoTimer)
+    const id = regAberto.value
+    await supabase.from('processos').update({
+      razao_social: docsEmpresa.value.find(d => d.label === 'Razão social')?.valor || '',
+      empresa: docsEmpresa.value.map(d => ({ label: d.label, valor: d.valor })),
+      socio:   docsSocio.value.map(d => ({ label: d.label, valor: d.valor })),
+      taxas:   taxas.value.map(t => ({ label: t.label, valor: t.valor })),
+    }).eq('id', id)
   }
 
-  const reg = registros.value.find(r => r.id === p.processoId)
-  if (!reg) return
+  // Busca dados frescos do banco para o processo selecionado
+  const { data: freshData } = await supabase.from('processos').select('*').eq('id', p.processoId).single()
+  if (!freshData) return
+
+  const reg = processoFromDb(freshData)
+  // Atualiza o array em memória com os dados frescos
+  const idx = registros.value.findIndex(r => String(r.id) === String(reg.id))
+  if (idx !== -1) registros.value[idx] = reg
+  else registros.value.push(reg)
 
   regAberto.value = reg.id
 
-  // Limpa Resumo e carrega dados do processo selecionado
+  // Carrega Resumo com dados frescos do banco
   docsEmpresa.value.forEach(d => { d.valor = '' })
   docsSocio.value.forEach(d => { d.valor = '' })
   taxas.value.forEach(t => { t.valor = '' })
@@ -4976,12 +4992,28 @@ function sincronizarResumoNoBanco() {
   clearTimeout(_syncResumoTimer)
   _syncResumoTimer = setTimeout(() => {
     if (!regAberto.value) return
+    const id = regAberto.value
+    const empresaSnap = docsEmpresa.value.map(d => ({ label: d.label, valor: d.valor }))
+    const socioSnap   = docsSocio.value.map(d => ({ label: d.label, valor: d.valor }))
+    const taxasSnap   = taxas.value.map(t => ({ label: t.label, valor: t.valor }))
+    const razaoSocial = empresaSnap.find(d => d.label === 'Razão social')?.valor || ''
     supabase.from('processos').update({
-      razao_social: docsEmpresa.value.find(d => d.label === 'Razão social')?.valor || '',
-      empresa: docsEmpresa.value.map(d => ({ label: d.label, valor: d.valor })),
-      socio:   docsSocio.value.map(d => ({ label: d.label, valor: d.valor })),
-      taxas:   taxas.value.map(t => ({ label: t.label, valor: t.valor })),
-    }).eq('id', regAberto.value)
+      razao_social: razaoSocial,
+      empresa: empresaSnap,
+      socio:   socioSnap,
+      taxas:   taxasSnap,
+    }).eq('id', id)
+    // Mantém o array em memória sincronizado para que continuarProcesso use dados frescos
+    const idx = registros.value.findIndex(r => String(r.id) === String(id))
+    if (idx !== -1) {
+      registros.value[idx] = {
+        ...registros.value[idx],
+        razaoSocial,
+        empresa: empresaSnap,
+        socio:   socioSnap,
+        taxas:   taxasSnap,
+      }
+    }
   }, 1500)
 }
 
