@@ -3566,15 +3566,15 @@ function salvarEtapas() {
   if (regAberto.value) localStorage.setItem(`wms_etapas_${regAberto.value}`, data)
   localStorage.setItem('wms_constituicao', data)
 
-  // Sincroniza com Supabase após 1,5s de inatividade
   if (regAberto.value) {
+    // Atualiza a memória IMEDIATAMENTE para o progresso refletir na lista (Consultar/Dashboard)
+    // sem precisar recarregar a página.
+    const reg = registros.value.find(r => r.id === regAberto.value)
+    if (reg) reg.etapas = etapasData
+    // Persiste no Supabase após 1,5s de inatividade
     clearTimeout(_syncEtapasTimer)
     _syncEtapasTimer = setTimeout(() => {
-      const reg = registros.value.find(r => r.id === regAberto.value)
-      if (reg) {
-        reg.etapas = etapasData
-        supabase.from('processos').update({ etapas: etapasData }).eq('id', regAberto.value)
-      }
+      supabase.from('processos').update({ etapas: etapasData }).eq('id', regAberto.value)
     }, 1500)
   }
 }
@@ -4638,6 +4638,13 @@ async function gerarRelatorio() {
 
 async function concluirDepois() {
   salvarEtapas()
+  // Flush imediato no banco (sem esperar o debounce) para o progresso ficar consistente ao retomar
+  const id = regAberto.value
+  if (id) {
+    clearTimeout(_syncEtapasTimer)
+    const reg = registros.value.find(r => r.id === id)
+    if (reg) await supabase.from('processos').update({ etapas: reg.etapas }).eq('id', id)
+  }
   const empresa     = etapaValor('empresa')     || etapaValor('empresa_baixa') || ''
   const protocolo   = etapaValor('protocolo')   || ''
   const localizacao = etapaValor('localizacao') || ''
