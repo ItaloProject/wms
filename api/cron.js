@@ -63,6 +63,17 @@ async function enviarZAPI(numero, texto, cfg) {
   return res.ok
 }
 
+async function enviarEvolution(numero, texto, cfg) {
+  const url      = (cfg.url || '').replace(/\/$/, '')
+  const instance = cfg.evolution_instance || 'wms'
+  const res = await fetch(`${url}/message/sendText/${instance}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': cfg.token || '' },
+    body: JSON.stringify({ number: numero, text: texto }),
+  })
+  return res.ok
+}
+
 export default async function handler(req, res) {
   const auth = req.headers['authorization']
   if (process.env.CRON_SECRET && auth !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -75,9 +86,13 @@ export default async function handler(req, res) {
       supabase.from('configuracoes').select('*').eq('id', 1).single(),
     ])
 
-    if (!cfg || !cfg.z_instance_id || !cfg.z_token) {
-      console.log('[cron] Z-API não configurada')
-      return res.status(200).json({ ok: false, motivo: 'API não configurada' })
+    const provider = cfg?.provider || 'zapi'
+    const prontoZAPI      = cfg?.z_instance_id && cfg?.z_token
+    const prontoEvolution = cfg?.url && cfg?.token
+
+    if (!cfg || (provider === 'zapi' ? !prontoZAPI : !prontoEvolution)) {
+      console.log('[cron] API WhatsApp não configurada — provider:', provider)
+      return res.status(200).json({ ok: false, motivo: 'API não configurada', provider })
     }
 
     const urgentes = (processos || []).filter(r => {
@@ -91,13 +106,16 @@ export default async function handler(req, res) {
     }
 
     const msg = montarMensagem(urgentes)
-    const resultados = await Promise.all(
-      NUMEROS_ALERTA.map(num => enviarZAPI(num, msg, cfg))
-    )
 
+    const enviar = provider === 'zapi'
+      ? num => enviarZAPI(num, msg, cfg)
+      : num => enviarEvolution(num, msg, cfg)
+
+    const resultados = await Promise.all(NUMEROS_ALERTA.map(enviar))
     const enviados = resultados.filter(Boolean).length
-    console.log(`[cron] Alertas enviados: ${enviados}/${NUMEROS_ALERTA.length}`)
-    return res.status(200).json({ ok: true, enviados, processos: urgentes.length })
+
+    console.log(`[cron] Provider: ${provider} | Alertas enviados: ${enviados}/${NUMEROS_ALERTA.length}`)
+    return res.status(200).json({ ok: true, enviados, processos: urgentes.length, provider })
   } catch (err) {
     console.error('[cron]', err)
     return res.status(500).json({ error: err.message })
