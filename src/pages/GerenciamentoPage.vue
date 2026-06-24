@@ -3248,6 +3248,25 @@ function exportarExcel() {
   XLSX.writeFile(wb, `Relatorio_${mesLabel}_${rlAno.value}.xlsx`)
 }
 
+// Progresso real do registro — mesma fonte/prioridade que continuarProcesso usa
+// (localStorage > reg.etapas). Garante que o badge na lista bata com a guia aberta,
+// em vez de depender do snapshot congelado do histórico (h.pct).
+function progressoDoRegistro(r) {
+  // Processo aberto: usa o estado vivo das etapas em edição
+  if (r.id === regAberto.value) {
+    const total = etapas.value.length
+    const ok    = etapas.value.filter(e => e.status === 'concluida').length
+    return total ? Math.round((ok / total) * 100) : 0
+  }
+  let ets = null
+  const local = JSON.parse(localStorage.getItem(`wms_etapas_${r.id}`) || 'null')
+  if (local && local.some(e => e.status || e.valor || e.obs)) ets = local
+  else if (r.etapas && r.etapas.length) ets = r.etapas
+  if (!ets) return null
+  const ok = ets.filter(e => e.status === 'concluida').length
+  return Math.round((ok / etapasPadrao.length) * 100)
+}
+
 const processosConsultar = computed(() => {
   // Mapeia processoId → entrada mais recente do histórico (já vem order by id desc)
   const latestByProcesso = {}
@@ -3262,12 +3281,11 @@ const processosConsultar = computed(() => {
     .filter(r => !r.concluido)
     .map(r => {
       const h = latestByProcesso[r.id]
-      let pct = h?.pct ?? 0
-      if (!h && r.id === regAberto.value) {
-        const total = etapas.value.length
-        const ok    = etapas.value.filter(e => e.status === 'concluida').length
-        pct = total ? Math.round((ok / total) * 100) : 0
-      }
+      // Prioriza o progresso real das etapas; histórico é só fallback.
+      // Limita a 99: processo só vira "concluído" via histórico (relatório gerado),
+      // evitando que um registro com todas as etapas marcadas suma da lista de ativos.
+      const pe  = progressoDoRegistro(r)
+      const pct = Math.min(pe != null ? pe : (h?.pct ?? 0), 99)
       const nome = r.razaoSocial
         || r.empresa?.find?.(d => d.label === 'Razão social')?.valor
         || '—'
