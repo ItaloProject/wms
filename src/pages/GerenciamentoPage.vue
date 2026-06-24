@@ -2327,7 +2327,6 @@ watch(lightMode, v => localStorage.setItem('wms_light_mode', JSON.stringify(v)))
 
 const activeStep = ref(0)
 const regAberto = ref(_navSalvo?.regAberto || null)
-const _docsLoadedFor = ref(_navSalvo?.regAberto || null) // qual processo está carregado em docsEmpresa/docsSocio/taxas
 const dialogPrazo  = ref(false)
 const ctrlSessao1  = ref(_navSalvo?.ctrlSessao1 || null)
 const ctrlSessao2  = ref(_navSalvo?.ctrlSessao2 || null)
@@ -3389,16 +3388,6 @@ async function continuarProcesso(p) {
     )
     localStorage.setItem(`wms_etapas_${regAberto.value}`, dataAtual)
   }
-  // Salva resumo do processo cujos docs estão no formulário (pode ser diferente de regAberto)
-  if (_docsLoadedFor.value) {
-    clearTimeout(_syncResumoTimer)
-    await supabase.from('processos').update({
-      razao_social: docsEmpresa.value.find(d => d.label === 'Razão social')?.valor || '',
-      empresa: docsEmpresa.value.map(d => ({ label: d.label, valor: d.valor })),
-      socio:   docsSocio.value.map(d => ({ label: d.label, valor: d.valor })),
-      taxas:   taxas.value.map(t => ({ label: t.label, valor: t.valor })),
-    }).eq('id', _docsLoadedFor.value)
-  }
 
   // Busca dados frescos do banco para o processo selecionado
   const { data: freshData } = await supabase.from('processos').select('*').eq('id', p.processoId).single()
@@ -3411,7 +3400,7 @@ async function continuarProcesso(p) {
   else registros.value.push(reg)
 
   regAberto.value = reg.id
-  // Docs NÃO são carregados aqui: serão carregados lazily quando o usuário navegar para "Resumo"
+  // O Resumo (Relação de Documentos) é independente: NÃO é tocado por Consultar.
 
   // Carrega etapas: localStorage primeiro, fallback para etapas salvas no banco
   const etapasLocal = carregarEtapas(reg.id, false)
@@ -4677,7 +4666,6 @@ async function confirmarComplementar() {
     if (labelSoc) { const d = docsSocio.value.find(x => x.label === labelSoc);   if (d) d.valor = c.valor }
   })
   salvarResumo()
-  sincronizarResumoNoBanco()
 
   gerandoRelatorio.value = true
   try {
@@ -4739,7 +4727,6 @@ function _limparFormulario() {
   localStorage.removeItem('wms_constituicao')
   localStorage.removeItem('wms_resumo')
   regAberto.value = null
-  _docsLoadedFor.value = null
   etapas.value = etapasPadrao.map(e => ({
     ...e, status: '', obs: '', valor: '', concluidaEm: '', statusItens: {},
     subStatus: e.subItens ? Object.fromEntries(e.subItens.map(si => [si.key, { status: '', protocolo: '' }])) : {},
@@ -4783,23 +4770,9 @@ onMounted(async () => {
     const nomeAtual = etapaValor('empresa')
     const reg = registros.value.find(r => r.id === regAberto.value)
       || (nomeAtual ? registros.value.find(r => r.razaoSocial === nomeAtual) : null)
-    if (reg) {
-      // Restaura Resumo do banco apenas se wms_resumo existir (ausência = usuário clicou Novo)
-      const temResumoLocal = localStorage.getItem('wms_resumo') !== null
-      if (!temResumoLocal) {
-        // Usuário clicou Novo antes de recarregar — descarta o regAberto salvo no nav state
-        regAberto.value = null
-        _docsLoadedFor.value = null
-      } else {
-        if (reg.id !== regAberto.value) regAberto.value = reg.id
-        if (!docsEmpresa.value.some(d => d.valor)) {
-          reg.empresa?.forEach((s, i) => { if (docsEmpresa.value[i] && s.valor) docsEmpresa.value[i].valor = s.valor })
-          reg.socio?.forEach((s, i)   => { if (docsSocio.value[i]   && s.valor) docsSocio.value[i].valor   = s.valor })
-          reg.taxas?.forEach((s, i)   => { if (taxas.value[i]       && s.valor) taxas.value[i].valor         = s.valor })
-          salvarResumo()
-        }
-      }
-    }
+    // Reconcilia apenas o regAberto (guia de etapas). O Resumo NÃO é restaurado do banco:
+    // ele vive somente no localStorage (wms_resumo) como rascunho de novo cadastro.
+    if (reg && reg.id !== regAberto.value) regAberto.value = reg.id
   } else {
     // Migra dados existentes do localStorage para Supabase (primeira vez)
     const local = JSON.parse(localStorage.getItem('wms_registros') || '[]')
@@ -4855,7 +4828,6 @@ onUnmounted(() => {
 function limparFormulario() {
   localStorage.removeItem('wms_resumo')
   regAberto.value = null
-  _docsLoadedFor.value = null
   docsEmpresa.value.forEach(d => d.valor = '')
   docsSocio.value.forEach(d => d.valor = '')
   taxas.value.forEach(t => t.valor = '')
@@ -4990,59 +4962,12 @@ function salvarResumo() {
   }))
 }
 
-let _syncResumoTimer = null
-function sincronizarResumoNoBanco() {
-  clearTimeout(_syncResumoTimer)
-  _syncResumoTimer = setTimeout(() => {
-    if (!_docsLoadedFor.value) return
-    const id = _docsLoadedFor.value
-    const empresaSnap = docsEmpresa.value.map(d => ({ label: d.label, valor: d.valor }))
-    const socioSnap   = docsSocio.value.map(d => ({ label: d.label, valor: d.valor }))
-    const taxasSnap   = taxas.value.map(t => ({ label: t.label, valor: t.valor }))
-    const razaoSocial = empresaSnap.find(d => d.label === 'Razão social')?.valor || ''
-    supabase.from('processos').update({
-      razao_social: razaoSocial,
-      empresa: empresaSnap,
-      socio:   socioSnap,
-      taxas:   taxasSnap,
-    }).eq('id', id)
-    // Mantém o array em memória sincronizado para que continuarProcesso use dados frescos
-    const idx = registros.value.findIndex(r => String(r.id) === String(id))
-    if (idx !== -1) {
-      registros.value[idx] = {
-        ...registros.value[idx],
-        razaoSocial,
-        empresa: empresaSnap,
-        socio:   socioSnap,
-        taxas:   taxasSnap,
-      }
-    }
-  }, 1500)
-}
-
+// O Resumo (Relação de Documentos) é um rascunho de NOVO cadastro: persiste apenas
+// no localStorage. Não sincroniza com o banco e nunca é preenchido a partir de Consultar.
+// É inserido como novo processo somente ao concluir (salvarRegistro).
 watch([docsEmpresa, docsSocio, taxas], () => {
   salvarResumo()
-  sincronizarResumoNoBanco()
 }, { deep: true })
-
-// Carrega docs do banco quando o usuário navega para "Resumo" e regAberto mudou desde o último load
-watch([activeNav, regAberto], async ([nav, id]) => {
-  if (nav !== 'Resumo' || !id) return
-  if (String(id) === String(_docsLoadedFor.value)) return
-  const { data } = await supabase.from('processos').select('*').eq('id', id).single()
-  if (!data) return
-  const reg = processoFromDb(data)
-  const memIdx = registros.value.findIndex(r => String(r.id) === String(reg.id))
-  if (memIdx !== -1) registros.value[memIdx] = reg
-  docsEmpresa.value.forEach(d => { d.valor = '' })
-  docsSocio.value.forEach(d => { d.valor = '' })
-  taxas.value.forEach(t => { t.valor = '' })
-  reg.empresa?.forEach((s, i) => { if (docsEmpresa.value[i] && s.valor) docsEmpresa.value[i].valor = s.valor })
-  reg.socio?.forEach((s, i)   => { if (docsSocio.value[i]   && s.valor) docsSocio.value[i].valor   = s.valor })
-  reg.taxas?.forEach((s, i)   => { if (taxas.value[i]       && s.valor) taxas.value[i].valor         = s.valor })
-  _docsLoadedFor.value = id
-  salvarResumo()
-})
 
 const today = new Intl.DateTimeFormat('pt-BR', {
   weekday: 'long', day: '2-digit', month: 'long', year: 'numeric'
