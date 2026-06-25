@@ -1088,13 +1088,28 @@
                   </div>
 
                   <div class="et-obs">
-                    <q-icon name="edit_note" size="16px" class="et-obs-icon" />
-                    <input
-                      v-model="etapa.obs"
-                      class="et-obs-input"
-                      placeholder="Observação..."
-                      @change="salvarEtapas"
-                    />
+                    <template v-if="etapa.key === 'processo'">
+                      <div v-if="etapa.obs" class="et-obs-pulled">
+                        <q-icon name="edit_note" size="14px" class="et-obs-icon" style="flex-shrink:0" />
+                        <span class="et-obs-pulled-text">{{ etapa.obs }}</span>
+                        <button class="et-obs-clear-btn" @click="etapa.obs = ''; salvarEtapas()" title="Limpar">
+                          <q-icon name="close" size="13px" />
+                        </button>
+                      </div>
+                      <button v-else class="et-obs-pull-btn" :disabled="!observacao" @click="etapa.obs = observacao; salvarEtapas()" :title="observacao ? 'Puxar observação do Resumo' : 'Nenhuma observação no Resumo'">
+                        <q-icon name="download" size="14px" />
+                        Puxar Observação do Resumo
+                      </button>
+                    </template>
+                    <template v-else>
+                      <q-icon name="edit_note" size="16px" class="et-obs-icon" />
+                      <input
+                        v-model="etapa.obs"
+                        class="et-obs-input"
+                        placeholder="Observação..."
+                        @change="salvarEtapas"
+                      />
+                    </template>
                   </div>
                 </div>
               </div>
@@ -6691,6 +6706,25 @@ const alerts = [
   color: rgba(255,255,255,0.8); font-size: 0.8rem; font-family: inherit;
 }
 .et-obs-input::placeholder { color: rgba(255,255,255,0.2); }
+.et-obs-pull-btn {
+  flex: 1; display: flex; align-items: center; gap: 6px;
+  background: rgba(99,102,241,0.12); border: 1px dashed rgba(99,102,241,0.4);
+  border-radius: 7px; padding: 5px 10px;
+  color: rgba(129,140,248,0.9); font-size: 0.78rem; font-family: inherit;
+  cursor: pointer; transition: all 0.2s;
+}
+.et-obs-pull-btn:hover:not(:disabled) { background: rgba(99,102,241,0.22); border-color: rgba(129,140,248,0.7); }
+.et-obs-pull-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.et-obs-pulled {
+  flex: 1; display: flex; align-items: flex-start; gap: 6px;
+  background: rgba(99,102,241,0.08); border-radius: 7px; padding: 5px 8px;
+}
+.et-obs-pulled-text { flex: 1; font-size: 0.78rem; color: rgba(255,255,255,0.75); line-height: 1.4; white-space: pre-wrap; }
+.et-obs-clear-btn {
+  flex-shrink: 0; background: none; border: none; color: rgba(255,255,255,0.3);
+  cursor: pointer; padding: 0; line-height: 1; transition: color 0.2s;
+}
+.et-obs-clear-btn:hover { color: rgba(255,100,100,0.8); }
 
 /* ══ ANEXOS DE DOCUMENTOS ══ */
 .et-anexos {
