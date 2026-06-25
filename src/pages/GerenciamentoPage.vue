@@ -2438,7 +2438,6 @@ const etapasPadrao = [
   },
   { key: 'sefaznet',   titulo: 'Senha SEFAZ NET',             tipo: 'texto',  placeholder: 'Senha SEFAZ NET' },
   { key: 'regime',     titulo: 'Regime',                      tipo: 'select', opcoes: ['Simples Nacional', 'Lucro Presumido', 'Lucro Real'] },
-  { key: 'vigilancia', titulo: 'Vigilância Sanitária',        tipo: 'toggle', opcoes: ['OK', 'NA'] },
   { key: 'dominio',    titulo: 'Cadastro Domínio',            tipo: 'toggle', opcoes: ['OK', 'Falta'] },
   { key: 'veri',       titulo: 'Cadastro Veri',               tipo: 'toggle', opcoes: ['OK', 'Falta'] },
   { key: 'alv_bombeiro', titulo: 'Alvará Bombeiro',                        tipo: 'ok' },
