@@ -4306,8 +4306,8 @@ const emailsAgendadosDoProcesso = computed(() =>
 )
 
 function copiarInfoProcesso(p) {
-  const partes = [p.empresa, p.protocolo && p.protocolo !== '—' ? `#${p.protocolo}` : ''].filter(Boolean)
-  navigator.clipboard.writeText(partes.join(' - '))
+  const texto = p.protocolo && p.protocolo !== '—' ? p.protocolo : p.empresa
+  navigator.clipboard.writeText(texto)
   $q.notify({ icon: 'content_copy', color: 'positive', message: 'Copiado!', position: 'top', timeout: 1500 })
 }
 
