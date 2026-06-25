@@ -2451,6 +2451,11 @@ function salvarNavState() {
   }))
 }
 watch([activeNav, regAberto, ctrlSessao1, ctrlSessao2, ctrlSessao3], salvarNavState)
+
+// Flush etapas no Supabase ao sair do Guia de Constituição
+watch(ctrlSessao1, (nova, anterior) => {
+  if (anterior === 'Constituição' && nova !== 'Constituição') _flushEtapas()
+})
 const mostrarSugestoes   = ref(false)
 const sugestoesFiltradas = ref([])
 
@@ -4922,6 +4927,20 @@ onMounted(async () => {
     // Reconcilia apenas o regAberto (guia de etapas). O Resumo NÃO é restaurado do banco:
     // ele vive somente no localStorage (wms_resumo) como rascunho de novo cadastro.
     if (reg && reg.id !== regAberto.value) regAberto.value = reg.id
+
+    // Sync passivo: processos onde localStorage tem dados mais recentes que o Supabase
+    const pendentes = registros.value.filter(r => {
+      const local = JSON.parse(localStorage.getItem(`wms_etapas_${r.id}`) || 'null')
+      return local && local.some(e => e.status || e.valor || e.obs) &&
+             !(r.etapas && r.etapas.some(e => e.status || e.valor || e.obs))
+    })
+    if (pendentes.length > 0) {
+      Promise.all(pendentes.map(r => {
+        const local = JSON.parse(localStorage.getItem(`wms_etapas_${r.id}`))
+        r.etapas = local
+        return supabase.from('processos').update({ etapas: local }).eq('id', r.id)
+      }))
+    }
   } else {
     // Migra dados existentes do localStorage para Supabase (primeira vez)
     const local = JSON.parse(localStorage.getItem('wms_registros') || '[]')
@@ -4965,13 +4984,28 @@ onMounted(async () => {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') dispararNotificacoes()
   })
+
+  // Flush pendente ao fechar/recarregar a aba
+  window.addEventListener('beforeunload', _flushEtapas)
 })
+
+function _flushEtapas() {
+  if (!_syncEtapasTimer) return
+  clearTimeout(_syncEtapasTimer)
+  _syncEtapasTimer = null
+  const id = regAberto.value
+  if (!id) return
+  const reg = registros.value.find(r => r.id === id)
+  if (reg?.etapas?.length) {
+    supabase.from('processos').update({ etapas: reg.etapas }).eq('id', id)
+  }
+}
 
 onUnmounted(() => {
   clearInterval(notifInterval)
   clearTimeout(alertaInterval)
   clearInterval(_emailCheckInterval)
-  clearTimeout(_syncEtapasTimer)
+  _flushEtapas()
 })
 
 function limparFormulario() {
