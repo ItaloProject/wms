@@ -2591,6 +2591,19 @@ function carregarEtapas(processoId, usarFallbackLegado = false) {
   })
 }
 
+// Mapeia etapas salvas (banco) para o formato vivo, preservando a definição padrão.
+function hidratarEtapas(etapasSalvas) {
+  return etapasPadrao.map(e => {
+    const salva = etapasSalvas.find(s => s.key === e.key)
+    const subStatus = e.subItens
+      ? Object.fromEntries(e.subItens.map(si => [si.key, salva?.subStatus?.[si.key] || { status: '', protocolo: '' }]))
+      : (salva?.subStatus || {})
+    return salva
+      ? { ...e, ...salva, subStatus }
+      : { ...e, status: '', obs: '', valor: '', concluidaEm: '', statusItens: {}, subStatus }
+  })
+}
+
 // ── BAIXA ──
 const etapasBaixaPadrao = [
   { key: 'empresa',           titulo: 'Empresa',                       tipo: 'texto',     placeholder: 'Nome da empresa' },
@@ -3526,10 +3539,16 @@ function excluirProcessoConsultar(p) {
 async function continuarProcesso(p) {
   ctrlSessao3.value = null
   ctrlSessao1.value = 'Constituição'
-  if (!p.processoId || p.processoId === regAberto.value) return
+  if (!p.processoId) return
 
-  // Persiste etapas do processo ativo no guia antes de trocar
-  if (regAberto.value) {
+  const mesmoProcesso = p.processoId === regAberto.value
+  const telaTemDados  = etapas.value.some(e => e.status || e.valor || e.obs)
+  // Já é o processo aberto E a tela está populada → nada a recarregar.
+  // Se a tela estiver vazia (ex: reaberto em outro dispositivo), segue para buscar do banco.
+  if (mesmoProcesso && telaTemDados) return
+
+  // Persiste etapas do processo ativo no guia antes de trocar (só ao trocar de processo)
+  if (regAberto.value && !mesmoProcesso) {
     const dataAtual = JSON.stringify(
       etapas.value.map(e => ({ key: e.key, status: e.status, obs: e.obs, valor: e.valor, concluidaEm: e.concluidaEm || '' }))
     )
@@ -3555,10 +3574,7 @@ async function continuarProcesso(p) {
   if (temDadosLocal) {
     etapas.value = etapasLocal
   } else if (reg.etapas && reg.etapas.length) {
-    etapas.value = etapasPadrao.map(e => {
-      const salva = reg.etapas.find(s => s.key === e.key)
-      return salva ? { ...e, ...salva } : { ...e, status: '', obs: '', valor: '', concluidaEm: '', statusItens: {}, subStatus: e.subItens ? Object.fromEntries(e.subItens.map(si => [si.key, { status: '', protocolo: '' }])) : {} }
-    })
+    etapas.value = hidratarEtapas(reg.etapas)
   } else {
     etapas.value = etapasLocal
   }
@@ -4961,6 +4977,17 @@ onMounted(async () => {
     // Reconcilia apenas o regAberto (guia de etapas). O Resumo NÃO é restaurado do banco:
     // ele vive somente no localStorage (wms_resumo) como rascunho de novo cadastro.
     if (reg && reg.id !== regAberto.value) regAberto.value = reg.id
+
+    // Hidrata as etapas do processo aberto. Em outro dispositivo/navegador o
+    // localStorage não tem os dados, então usa as etapas salvas no Supabase —
+    // sem isso a tela mostraria 0% mesmo com o progresso gravado no banco.
+    if (reg) {
+      const local = carregarEtapas(reg.id, false)
+      const temLocal = local.some(e => e.status || e.valor || e.obs)
+      if (!temLocal && reg.etapas?.length) {
+        etapas.value = hidratarEtapas(reg.etapas)
+      }
+    }
 
     // Sync passivo: processos onde localStorage tem dados mais recentes que o Supabase
     const pendentes = registros.value.filter(r => {
