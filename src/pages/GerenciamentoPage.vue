@@ -3861,11 +3861,10 @@ const docsSocio = ref([
   { label: 'Nome do Sócio',                        valor: '', tipo: 'texto'   },
   { label: 'CPF',                                   valor: '', tipo: 'cpf'    },
   { label: 'RG ou CNH',                             valor: '', tipo: 'rg'     },
-  { label: 'Comprovante de Residência do Titular',  valor: '', tipo: 'texto'  },
+  { label: 'Endereço pessoa física',                valor: '', tipo: 'texto'  },
   { label: 'Senha do Gov.Br (Nível Ouro)',          valor: '', tipo: 'texto'  },
   { label: 'Telefone',                              valor: '', tipo: 'telefone'},
   { label: 'E-Mail',                                valor: '', tipo: 'email'  },
-  { label: 'Endereço pessoa física',                valor: '', tipo: 'texto'  },
 ])
 
 function copiarTexto(texto, caption = '') {
@@ -4537,7 +4536,6 @@ function _coletarValoresRelatorio() {
   const nomeSocio      = soc('Nome do Sócio')
   const cpf            = soc('CPF')
   const rg             = soc('RG ou CNH')
-  const compResidencia = soc('Comprovante de Residência do Titular')
   const senhaGov       = soc('Senha do Gov.Br (Nível Ouro)')
   const telefoneSocio  = soc('Telefone')
   const emailSocio     = soc('E-Mail')
@@ -4547,10 +4545,9 @@ function _coletarValoresRelatorio() {
     nomeSocio      ? nomeSocio                                           : '',
     cpf            ? `CPF: ${cpf}`                                       : '',
     rg             ? `RG / CNH: ${rg}`                                   : '',
-    compResidencia ? `COMPROV. RESIDÊNCIA: ${compResidencia}`            : '',
+    enderecoSocio  ? `ENDEREÇO: ${enderecoSocio}`                        : '',
     telefoneSocio  ? `TELEFONE: ${telefoneSocio}`                        : '',
     emailSocio     ? `E-MAIL: ${emailSocio}`                             : '',
-    enderecoSocio  ? `ENDEREÇO: ${enderecoSocio}`                        : '',
   ].filter(Boolean).join('\n')
 
   const processosTexto = processoVal ? processoVal.toUpperCase() : 'CONSTITUIÇÃO'
