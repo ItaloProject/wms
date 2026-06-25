@@ -290,6 +290,29 @@
               </div>
             </div>
 
+            <!-- Observação -->
+            <div class="rs-card rs-card--obs">
+              <div class="rs-card-head">
+                <div class="rs-card-icon" style="--rc-color:rgba(99,102,241,0.3)">
+                  <q-icon name="edit_note" size="20px" style="color:#818cf8" />
+                </div>
+                <div class="col">
+                  <div class="rs-card-title">Observação</div>
+                  <div class="rs-card-sub">Anotações livres</div>
+                </div>
+              </div>
+              <div class="rp-fields">
+                <div class="rp-field rp-field--full" :class="{ 'rp-field--filled': observacao }">
+                  <textarea
+                    v-model="observacao"
+                    class="rp-obs-textarea"
+                    placeholder="Digite aqui suas observações..."
+                    rows="4"
+                  />
+                </div>
+              </div>
+            </div>
+
             <!-- Taxas e Custos (única seção) -->
             <div class="rs-card rs-card--taxas">
               <div class="rs-card-head">
@@ -4737,6 +4760,7 @@ function _limparFormulario() {
   docsEmpresa.value.forEach(d => { d.valor = '' })
   docsSocio.value.forEach(d => { d.valor = '' })
   taxas.value.forEach(t => { t.valor = '' })
+  observacao.value = ''
 }
 
 function novoProcesso() {
@@ -4834,6 +4858,7 @@ function limparFormulario() {
   docsEmpresa.value.forEach(d => d.valor = '')
   docsSocio.value.forEach(d => d.valor = '')
   taxas.value.forEach(t => t.valor = '')
+  observacao.value = ''
   activeStep.value = 0
 }
 
@@ -4948,27 +4973,31 @@ const taxas = ref([
   { label: 'Alvará da prefeitura',           valor: '', tipo: 'moeda' },
 ])
 
-// Carrega valores salvos do Resumo (docsEmpresa / docsSocio / taxas)
+const observacao = ref('')
+
+// Carrega valores salvos do Resumo (docsEmpresa / docsSocio / taxas / observacao)
 ;(() => {
   const salvo = JSON.parse(localStorage.getItem('wms_resumo') || 'null')
   if (!salvo) return
   salvo.empresa?.forEach(s => { const d = docsEmpresa.value.find(x => x.label === s.label); if (d) d.valor = s.valor })
   salvo.socio?.forEach(s => { const d = docsSocio.value.find(x => x.label === s.label); if (d) d.valor = s.valor })
   salvo.taxas?.forEach(s => { const t = taxas.value.find(x => x.label === s.label); if (t) t.valor = s.valor })
+  if (salvo.observacao) observacao.value = salvo.observacao
 })()
 
 function salvarResumo() {
   localStorage.setItem('wms_resumo', JSON.stringify({
-    empresa: docsEmpresa.value.map(d => ({ label: d.label, valor: d.valor })),
-    socio:   docsSocio.value.map(d => ({ label: d.label, valor: d.valor })),
-    taxas:   taxas.value.map(t => ({ label: t.label, valor: t.valor })),
+    empresa:    docsEmpresa.value.map(d => ({ label: d.label, valor: d.valor })),
+    socio:      docsSocio.value.map(d => ({ label: d.label, valor: d.valor })),
+    taxas:      taxas.value.map(t => ({ label: t.label, valor: t.valor })),
+    observacao: observacao.value,
   }))
 }
 
 // O Resumo (Relação de Documentos) é um rascunho de NOVO cadastro: persiste apenas
 // no localStorage. Não sincroniza com o banco e nunca é preenchido a partir de Consultar.
 // É inserido como novo processo somente ao concluir (salvarRegistro).
-watch([docsEmpresa, docsSocio, taxas], () => {
+watch([docsEmpresa, docsSocio, taxas, observacao], () => {
   salvarResumo()
 }, { deep: true })
 
@@ -5652,6 +5681,28 @@ const alerts = [
   border-radius: 20px;
   padding: 24px;
 }
+.rs-card--obs {
+  border-color: rgba(99,102,241,0.2);
+  background: rgba(99,102,241,0.04);
+}
+.rp-obs-textarea {
+  width: 100%;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  color: #fff;
+  font-size: 0.875rem;
+  font-family: inherit;
+  padding: 10px 14px;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+.rp-obs-textarea::placeholder { color: rgba(255,255,255,0.3); }
+.rp-obs-textarea:focus { border-color: rgba(129,140,248,0.6); }
+.rp-field--full { grid-column: 1 / -1; }
+
 .rs-card--taxas {
   border-color: rgba(245,158,11,0.2);
   background: rgba(245,158,11,0.04);
