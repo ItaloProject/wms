@@ -4798,7 +4798,8 @@ function _limparFormulario() {
   docsEmpresa.value.forEach(d => { d.valor = '' })
   docsSocio.value.forEach(d => { d.valor = '' })
   taxas.value.forEach(t => { t.valor = '' })
-  observacao.value = ''
+  // observacao é mantida para que o botão "Puxar Observação do Resumo" no Guia funcione
+  // após salvar o processo. Só é limpa quando o usuário clicar "+ Novo".
 }
 
 function novoProcesso() {
