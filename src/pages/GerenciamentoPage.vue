@@ -1096,7 +1096,7 @@
                           <q-icon name="close" size="13px" />
                         </button>
                       </div>
-                      <button v-else class="et-obs-pull-btn" :disabled="!observacao" @click="etapa.obs = observacao; salvarEtapas()" :title="observacao ? 'Puxar observação do Resumo' : 'Nenhuma observação no Resumo'">
+                      <button v-else class="et-obs-pull-btn" :disabled="!obsEtapa1" @click="etapa.obs = obsEtapa1; salvarEtapas()" :title="obsEtapa1 ? 'Puxar observação do Resumo' : 'Nenhuma observação no Resumo'">
                         <q-icon name="download" size="14px" />
                         Puxar Observação do Resumo
                       </button>
@@ -5114,7 +5114,21 @@ function salvarResumo() {
     taxas:      taxas.value.map(t => ({ label: t.label, valor: t.valor })),
     observacao: observacao.value,
   }))
+  // Indexa observacao por razão social para o Guia de Constituição consultá-la
+  const razao = docsEmpresa.value.find(d => d.label === 'Razão social')?.valor?.trim()
+  if (razao) localStorage.setItem(`wms_obs_emp_${razao}`, observacao.value || '')
 }
+
+// Observacao para o botão "Puxar" no Guia de Constituição:
+// prioriza a observacao salva para a empresa selecionada no passo 1.
+const obsEtapa1 = computed(() => {
+  const empNome = etapaValor('empresa')
+  if (empNome) {
+    const stored = localStorage.getItem(`wms_obs_emp_${empNome}`)
+    if (stored !== null) return stored
+  }
+  return observacao.value
+})
 
 // O Resumo (Relação de Documentos) é um rascunho de NOVO cadastro: persiste apenas
 // no localStorage. Não sincroniza com o banco e nunca é preenchido a partir de Consultar.
