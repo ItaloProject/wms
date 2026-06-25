@@ -1453,15 +1453,20 @@
                 </div>
               </div>
 
-              <div class="cons-search-wrap q-mb-lg">
-                <q-icon name="search" size="18px" class="cons-search-icon" />
-                <input
-                  v-model="consultarBusca"
-                  class="cons-search-input"
-                  placeholder="Buscar por empresa, protocolo ou localização..."
-                />
-                <button v-if="consultarBusca" class="cons-search-clear" @click="consultarBusca = ''">
-                  <q-icon name="close" size="16px" />
+              <div class="cons-search-row q-mb-lg">
+                <div class="cons-search-wrap">
+                  <q-icon name="search" size="18px" class="cons-search-icon" />
+                  <input
+                    v-model="consultarBusca"
+                    class="cons-search-input"
+                    placeholder="Buscar por empresa, protocolo ou localização..."
+                  />
+                  <button v-if="consultarBusca" class="cons-search-clear" @click="consultarBusca = ''">
+                    <q-icon name="close" size="16px" />
+                  </button>
+                </div>
+                <button class="cons-refresh-btn" :class="{ 'cons-refresh-btn--loading': atualizandoConsultar }" @click="atualizarConsultar" :disabled="atualizandoConsultar" title="Atualizar lista">
+                  <q-icon name="refresh" size="18px" :class="{ 'cons-refresh-spin': atualizandoConsultar }" />
                 </button>
               </div>
 
@@ -2985,7 +2990,26 @@ function removerArquivamento(item, id) {
   localStorage.setItem('wms_arq_baixa', JSON.stringify(docsArquivamentoBaixa.value))
 }
 
-const consultarBusca = ref('')
+const consultarBusca        = ref('')
+const atualizandoConsultar  = ref(false)
+
+async function atualizarConsultar() {
+  if (atualizandoConsultar.value) return
+  atualizandoConsultar.value = true
+  try {
+    const [{ data: procs }, { data: hist }] = await Promise.all([
+      supabase.from('processos').select('*').order('created_at', { ascending: false }),
+      supabase.from('historico').select('*').order('id', { ascending: false }),
+    ])
+    if (procs) registros.value = procs.map(processoFromDb)
+    if (hist)  historico.value = hist.map(historicoFromDb)
+    $q.notify({ icon: 'check_circle', color: 'positive', message: 'Lista atualizada!', position: 'top', timeout: 1800 })
+  } catch {
+    $q.notify({ type: 'negative', message: 'Erro ao atualizar. Tente novamente.', position: 'top', timeout: 3000 })
+  } finally {
+    atualizandoConsultar.value = false
+  }
+}
 
 // ── Relatórios ──
 const rlMes  = ref(new Date().getMonth() + 1)
@@ -6741,7 +6765,11 @@ const alerts = [
 /* ══ VIEW: CONSULTAR ══ */
 .cons-page { width: 100%; }
 
+.cons-search-row {
+  display: flex; align-items: center; gap: 10px;
+}
 .cons-search-wrap {
+  flex: 1;
   display: flex; align-items: center; gap: 10px;
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.1);
@@ -6749,6 +6777,19 @@ const alerts = [
   transition: border-color 0.2s;
 }
 .cons-search-wrap:focus-within { border-color: rgba(90,184,46,0.4); }
+.cons-refresh-btn {
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px; color: rgba(255,255,255,0.6);
+  cursor: pointer; transition: all 0.2s;
+}
+.cons-refresh-btn:hover:not(:disabled) { background: rgba(90,184,46,0.15); border-color: rgba(90,184,46,0.4); color: #5ab82e; }
+.cons-refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+@keyframes cons-spin { to { transform: rotate(360deg); } }
+.cons-refresh-spin { animation: cons-spin 0.8s linear infinite; display: block; }
 .cons-search-icon { color: rgba(255,255,255,0.3); flex-shrink: 0; }
 .cons-search-input {
   flex: 1; background: none; border: none; outline: none;
