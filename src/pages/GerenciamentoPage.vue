@@ -1654,8 +1654,9 @@
             <div
               v-for="reg in registrosFiltrados"
               :key="reg.id"
-              class="prazo-card"
+              class="prazo-card prazo-card--clicavel"
               :class="`prazo-card--${reg.prazo || 'normal'}`"
+              @click="abrirResumoProcesso(reg)"
             >
               <div class="prazo-card-bar" />
 
@@ -1684,9 +1685,9 @@
                   {{ prazoEmoji(reg.prazo) }} {{ prazoLabel(reg.prazo) }}
                 </div>
                 <div class="prazo-dots">
-                  <button class="pd-btn pd-btn--normal"    :class="{'pd-active': (reg.prazo||'normal')==='normal'}"    @click="alterarPrazo(reg.id,'normal')"    title="Normal" />
-                  <button class="pd-btn pd-btn--priorizar" :class="{'pd-active': reg.prazo==='priorizar'}" @click="alterarPrazo(reg.id,'priorizar')" title="Priorizar" />
-                  <button class="pd-btn pd-btn--urgente"   :class="{'pd-active': reg.prazo==='urgente'}"   @click="alterarPrazo(reg.id,'urgente')"   title="Urgente" />
+                  <button class="pd-btn pd-btn--normal"    :class="{'pd-active': (reg.prazo||'normal')==='normal'}"    @click.stop="alterarPrazo(reg.id,'normal')"    title="Normal" />
+                  <button class="pd-btn pd-btn--priorizar" :class="{'pd-active': reg.prazo==='priorizar'}" @click.stop="alterarPrazo(reg.id,'priorizar')" title="Priorizar" />
+                  <button class="pd-btn pd-btn--urgente"   :class="{'pd-active': reg.prazo==='urgente'}"   @click.stop="alterarPrazo(reg.id,'urgente')"   title="Urgente" />
                 </div>
                 <button class="prazo-concluir-btn" title="Marcar como concluído" @click.stop="marcarConcluido(reg)">
                   <q-icon name="check_circle_outline" size="16px" />
@@ -2129,6 +2130,67 @@
     </q-dialog>
 
     <!-- Dialog: E-mail do processo -->
+    <!-- Dialog: Resumo do processo (Prazos) -->
+    <q-dialog v-model="dialogResumoProcesso">
+      <div class="resumo-proc-dialog" v-if="resumoProcessoReg">
+        <div class="resumo-proc-header">
+          <div>
+            <div class="resumo-proc-title">{{ resumoProcessoReg.razaoSocial || 'Sem razão social' }}</div>
+            <div class="resumo-proc-sub">Resumo do processo · Vence {{ resumoProcessoReg.dataVencFormatada || '—' }}</div>
+          </div>
+          <button class="resumo-proc-close" @click="dialogResumoProcesso = false">
+            <q-icon name="close" size="18px" />
+          </button>
+        </div>
+
+        <div class="resumo-proc-body">
+          <!-- Dados da Empresa -->
+          <div v-if="resumoProcessoReg.empresa?.some(d => d.valor)" class="resumo-proc-section">
+            <div class="resumo-proc-section-title">
+              <q-icon name="business" size="14px" /> Dados da Empresa
+            </div>
+            <div class="resumo-proc-grid">
+              <div v-for="d in resumoProcessoReg.empresa?.filter(x => x.valor)" :key="d.label" class="resumo-proc-field">
+                <span class="resumo-proc-label">{{ d.label }}</span>
+                <span class="resumo-proc-valor">{{ d.valor }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dados do Sócio -->
+          <div v-if="resumoProcessoReg.socio?.some(d => d.valor)" class="resumo-proc-section">
+            <div class="resumo-proc-section-title">
+              <q-icon name="person" size="14px" /> Dados do Sócio
+            </div>
+            <div class="resumo-proc-grid">
+              <div v-for="d in resumoProcessoReg.socio?.filter(x => x.valor)" :key="d.label" class="resumo-proc-field">
+                <span class="resumo-proc-label">{{ d.label }}</span>
+                <span class="resumo-proc-valor">{{ d.valor }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Taxas e Custos -->
+          <div v-if="resumoProcessoReg.taxas?.some(d => d.valor)" class="resumo-proc-section">
+            <div class="resumo-proc-section-title">
+              <q-icon name="payments" size="14px" /> Taxas e Custos
+            </div>
+            <div class="resumo-proc-grid">
+              <div v-for="d in resumoProcessoReg.taxas?.filter(x => x.valor)" :key="d.label" class="resumo-proc-field">
+                <span class="resumo-proc-label">{{ d.label }}</span>
+                <span class="resumo-proc-valor">{{ d.valor }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="!resumoProcessoReg.empresa?.some(d => d.valor) && !resumoProcessoReg.socio?.some(d => d.valor) && !resumoProcessoReg.taxas?.some(d => d.valor)" class="resumo-proc-empty">
+            <q-icon name="folder_off" size="36px" style="color:rgba(255,255,255,0.15)" />
+            <p>Nenhum dado do Resumo foi preenchido para este processo.</p>
+          </div>
+        </div>
+      </div>
+    </q-dialog>
+
     <q-dialog v-model="dialogEmail" persistent>
       <div class="email-dialog">
         <div class="email-dialog-header">
@@ -4302,6 +4364,14 @@ const EMAIL_DESTINATARIOS = [
   { nome: 'WMS CONSULTORIA CONTABIL - CONTABIL',email: 'contabil@wmsconsultoria.com.br' },
   { nome: 'WMS CONSULTORIA CONTABIL - DP',      email: 'pessoal@wmsconsultoria.com.br'  },
 ]
+const dialogResumoProcesso = ref(false)
+const resumoProcessoReg    = ref(null)
+
+function abrirResumoProcesso(reg) {
+  resumoProcessoReg.value = registros.value.find(r => r.id === reg.id) || reg
+  dialogResumoProcesso.value = true
+}
+
 const dialogEmail        = ref(false)
 const emailDialogEmpresa = ref('')
 const emailDialogProcessoId = ref(null)
@@ -6911,6 +6981,43 @@ const alerts = [
 }
 
 /* ── Dialog E-mail ── */
+.resumo-proc-dialog {
+  width: 560px; max-width: 96vw; max-height: 85vh;
+  background: #0f1e3a; border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 24px 60px rgba(0,0,0,0.55);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.resumo-proc-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; padding: 20px 20px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.resumo-proc-title { font-size: 1rem; font-weight: 700; color: #fff; }
+.resumo-proc-sub { font-size: 0.75rem; color: rgba(255,255,255,0.4); margin-top: 2px; }
+.resumo-proc-close {
+  background: none; border: none; color: rgba(255,255,255,0.4);
+  cursor: pointer; padding: 2px; transition: color 0.2s; flex-shrink: 0;
+}
+.resumo-proc-close:hover { color: #fff; }
+.resumo-proc-body { overflow-y: auto; padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 18px; }
+.resumo-proc-section { display: flex; flex-direction: column; gap: 8px; }
+.resumo-proc-section-title {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: rgba(255,255,255,0.35);
+}
+.resumo-proc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.resumo-proc-field {
+  background: rgba(255,255,255,0.04); border-radius: 8px;
+  padding: 8px 12px; display: flex; flex-direction: column; gap: 2px;
+}
+.resumo-proc-label { font-size: 0.68rem; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 0.04em; }
+.resumo-proc-valor { font-size: 0.85rem; color: rgba(255,255,255,0.85); font-weight: 500; word-break: break-word; }
+.resumo-proc-empty { text-align: center; padding: 32px 0; color: rgba(255,255,255,0.3); font-size: 0.85rem; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.prazo-card--clicavel { cursor: pointer; }
+.prazo-card--clicavel:hover { border-color: rgba(255,255,255,0.15); }
+
 .email-dialog {
   width: 480px; max-width: 96vw;
   background: #0f1e3a; border-radius: 18px;
