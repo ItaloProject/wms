@@ -3547,12 +3547,11 @@ async function continuarProcesso(p) {
   // Se a tela estiver vazia (ex: reaberto em outro dispositivo), segue para buscar do banco.
   if (mesmoProcesso && telaTemDados) return
 
-  // Persiste etapas do processo ativo no guia antes de trocar (só ao trocar de processo)
+  // Persiste etapas do processo ativo no guia antes de trocar (só ao trocar de processo).
+  // Flush imediato no banco para não perder uma edição com debounce pendente.
   if (regAberto.value && !mesmoProcesso) {
-    const dataAtual = JSON.stringify(
-      etapas.value.map(e => ({ key: e.key, status: e.status, obs: e.obs, valor: e.valor, concluidaEm: e.concluidaEm || '' }))
-    )
-    localStorage.setItem(`wms_etapas_${regAberto.value}`, dataAtual)
+    salvarEtapas()
+    _flushEtapas()
   }
 
   // Busca dados frescos do banco para o processo selecionado
@@ -3568,15 +3567,14 @@ async function continuarProcesso(p) {
   regAberto.value = reg.id
   // O Resumo (Relação de Documentos) é independente: NÃO é tocado por Consultar.
 
-  // Carrega etapas: localStorage primeiro, fallback para etapas salvas no banco
-  const etapasLocal = carregarEtapas(reg.id, false)
-  const temDadosLocal = etapasLocal.some(e => e.status || e.valor || e.obs)
-  if (temDadosLocal) {
-    etapas.value = etapasLocal
-  } else if (reg.etapas && reg.etapas.length) {
+  // Carrega etapas: o banco é a FONTE DA VERDADE (multi-dispositivo). Se o banco
+  // tem progresso, ele vence; só usa o rascunho local quando o banco está vazio.
+  const temDadosBanco = reg.etapas?.some(e => e.status || e.valor || e.obs)
+  if (temDadosBanco) {
     etapas.value = hidratarEtapas(reg.etapas)
+    localStorage.setItem(`wms_etapas_${reg.id}`, JSON.stringify(reg.etapas))
   } else {
-    etapas.value = etapasLocal
+    etapas.value = carregarEtapas(reg.id, false)
   }
 }
 
@@ -4978,14 +4976,19 @@ onMounted(async () => {
     // ele vive somente no localStorage (wms_resumo) como rascunho de novo cadastro.
     if (reg && reg.id !== regAberto.value) regAberto.value = reg.id
 
-    // Hidrata as etapas do processo aberto. Em outro dispositivo/navegador o
-    // localStorage não tem os dados, então usa as etapas salvas no Supabase —
-    // sem isso a tela mostraria 0% mesmo com o progresso gravado no banco.
+    // Hidrata as etapas do processo aberto. O Supabase é a FONTE DA VERDADE para
+    // processos existentes (multi-dispositivo): se o banco tem progresso gravado,
+    // ele vence sobre qualquer rascunho velho no localStorage deste navegador.
+    // Sem isso, outra máquina mostraria seu cache local desatualizado (ex: 0%).
     if (reg) {
-      const local = carregarEtapas(reg.id, false)
-      const temLocal = local.some(e => e.status || e.valor || e.obs)
-      if (!temLocal && reg.etapas?.length) {
+      const temBanco = reg.etapas?.some(e => e.status || e.valor || e.obs)
+      if (temBanco) {
         etapas.value = hidratarEtapas(reg.etapas)
+        localStorage.setItem(`wms_etapas_${reg.id}`, JSON.stringify(reg.etapas))
+      } else {
+        // Banco vazio: preserva o rascunho local (edição ainda não sincronizada)
+        const local = carregarEtapas(reg.id, false)
+        if (local.some(e => e.status || e.valor || e.obs)) etapas.value = local
       }
     }
 
