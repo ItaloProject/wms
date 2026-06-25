@@ -3439,11 +3439,13 @@ const processosConsultar = computed(() => {
     .filter(r => !r.concluido)
     .map(r => {
       const h = latestByProcesso[r.id]
-      // Prioriza o progresso real das etapas; histórico é só fallback.
+      // Progresso = maior valor entre as etapas (banco/local) e o histórico.
+      // Usar o máximo evita que um processo apareça em 0% quando o update de
+      // etapas falhou/não sincronizou mas o histórico registrou o avanço real.
       // Limita a 99: processo só vira "concluído" via histórico (relatório gerado),
       // evitando que um registro com todas as etapas marcadas suma da lista de ativos.
       const pe  = progressoDoRegistro(r)
-      const pct = Math.min(pe != null ? pe : (h?.pct ?? 0), 99)
+      const pct = Math.min(Math.max(pe ?? 0, h?.pct ?? 0), 99)
       const nome = r.razaoSocial
         || r.empresa?.find?.(d => d.label === 'Razão social')?.valor
         || '—'
@@ -3702,6 +3704,37 @@ function selecionarSugestao(etapa, nome) {
 }
 
 let _syncEtapasTimer = null
+
+// Persiste etapas no Supabase verificando erro E linhas afetadas.
+// `silencioso=true` (autosave) não notifica em caso de erro para não poluir a tela;
+// `silencioso=false` (concluir depois / flush) avisa o usuário se algo falhar.
+async function persistirEtapas(id, etapasData, silencioso = true) {
+  const { data, error } = await supabase
+    .from('processos')
+    .update({ etapas: etapasData })
+    .eq('id', id)
+    .select('id')
+
+  if (error) {
+    if (!silencioso) {
+      $q.notify({ icon: 'error', color: 'negative', position: 'top', timeout: 7000,
+        message: 'Não foi possível sincronizar o progresso: ' + error.message })
+    }
+    console.error('[persistirEtapas] erro:', error)
+    return { ok: false, error }
+  }
+  if (!data || data.length === 0) {
+    // Update sem erro mas 0 linhas: o processo aberto não existe no banco com esse ID.
+    if (!silencioso) {
+      $q.notify({ icon: 'warning', color: 'warning', position: 'top', timeout: 7000,
+        message: 'Progresso salvo localmente, mas o processo não foi encontrado no banco. Recarregue e tente novamente.' })
+    }
+    console.warn('[persistirEtapas] 0 linhas afetadas — id não encontrado:', id)
+    return { ok: false, naoEncontrado: true }
+  }
+  return { ok: true }
+}
+
 function salvarEtapas() {
   const etapasData = etapas.value.map(e => ({
     key: e.key, status: e.status, obs: e.obs, valor: e.valor, concluidaEm: e.concluidaEm || '',
@@ -3719,7 +3752,7 @@ function salvarEtapas() {
     // Persiste no Supabase após 1,5s de inatividade
     clearTimeout(_syncEtapasTimer)
     _syncEtapasTimer = setTimeout(() => {
-      supabase.from('processos').update({ etapas: etapasData }).eq('id', regAberto.value)
+      persistirEtapas(regAberto.value, etapasData, true)
     }, 1500)
   }
 }
@@ -4795,8 +4828,9 @@ async function concluirDepois() {
   const id = regAberto.value
   if (id) {
     clearTimeout(_syncEtapasTimer)
+    _syncEtapasTimer = null
     const reg = registros.value.find(r => r.id === id)
-    if (reg) await supabase.from('processos').update({ etapas: reg.etapas }).eq('id', id)
+    if (reg) await persistirEtapas(id, reg.etapas, false)
   }
   const empresa     = etapaValor('empresa')     || etapaValor('empresa_baixa') || ''
   const protocolo   = etapaValor('protocolo')   || ''
@@ -4997,7 +5031,7 @@ function _flushEtapas() {
   if (!id) return
   const reg = registros.value.find(r => r.id === id)
   if (reg?.etapas?.length) {
-    supabase.from('processos').update({ etapas: reg.etapas }).eq('id', id)
+    persistirEtapas(id, reg.etapas, true)
   }
 }
 
