@@ -1114,15 +1114,19 @@
                 </div>
               </div>
 
-              <!-- Botão Concluir Guia -->
+              <!-- Botões de ação -->
               <div class="et-concluir-wrap">
                 <button class="et-concluir-btn--depois" @click="concluirDepois" :disabled="gerandoRelatorio">
                   <q-icon name="schedule" size="18px" />
                   Concluir Depois
                 </button>
-                <button class="et-concluir-btn" @click="gerarRelatorio" :disabled="gerandoRelatorio">
+                <button class="et-concluir-btn--relatorio" @click="gerarRelatorio" :disabled="gerandoRelatorio">
                   <q-icon :name="gerandoRelatorio ? 'hourglass_empty' : 'download'" size="18px" />
-                  {{ gerandoRelatorio ? 'Gerando...' : 'Concluir e Gerar Relatório' }}
+                  {{ gerandoRelatorio ? 'Gerando...' : 'Gerar Relatório' }}
+                </button>
+                <button class="et-concluir-btn" @click="concluirProcesso" :disabled="gerandoRelatorio">
+                  <q-icon name="check_circle" size="18px" />
+                  Concluir
                 </button>
               </div>
 
@@ -4660,18 +4664,16 @@ async function gerarRelatorio() {
     }
   }
 
-  const { valores, nomeArquivo, razaoSocial, municipioEstado } = _coletarValoresRelatorio()
+  const { valores, nomeArquivo } = _coletarValoresRelatorio()
 
-  // Campos que o usuário pode complementar (excluindo campos computados)
   const COMPLEMENTAVEIS = ['RAZAO','CNPJ','ABERTURA','CAPITAL','MUN_EST','DONO',
     'INSC_EST','INSC_MUN','SOCIO','CPF','NIRE','SEN_EST','SEN_MUN',
     'NFSE1','NFSE2','SEGMENTO','CUIDADOR','REGIME','DOMINIO','VERI','GOVBR']
 
   const vazios = COMPLEMENTAVEIS.filter(k => !valores[k])
-
   if (vazios.length > 0) {
     camposComplementar.value = vazios.map(k => ({ token: k, label: LABEL_CAMPO[k] || k, valor: '' }))
-    _valoresPendentes.value  = { valores, nomeArquivo, razaoSocial, municipioEstado }
+    _valoresPendentes.value  = { valores, nomeArquivo, ..._coletarValoresRelatorio() }
     _nomePendente.value      = nomeArquivo
     dialogComplementar.value = true
     return
@@ -4680,18 +4682,23 @@ async function gerarRelatorio() {
   gerandoRelatorio.value = true
   try {
     await preencherRelatorioGeral(valores, nomeArquivo)
-    await salvarHistorico(razaoSocial, etapaValor('protocolo'), municipioEstado)
-    _docsAnexadosSnap.value  = Object.values(docsAnexados.value).flat()
-    empresaBaixaEnvio.value  = razaoSocial
-    processoBaixaEnvio.value = etapaValor('processo') || 'Constituição'
-    protocoloEnvio.value     = etapaValor('protocolo')
-    senhaSemfazEnvio.value   = etapaValor('semfaz')
-    senhaSefazEnvio.value    = etapaValor('sefaznet')
-    mostrarModalEnvio.value  = true
-    resetarFormConstituicao()
+    $q.notify({ icon: 'download', color: 'positive', message: 'Relatório gerado com sucesso!', position: 'top', timeout: 3000 })
   } finally {
     gerandoRelatorio.value = false
   }
+}
+
+async function concluirProcesso() {
+  const { valores, nomeArquivo, razaoSocial, municipioEstado } = _coletarValoresRelatorio()
+  await salvarHistorico(razaoSocial, etapaValor('protocolo'), municipioEstado)
+  _docsAnexadosSnap.value  = Object.values(docsAnexados.value).flat()
+  empresaBaixaEnvio.value  = razaoSocial
+  processoBaixaEnvio.value = etapaValor('processo') || 'Constituição'
+  protocoloEnvio.value     = etapaValor('protocolo')
+  senhaSemfazEnvio.value   = etapaValor('semfaz')
+  senhaSefazEnvio.value    = etapaValor('sefaznet')
+  mostrarModalEnvio.value  = true
+  resetarFormConstituicao()
 }
 
 async function concluirDepois() {
@@ -4735,15 +4742,7 @@ async function confirmarComplementar() {
   gerandoRelatorio.value = true
   try {
     await preencherRelatorioGeral(valores, nomeArquivo)
-    await salvarHistorico(razaoSocial, etapaValor('protocolo'), municipioEstado)
-    _docsAnexadosSnap.value  = Object.values(docsAnexados.value).flat()
-    empresaBaixaEnvio.value  = razaoSocial
-    processoBaixaEnvio.value = etapaValor('processo') || 'Constituição'
-    protocoloEnvio.value     = etapaValor('protocolo')
-    senhaSemfazEnvio.value   = etapaValor('semfaz')
-    senhaSefazEnvio.value    = etapaValor('sefaznet')
-    mostrarModalEnvio.value  = true
-    resetarFormConstituicao()
+    $q.notify({ icon: 'download', color: 'positive', message: 'Relatório gerado com sucesso!', position: 'top', timeout: 3000 })
   } finally {
     gerandoRelatorio.value = false
     _valoresPendentes.value = null
@@ -7192,6 +7191,17 @@ const alerts = [
 }
 .et-concluir-btn--depois:hover:not(:disabled) { border-color: rgba(255,255,255,0.5); color: #fff; transform: translateY(-2px); }
 .et-concluir-btn--depois:disabled { opacity: 0.4; cursor: not-allowed; }
+.et-concluir-btn--relatorio {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 28px; border-radius: 14px;
+  background: rgba(59,130,246,0.15);
+  border: 2px solid rgba(59,130,246,0.5); color: #93c5fd;
+  font-size: 1rem; font-weight: 600;
+  font-family: inherit; letter-spacing: 0.04em; cursor: pointer;
+  transition: all 0.2s;
+}
+.et-concluir-btn--relatorio:hover:not(:disabled) { background: rgba(59,130,246,0.25); border-color: #93c5fd; color: #fff; transform: translateY(-2px); }
+.et-concluir-btn--relatorio:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ══ ARQUIVAMENTO DE INFORMAÇÕES — dropdown com upload ══ */
 .et-arquiv {
