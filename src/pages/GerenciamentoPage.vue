@@ -3116,30 +3116,43 @@ const rlGrupos = computed(() => {
     return d.getMonth() + 1 === mes && d.getFullYear() === ano
   }
 
-  // CONC — concluídos (pct 100)
-  const conc = historico.value
-    .filter(h => h.pct === 100 && matchDMY(h.data))
-    .map(h => ({ id: h.id, processoId: h.processoId, empresa: h.empresa, protocolo: h.protocolo || '—', dataStr: h.data }))
+  // historico já vem ORDER BY id DESC → primeira ocorrência por processo é a mais recente
+  const histMes = historico.value.filter(h => matchDMY(h.data))
+  const regMes  = registros.value.filter(r => matchISO(r.dataISO))
 
-  // AND — em andamento (pct entre 1 e 99)
-  const and = historico.value
-    .filter(h => (h.pct ?? 0) > 0 && (h.pct ?? 0) < 100 && matchDMY(h.data))
-    .map(h => ({ id: h.id, processoId: h.processoId, empresa: h.empresa, protocolo: h.protocolo || '—', dataStr: h.data }))
+  // Para cada processo, pega apenas a entrada mais recente do histórico
+  const seenHist = new Map()
+  for (const h of histMes) {
+    const key = String(h.processoId ?? h.empresa ?? h.id)
+    if (!seenHist.has(key)) seenHist.set(key, h)
+  }
 
-  // PEN — pendentes: processos urgentes/priorizar ou vencidos no mês
-  const pen = registros.value
-    .filter(r => matchISO(r.dataISO) && (r.prazo === 'urgente' || r.prazo === 'priorizar' || diasRestantes(r) < 0))
+  const conc = [], and = [], naoIniciados = []
+  for (const [, h] of seenHist) {
+    const item = { id: h.id, processoId: h.processoId, empresa: h.empresa, protocolo: h.protocolo || '—', dataStr: h.data }
+    if ((h.pct ?? 0) === 100)      conc.push(item)
+    else if ((h.pct ?? 0) > 0)     and.push(item)
+    else                            naoIniciados.push(item)
+  }
+
+  // IDs de processos já classificados via histórico
+  const classIds = new Set([...seenHist.keys()])
+
+  // PEN — processos urgentes/priorizar/vencidos do mês, não já em AND/CONC
+  const pen = regMes
+    .filter(r => {
+      const key = String(r.id)
+      if (classIds.has(key)) return false
+      return r.prazo === 'urgente' || r.prazo === 'priorizar' || diasRestantes(r) < 0
+    })
+    .map(r => { classIds.add(String(r.id)); return { id: r.id, processoId: r.id, empresa: r.razaoSocial, protocolo: '—', dataStr: r.dataFormatada } })
+
+  // N/I — processos do mês não cobertos pelo histórico nem por PEN
+  const niExtra = regMes
+    .filter(r => !classIds.has(String(r.id)))
     .map(r => ({ id: r.id, processoId: r.id, empresa: r.razaoSocial, protocolo: '—', dataStr: r.dataFormatada }))
 
-  // Não iniciados — sem protocolo (pct 0 ou protocolo ausente)
-  const naoIniciados = [
-    ...historico.value
-      .filter(h => (!h.pct || h.pct === 0) && matchDMY(h.data))
-      .map(h => ({ id: h.id, processoId: h.processoId, empresa: h.empresa, protocolo: '—', dataStr: h.data })),
-    ...registros.value
-      .filter(r => matchISO(r.dataISO) && r.prazo === 'normal' && diasRestantes(r) >= 0)
-      .map(r => ({ id: r.id, processoId: r.id, empresa: r.razaoSocial, protocolo: '—', dataStr: r.dataFormatada }))
-  ]
+  naoIniciados.push(...niExtra)
 
   // SUSPENSOS — placeholder (sem campo de status suspenso ainda)
   const suspensos = []
