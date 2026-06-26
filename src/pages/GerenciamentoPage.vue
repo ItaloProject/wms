@@ -3616,46 +3616,14 @@ async function _executarRelatorioBaixa() {
 
   const empresa     = bv('empresa')
   const localizacao = bv('localizacao')
-  // Calcula processo direto dos procItens (evita "+" legado) — um por linha
   const _procEtapa  = etapasBaixa.value.find(e => e.key === 'processo')
-  const _procItems  = (_procEtapa?.procItens || []).filter(i => i.tipo)
-  const processo    = (() => {
-    const linhas = _procItems.length
-      ? _procItems.map(i => i.desc?.trim() ? `${i.tipo.toUpperCase()} ${i.desc}` : i.tipo.toUpperCase())
-      : [bv('processo').replace(/\s*\+\s*/g, ' ').replace(/\s*\/\s*/g, '\n').trim()]
-    const _saiNomes   = (_procEtapa?.saiItens   || []).map(i => i.nome?.trim()).filter(Boolean).map(n => n.toUpperCase())
-    const _entraItens = (_procEtapa?.entraItens || []).map(i => i.nome?.trim()).filter(Boolean).map(n => n.toUpperCase())
-    if (_saiNomes.length > 0)   linhas.push(`SAI: ${_saiNomes.join('\r')}`)
-    if (_entraItens.length > 0) linhas.push(`ENTRA: ${_entraItens.join('\r')}`)
-    return linhas.filter(Boolean).join('\n')
-  })()
+  const processo    = montarProcessosTextoRelatorio(_procEtapa, bv('processo'), 'BAIXA')
+  const processosTexto = processo
   const assinatura  = bv('assinatura')
   const protocolo   = bv('protocolo')
-  const contrato    = bv('contrato')
 
   const emp = label => docsEmpresa.value.find(d => d.label === label)?.valor || ''
   const soc = label => docsSocio.value.find(d => d.label === label)?.valor   || ''
-  const tax = label => taxas.value.find(t => t.label === label)?.valor       || ''
-
-  const statusLabel = key => {
-    const s = bs(key)
-    return s === 'concluida' ? 'CONCLUÍDO' : s === 'nao_concluida' ? 'NÃO CONCLUÍDO' : s === 'pendente' ? 'PENDENTE' : '—'
-  }
-
-  const processosTexto = [
-    processo ? processo.toUpperCase() : '',
-    protocolo                     ? `PROTOCOLO: ${protocolo}`                                            : '',
-    contrato                      ? `DATA DO CONTRATO: ${contrato}`                                      : '',
-    bs('exclusao_contador')       ? `EXCLUSÃO DO CONTADOR: ${statusLabel('exclusao_contador')}`          : '',
-    bs('cancelamento_proc')       ? `CANCELAMENTO DA PROCURAÇÃO: ${statusLabel('cancelamento_proc')}`   : '',
-    bs('exclusao_veri')           ? `EXCLUSÃO DO VERI: ${statusLabel('exclusao_veri')}`                  : '',
-    bs('redesim')                 ? `REDE SIM: ${statusLabel('redesim')}`                                : '',
-    bs('fcn')                     ? `FCN: ${statusLabel('fcn')}`                                         : '',
-    bs('taxa')                    ? `TAXA: ${statusLabel('taxa')}`                                       : '',
-    tax('Jucema')                        ? `JUCEMA: R$ ${tax('Jucema')}`                                 : '',
-    tax('Certificado digital da empresa') ? `CERT. DIGITAL: ${tax('Certificado digital da empresa')}`    : '',
-    tax('Alvará da prefeitura')          ? `ALVARÁ PREFEITURA: R$ ${tax('Alvará da prefeitura')}`        : '',
-  ].filter(Boolean).join('\n')
 
   await preencherRelatorioGeral({
     RAZAO:       empresa,
@@ -6031,6 +5999,20 @@ function computarValorProcesso(etapa) {
     .join(' / ')
 }
 
+function montarProcessosTextoRelatorio(procEtapa, fallbackValor = '', fallbackDefault = '') {
+  const procItems = (procEtapa?.procItens || []).filter(i => i.tipo)
+  const linhas = procItems.length
+    ? procItems.map(i => i.desc?.trim() ? `${i.tipo.toUpperCase()} ${i.desc}` : i.tipo.toUpperCase())
+    : fallbackValor
+      ? [String(fallbackValor).toUpperCase().replace(/\s*\+\s*/g, ' ').split(/\s*\/\s*/).join('\n')]
+      : fallbackDefault ? [fallbackDefault] : []
+  const saiNomes = (procEtapa?.saiItens || []).map(i => i.nome?.trim()).filter(Boolean).map(n => n.toUpperCase())
+  const entraNomes = (procEtapa?.entraItens || []).map(i => i.nome?.trim()).filter(Boolean).map(n => n.toUpperCase())
+  if (saiNomes.length > 0)   linhas.push(`SAI: ${saiNomes.join('\r')}`)
+  if (entraNomes.length > 0) linhas.push(`ENTRA: ${entraNomes.join('\r')}`)
+  return linhas.filter(Boolean).join('\n')
+}
+
 function contagemSaiEntra(etapa) {
   const sai = (etapa.saiItens || []).filter(i => i.nome?.trim()).length
   const entra = (etapa.entraItens || []).filter(i => i.nome?.trim()).length
@@ -6108,19 +6090,7 @@ function _coletarValoresRelatorio() {
   ].filter(Boolean).join('\n')
 
   const _procEtapaConst = etapas.value.find(e => e.key === 'processo')
-  const _procItemsConst = (_procEtapaConst?.procItens || []).filter(i => i.tipo)
-  const processosTexto = (() => {
-    const linhas = _procItemsConst.length
-      ? _procItemsConst.map(i => i.desc?.trim() ? `${i.tipo.toUpperCase()} ${i.desc}` : i.tipo.toUpperCase())
-      : processoVal
-        ? [processoVal.toUpperCase().replace(/\s*\+\s*/g, ' ').split(/\s*\/\s*/).join('\n')]
-        : ['CONSTITUIÇÃO']
-    const _saiNomesConst   = (_procEtapaConst?.saiItens   || []).map(i => i.nome?.trim()).filter(Boolean).map(n => n.toUpperCase())
-    const _entraItensConst = (_procEtapaConst?.entraItens || []).map(i => i.nome?.trim()).filter(Boolean).map(n => n.toUpperCase())
-    if (_saiNomesConst.length > 0)   linhas.push(`SAI: ${_saiNomesConst.join('\r')}`)
-    if (_entraItensConst.length > 0) linhas.push(`ENTRA: ${_entraItensConst.join('\r')}`)
-    return linhas.filter(Boolean).join('\n')
-  })()
+  const processosTexto = montarProcessosTextoRelatorio(_procEtapaConst, processoVal, 'CONSTITUIÇÃO')
 
   return {
     valores: {
