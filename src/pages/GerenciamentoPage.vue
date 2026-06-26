@@ -683,22 +683,22 @@
                     ver todos <q-icon name="chevron_right" size="14px" />
                   </button>
                 </div>
-                <div v-if="historico.length === 0" class="db-empty" style="padding:12px 0">
+                <div v-if="historicoComNome.length === 0" class="db-empty" style="padding:12px 0">
                   <span style="font-size:0.8rem">Nenhum processo concluído</span>
                 </div>
                 <div v-else class="db-pend-list">
-                  <div v-for="h in historico.slice(0, 5)" :key="h.id" class="db-pend-item">
+                  <div v-for="h in historicoRecenteVisivel" :key="h.id" class="db-pend-item">
                     <q-icon name="check_circle" size="13px" style="color:#5ab82e;flex-shrink:0" />
                     <div style="flex:1;min-width:0">
-                      <div class="db-pend-name">{{ nomeHistorico(h) || '—' }}</div>
+                      <div class="db-pend-name">{{ nomeHistorico(h) }}</div>
                       <div style="font-size:0.68rem;color:rgba(255,255,255,0.4)">
-                        {{ h.localizacao && h.localizacao !== '—' ? h.localizacao + ' · ' : '' }}{{ h.data }}
+                        {{ localizacaoHistorico(h) ? localizacaoHistorico(h) + ' · ' : '' }}{{ h.data }}
                       </div>
                     </div>
                     <span class="db-pend-tag" :style="{ color: h.pct === 100 ? '#86efac' : '#fcd34d' }">{{ h.pct }}%</span>
                   </div>
-                  <div v-if="historico.length > 5" class="db-pend-more">
-                    +{{ historico.length - 5 }} mais
+                  <div v-if="historicoComNome.length > 5" class="db-pend-more">
+                    +{{ historicoComNome.length - 5 }} mais
                   </div>
                 </div>
               </div>
@@ -1224,11 +1224,11 @@
                     <div class="hist-item-main">
                       <div class="hist-empresa">{{ nomeHistorico(h) || '—' }}</div>
                       <div class="hist-meta">
-                        <span v-if="h.protocolo" class="hist-protocolo">
-                          <q-icon name="tag" size="11px" /> {{ h.protocolo }}
+                        <span v-if="localizacaoHistorico(h)" class="hist-local">
+                          <q-icon name="place" size="11px" /> {{ localizacaoHistorico(h) }}
                         </span>
-                        <span v-if="h.localizacao" class="hist-local">
-                          <q-icon name="place" size="11px" /> {{ h.localizacao }}
+                        <span v-if="h.protocolo && h.protocolo !== '—'" class="hist-protocolo">
+                          <q-icon name="tag" size="11px" /> {{ h.protocolo }}
                         </span>
                       </div>
                     </div>
@@ -1618,7 +1618,7 @@
                   <input
                     v-model="consultarBusca"
                     class="cons-search-input"
-                    placeholder="Buscar por empresa, protocolo ou localização..."
+                    placeholder="Buscar por empresa, sócio, quadro societário, protocolo ou localização..."
                   />
                   <button v-if="consultarBusca" class="cons-search-clear" @click="consultarBusca = ''">
                     <q-icon name="close" size="16px" />
@@ -4257,11 +4257,15 @@ const processosConsultar = computed(() => {
   const todos = [...ativos, ...concluidos]
   const q = consultarBusca.value.trim().toLowerCase()
   if (!q) return todos
-  return todos.filter(p =>
-    p.empresa.toLowerCase().includes(q) ||
-    p.protocolo.toLowerCase().includes(q) ||
-    p.localizacao.toLowerCase().includes(q)
-  )
+  return todos.filter(p => {
+    const campos = [
+      p.empresa,
+      p.protocolo,
+      p.localizacao,
+      ...nomesSociosDoReg(p._reg),
+    ].map(s => (s || '').toLowerCase())
+    return campos.some(c => c.includes(q))
+  })
 })
 
 async function _excluirDocumentosDoProcesso(pid) {
@@ -5137,6 +5141,8 @@ function montarMensagemConsolidada(processos, hist = []) {
   const urgentes  = processos.filter(r => { const d = diasRestantes(r); return d >= 0 && ((r.prazo || 'normal') === 'urgente' || d === 0) })
   const priorizar = processos.filter(r => { const d = diasRestantes(r); return d > 0 && r.prazo !== 'urgente' && (r.prazo === 'priorizar' || d <= 3) })
 
+  if (!vencidos.length && !urgentes.length && !priorizar.length) return null
+
   // Concluídos nos últimos 7 dias
   const seteAtras = new Date(hoje)
   seteAtras.setDate(seteAtras.getDate() - 7)
@@ -5218,6 +5224,8 @@ async function alertarPrazosWhatsApp(slot = HORARIOS_ALERTA[0]) {
   if (!novos.length) return
 
   const msg = montarMensagemConsolidada(novos, historico.value)
+  if (!msg) return
+
   await Promise.all(NUMEROS_ALERTA.map(num => enviarWhatsAppPara(num, msg)))
   novos.forEach(r => jaAlertados.add(String(r.id)))
   localStorage.setItem(chave, JSON.stringify([...jaAlertados]))
@@ -5248,6 +5256,11 @@ async function testarAlertasAgora() {
   await sincronizarServidor()
 
   const msg = montarMensagemConsolidada(processos, historico.value)
+  if (!msg) {
+    $q.notify({ icon: 'info', color: 'info', message: 'Nenhum processo urgente ou vencido encontrado.', position: 'top', timeout: 3500 })
+    return
+  }
+
   const results = await Promise.all(NUMEROS_ALERTA.map(num => enviarWhatsAppPara(num, msg)))
 
   if (results.some(ok => ok)) {
@@ -5336,12 +5349,67 @@ function nomeProcesso(reg) {
 function nomeHistorico(h) {
   if (!h) return ''
   const emp = (h.empresa || '').trim()
-  if (emp) return emp
+  if (emp && emp !== '—') return emp
   if (h.processoId != null) {
     const reg = registros.value.find(r => String(r.id) === String(h.processoId))
     return nomeProcesso(reg)
   }
   return ''
+}
+
+function localizacaoHistorico(h) {
+  if (!h) return ''
+  const loc = (h.localizacao || '').trim()
+  if (loc && loc !== '—') return loc
+  if (h.processoId != null) {
+    const reg = registros.value.find(r => String(r.id) === String(h.processoId))
+    return reg?.etapas?.find(e => e.key === 'localizacao')?.valor?.trim() || ''
+  }
+  return ''
+}
+
+async function repararHistorico() {
+  for (const h of historico.value) {
+    const nomeAtual = (h.empresa || '').trim()
+    const nome = nomeAtual && nomeAtual !== '—' ? nomeAtual : nomeHistorico(h)
+    const loc = localizacaoHistorico(h)
+    const precisaNome = nome && nome !== nomeAtual
+    const precisaLoc = loc && loc !== (h.localizacao || '').trim()
+    if (!precisaNome && !precisaLoc) continue
+    if (precisaNome) h.empresa = nome
+    if (precisaLoc) h.localizacao = loc
+    await supabase.from('historico').update({
+      empresa:     h.empresa,
+      localizacao: h.localizacao || '',
+    }).eq('id', h.id)
+  }
+  localStorage.setItem('wms_historico', JSON.stringify(historico.value))
+}
+
+async function limparHistoricoSemNome() {
+  const orfaos = historico.value.filter(h => !nomeHistorico(h))
+  if (!orfaos.length) return
+  historico.value = historico.value.filter(h => nomeHistorico(h))
+  await Promise.all(orfaos.map(h => supabase.from('historico').delete().eq('id', h.id)))
+  localStorage.setItem('wms_historico', JSON.stringify(historico.value))
+}
+
+const historicoComNome = computed(() => historico.value.filter(h => nomeHistorico(h)))
+const historicoRecenteVisivel = computed(() => historicoComNome.value.slice(0, 5))
+
+function nomesSociosDoReg(reg) {
+  if (!reg) return []
+  const nomes = []
+  const push = (campos) => {
+    const n = campos?.find(d => d.label === 'Nome do Sócio')?.valor?.trim()
+    if (n) nomes.push(n)
+  }
+  if (reg.socios?.length) {
+    reg.socios.forEach(s => push(s))
+  } else if (reg.socio?.length) {
+    push(reg.socio)
+  }
+  return nomes
 }
 
 function resolverNomeEmpresaGuia() {
@@ -5907,12 +5975,19 @@ const LABEL_CAMPO = {
 }
 
 async function salvarHistorico(empresa, protocolo, localizacao, { processoId, pct } = {}) {
+  const pid = processoId ?? regAberto.value ?? null
+  const reg = pid != null ? registros.value.find(r => String(r.id) === String(pid)) : null
+  const nome = (empresa || '').trim() || nomeProcesso(reg) || resolverNomeEmpresaGuia()
+  if (!nome) return
+  const loc = (localizacao || '').trim()
+    || reg?.etapas?.find(e => e.key === 'localizacao')?.valor?.trim()
+    || ''
   const h = {
     id:           Date.now(),
-    processoId:   processoId ?? regAberto.value ?? null,
-    empresa,
-    protocolo,
-    localizacao,
+    processoId:   pid,
+    empresa:      nome,
+    protocolo:    protocolo || '',
+    localizacao:  loc,
     pct:          pct ?? progressoEtapas.value,
     data:         new Date().toLocaleDateString('pt-BR'),
     hora:         new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
@@ -6363,7 +6438,6 @@ onMounted(async () => {
   if (hist && hist.length > 0) {
     historico.value = hist.map(historicoFromDb)
   } else {
-    // Tenta recuperar do localStorage (chave nova ou chave legada)
     const localHist = JSON.parse(
       localStorage.getItem('wms_historico') ||
       localStorage.getItem('wms_historico_constituicao') ||
@@ -6379,6 +6453,9 @@ onMounted(async () => {
       })
     }
   }
+
+  await repararHistorico()
+  await limparHistoricoSemNome()
 
   if (cfg) Object.assign(configAPI.value, configFromDb(cfg))
 

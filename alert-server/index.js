@@ -16,9 +16,13 @@ function loadConfig() { try { return JSON.parse(readFileSync(CONFIG_FILE, 'utf-8
 
 // ── Lógica de prazo ───────────────────────────────────────────────────────────
 function diasRestantes(r) {
-  if (!r.dataISO) return 999
-  const hoje = new Date(); hoje.setHours(0, 0, 0, 0)
-  const venc = new Date(r.dataISO); venc.setHours(0, 0, 0, 0)
+  const raw = r.dataVencimento || r.data_vencimento
+  if (!raw) return 999
+  const hoje = new Date()
+  hoje.setHours(0, 0, 0, 0)
+  const venc = new Date(raw)
+  if (isNaN(venc.getTime())) return 999
+  venc.setHours(0, 0, 0, 0)
   return Math.ceil((venc - hoje) / 86400000)
 }
 
@@ -27,6 +31,8 @@ function montarMensagem(processos) {
   const vencidos  = processos.filter(r => diasRestantes(r) < 0)
   const urgentes  = processos.filter(r => { const d = diasRestantes(r); return d >= 0 && ((r.prazo || 'normal') === 'urgente' || d === 0) })
   const priorizar = processos.filter(r => { const d = diasRestantes(r); return d > 0 && r.prazo !== 'urgente' && (r.prazo === 'priorizar' || d <= 3) })
+
+  if (!vencidos.length && !urgentes.length && !priorizar.length) return null
 
   let msg = `⚠️ *WMS Consultoria — Resumo de Prazos*\n📅 ${hoje}\n`
   if (vencidos.length) {
@@ -73,7 +79,8 @@ async function dispararAlertas() {
     return
   }
   const { registros = [] } = loadData()
-  const processos = registros.filter(r => {
+  const ativos = registros.filter(r => !r.concluido)
+  const processos = ativos.filter(r => {
     const d = diasRestantes(r)
     return d < 0 || d <= 3 || (r.prazo || 'normal') === 'urgente'
   })
@@ -82,6 +89,10 @@ async function dispararAlertas() {
     return
   }
   const msg = montarMensagem(processos)
+  if (!msg) {
+    console.log('[WMS] Nenhum alerta a enviar.')
+    return
+  }
   for (const num of NUMEROS_ALERTA) {
     const ok = await enviarParaNumero(num, msg, cfg)
     console.log(`[WMS] → ${num}: ${ok ? '✓ enviado' : '✗ falhou'}`)

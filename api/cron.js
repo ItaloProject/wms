@@ -8,9 +8,12 @@ const supabase = createClient(
 const NUMEROS_ALERTA = ['5599984491810', '559882624491', '559888435550', '559885928114']
 
 function diasRestantes(r) {
-  if (!r.data_iso) return 999
-  const hoje = new Date(); hoje.setHours(0, 0, 0, 0)
-  const venc = new Date(r.data_iso); venc.setHours(0, 0, 0, 0)
+  if (!r.data_vencimento) return 999
+  const hoje = new Date()
+  hoje.setHours(0, 0, 0, 0)
+  const venc = new Date(r.data_vencimento)
+  if (isNaN(venc.getTime())) return 999
+  venc.setHours(0, 0, 0, 0)
   return Math.ceil((venc - hoje) / 86400000)
 }
 
@@ -19,6 +22,8 @@ function montarMensagem(processos) {
   const vencidos  = processos.filter(r => diasRestantes(r) < 0)
   const urgentes  = processos.filter(r => { const d = diasRestantes(r); return d >= 0 && ((r.prazo || 'normal') === 'urgente' || d === 0) })
   const priorizar = processos.filter(r => { const d = diasRestantes(r); return d > 0 && r.prazo !== 'urgente' && (r.prazo === 'priorizar' || d <= 3) })
+
+  if (!vencidos.length && !urgentes.length && !priorizar.length) return null
 
   let msg = `⚠️ *WMS Consultoria — Resumo de Prazos*\n📅 ${hoje}\n`
 
@@ -95,17 +100,22 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: false, motivo: 'API não configurada', provider })
     }
 
-    const urgentes = (processos || []).filter(r => {
+    const ativos = (processos || []).filter(r => !r.concluido)
+    const alertaveis = ativos.filter(r => {
       const d = diasRestantes(r)
       return d < 0 || d <= 3 || (r.prazo || 'normal') === 'urgente'
     })
 
-    if (!urgentes.length) {
+    if (!alertaveis.length) {
       console.log('[cron] Nenhum processo urgente/vencido')
       return res.status(200).json({ ok: true, enviados: 0 })
     }
 
-    const msg = montarMensagem(urgentes)
+    const msg = montarMensagem(alertaveis)
+    if (!msg) {
+      console.log('[cron] Nenhum alerta a enviar')
+      return res.status(200).json({ ok: true, enviados: 0 })
+    }
 
     const enviar = provider === 'zapi'
       ? num => enviarZAPI(num, msg, cfg)
@@ -115,7 +125,7 @@ export default async function handler(req, res) {
     const enviados = resultados.filter(Boolean).length
 
     console.log(`[cron] Provider: ${provider} | Alertas enviados: ${enviados}/${NUMEROS_ALERTA.length}`)
-    return res.status(200).json({ ok: true, enviados, processos: urgentes.length, provider })
+    return res.status(200).json({ ok: true, enviados, processos: alertaveis.length, provider })
   } catch (err) {
     console.error('[cron]', err)
     return res.status(500).json({ error: err.message })
