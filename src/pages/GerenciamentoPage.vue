@@ -2562,7 +2562,12 @@
                   <q-icon :name="arq.tipo?.startsWith('image/') ? 'image' : arq.tipo === 'application/pdf' ? 'picture_as_pdf' : 'insert_drive_file'" size="20px" class="docs-file-icon" />
                   <div class="docs-file-info">
                     <div class="docs-file-nome">{{ arq.nome }}</div>
-                    <div class="docs-file-tamanho">{{ (arq.tamanho / 1024).toFixed(1) }} KB</div>
+                    <div class="docs-file-meta">
+                      <span>{{ formatarTamanho(arq.tamanho) }}</span>
+                      <span v-if="formatarDataUpload(arq.created_at)" class="docs-file-data">
+                        · Enviado em {{ formatarDataUpload(arq.created_at) }}
+                      </span>
+                    </div>
                   </div>
                   <div class="docs-file-acoes">
                     <button class="docs-btn-ver" @click="verDoc(arq)" title="Visualizar">
@@ -3015,7 +3020,7 @@ async function carregarDocsAnexados(processoId) {
   const grouped = {}
   for (const d of data || []) {
     if (!grouped[d.categoria]) grouped[d.categoria] = []
-    grouped[d.categoria].push({ id: d.id, nome: d.nome, tamanho: d.tamanho, tipo: d.tipo, r2_key: d.r2_key })
+    grouped[d.categoria].push({ id: d.id, nome: d.nome, tamanho: d.tamanho, tipo: d.tipo, r2_key: d.r2_key, created_at: d.created_at })
   }
   docsAnexados.value = grouped
 }
@@ -4023,7 +4028,7 @@ async function gerarRelatorioPDF(valores, nomeArquivo) {
       }).select().single()
       if (!error && data) {
         if (!docsAnexados.value.relatorio) docsAnexados.value.relatorio = []
-        docsAnexados.value.relatorio.push({ id: data.id, nome: nomeFinal, tamanho: blob.size, tipo, r2_key: r2Key })
+        docsAnexados.value.relatorio.push({ id: data.id, nome: nomeFinal, tamanho: blob.size, tipo, r2_key: r2Key, created_at: data.created_at })
       }
     } catch { /* upload falhou silenciosamente — o arquivo local já foi salvo */ }
   }
@@ -4442,7 +4447,7 @@ async function onAnexoSelecionado(e) {
       }).select().single()
       if (error) throw error
       if (!docsAnexados.value[cat]) docsAnexados.value[cat] = []
-      docsAnexados.value[cat].push({ id: data.id, nome: nomeFinal, tamanho: file.size, tipo: file.type, r2_key: key })
+      docsAnexados.value[cat].push({ id: data.id, nome: nomeFinal, tamanho: file.size, tipo: file.type, r2_key: key, created_at: data.created_at })
     } catch (err) {
       $q.notify({ icon: 'error', color: 'negative', message: `Erro ao enviar ${file.name}: ${err.message}`, position: 'top', timeout: 5000 })
     }
@@ -4502,6 +4507,12 @@ function formatarTamanho(bytes) {
   if (bytes < 1024) return bytes + ' B'
   if (bytes < 1048576) return (bytes / 1024).toFixed(0) + ' KB'
   return (bytes / 1048576).toFixed(1) + ' MB'
+}
+function formatarDataUpload(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 function iconeTipoArquivo(tipo) {
   if (!tipo) return 'insert_drive_file'
@@ -9214,7 +9225,11 @@ const alerts = [
 .docs-file-icon { color: rgba(255,255,255,0.4); flex-shrink: 0; }
 .docs-file-info { flex: 1; min-width: 0; }
 .docs-file-nome { font-size: 0.82rem; color: #fff; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.docs-file-tamanho { font-size: 0.7rem; color: rgba(255,255,255,0.3); margin-top: 2px; }
+.docs-file-meta {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
+  font-size: 0.7rem; color: rgba(255,255,255,0.3); margin-top: 2px;
+}
+.docs-file-data { color: rgba(255,255,255,0.35); }
 .docs-file-acoes { display: flex; gap: 6px; flex-shrink: 0; }
 .docs-btn-ver, .docs-btn-baixar, .docs-btn-del {
   display: flex; align-items: center; justify-content: center;
