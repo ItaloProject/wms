@@ -690,7 +690,7 @@
                   <div v-for="h in historico.slice(0, 5)" :key="h.id" class="db-pend-item">
                     <q-icon name="check_circle" size="13px" style="color:#5ab82e;flex-shrink:0" />
                     <div style="flex:1;min-width:0">
-                      <div class="db-pend-name">{{ h.empresa || '—' }}</div>
+                      <div class="db-pend-name">{{ nomeHistorico(h) || '—' }}</div>
                       <div style="font-size:0.68rem;color:rgba(255,255,255,0.4)">
                         {{ h.localizacao && h.localizacao !== '—' ? h.localizacao + ' · ' : '' }}{{ h.data }}
                       </div>
@@ -794,7 +794,7 @@
                   </div>
                   <h2 class="rp-title">Constituição</h2>
                 </div>
-                <button class="rp-btn-importar-resumo" @click="dialogImportarResumo = true; buscaImportarResumo = ''; regImportarSelecionado = null">
+                <button class="rp-btn-importar-resumo" @click="abrirImportarResumo(false)">
                   <q-icon name="download_for_offline" size="15px" />
                   Importar Resumo
                 </button>
@@ -919,7 +919,12 @@
                       <button class="et-proc-add" @click="adicionarProcessoItem(etapa)">
                         <q-icon name="add" size="14px" /> Adicionar processo
                       </button>
-                      <div class="et-proc-sai-entra">
+                      <button type="button" class="et-proc-se-toggle" @click="procSaiEntraAberto = !procSaiEntraAberto">
+                        <q-icon :name="procSaiEntraAberto ? 'expand_less' : 'expand_more'" size="16px" />
+                        Quem sai / Quem entra
+                        <span v-if="!procSaiEntraAberto && contagemSaiEntra(etapa)" class="et-proc-se-badge">{{ contagemSaiEntra(etapa) }}</span>
+                      </button>
+                      <div v-show="procSaiEntraAberto" class="et-proc-sai-entra">
                         <div v-for="(item, si) in (etapa.saiItens || [])" :key="'sai'+si" class="et-proc-se-row">
                           <span class="et-proc-se-label">SAI:</span>
                           <input :value="item.nome || ''" class="et-proc-se-input" placeholder="Nome de quem sai..." style="text-transform:uppercase" @input="item.nome = $event.target.value.toUpperCase(); salvarEtapas()" />
@@ -1170,9 +1175,9 @@
                           <q-icon name="close" size="13px" />
                         </button>
                       </div>
-                      <button v-else class="et-obs-pull-btn" :disabled="!obsEtapa1" @click="etapa.obs = obsEtapa1; salvarEtapas()" :title="obsEtapa1 ? 'Puxar observação do Resumo' : 'Nenhuma observação no Resumo'">
-                        <q-icon name="download" size="14px" />
-                        Puxar Observação do Resumo
+                      <button v-else class="et-obs-pull-btn" @click="abrirImportarResumo(true)" title="Importar observação e dados do Resumo de um processo">
+                        <q-icon name="download_for_offline" size="14px" />
+                        Puxar Observação e Resumo
                       </button>
                     </template>
                     <template v-else>
@@ -1217,7 +1222,7 @@
                 <div v-if="historicoExpandido" class="hist-list">
                   <div v-for="h in historico" :key="h.id" class="hist-item">
                     <div class="hist-item-main">
-                      <div class="hist-empresa">{{ h.empresa || '—' }}</div>
+                      <div class="hist-empresa">{{ nomeHistorico(h) || '—' }}</div>
                       <div class="hist-meta">
                         <span v-if="h.protocolo" class="hist-protocolo">
                           <q-icon name="tag" size="11px" /> {{ h.protocolo }}
@@ -1256,7 +1261,7 @@
                   </div>
                   <h2 class="rp-title">Baixa</h2>
                 </div>
-                <button class="rp-btn-importar-resumo" @click="dialogImportarResumo = true; buscaImportarResumo = ''; regImportarSelecionado = null">
+                <button class="rp-btn-importar-resumo" @click="abrirImportarResumo(false)">
                   <q-icon name="download_for_offline" size="15px" />
                   Importar Resumo
                 </button>
@@ -1341,7 +1346,12 @@
                       <button class="et-proc-add" @click="adicionarProcessoItemBaixa(etapa)">
                         <q-icon name="add" size="14px" /> Adicionar processo
                       </button>
-                      <div class="et-proc-sai-entra">
+                      <button type="button" class="et-proc-se-toggle" @click="procSaiEntraAberto = !procSaiEntraAberto">
+                        <q-icon :name="procSaiEntraAberto ? 'expand_less' : 'expand_more'" size="16px" />
+                        Quem sai / Quem entra
+                        <span v-if="!procSaiEntraAberto && contagemSaiEntra(etapa)" class="et-proc-se-badge">{{ contagemSaiEntra(etapa) }}</span>
+                      </button>
+                      <div v-show="procSaiEntraAberto" class="et-proc-sai-entra">
                         <div v-for="(item, si) in (etapa.saiItens || [])" :key="'sai'+si" class="et-proc-se-row">
                           <span class="et-proc-se-label">SAI:</span>
                           <input :value="item.nome || ''" class="et-proc-se-input" placeholder="Nome de quem sai..." style="text-transform:uppercase" @input="item.nome = $event.target.value.toUpperCase(); salvarEtapasBaixa()" />
@@ -2560,8 +2570,8 @@
         <!-- Header -->
         <div class="imp-resumo-header">
           <q-icon name="download_for_offline" size="20px" style="color:#60a5fa" />
-          <span class="imp-resumo-title">Importar Resumo</span>
-          <button class="imp-resumo-close" @click="dialogImportarResumo = false">
+          <span class="imp-resumo-title">{{ importarResumoParaGuia ? 'Puxar Observação e Resumo' : 'Importar Resumo' }}</span>
+          <button class="imp-resumo-close" @click="fecharImportarResumo">
             <q-icon name="close" size="18px" />
           </button>
         </div>
@@ -2649,14 +2659,14 @@
 
         <!-- Footer -->
         <div class="imp-resumo-footer">
-          <button class="imp-resumo-cancelar" @click="dialogImportarResumo = false">Cancelar</button>
+          <button class="imp-resumo-cancelar" @click="fecharImportarResumo">Cancelar</button>
           <button
             class="imp-resumo-confirmar"
             :disabled="!regImportarSelecionado"
             @click="importarResumo(regImportarSelecionado)"
           >
             <q-icon name="check" size="16px" />
-            Confirmar Importação
+            {{ importarResumoParaGuia ? 'Confirmar' : 'Confirmar Importação' }}
           </button>
         </div>
       </div>
@@ -3037,6 +3047,7 @@ const etapasPadrao = [
 ]
 
 const etapas = ref(carregarEtapas(_navSalvo?.regAberto || null, true))
+const procSaiEntraAberto = ref(false)
 
 // processoId=null → usa chave legada 'wms_constituicao'
 // usarFallbackLegado=true → ao trocar de processo, não herda etapas de outro processo
@@ -3240,12 +3251,16 @@ function salvarEtapasBaixa() {
   if (_syncEtapasBaixaTimer) clearTimeout(_syncEtapasBaixaTimer)
   _syncEtapasBaixaTimer = setTimeout(async () => {
     _syncEtapasBaixaTimer = null
+    const bv = key => etapasBaixa.value.find(e => e.key === key)?.valor || ''
+    const razao = bv('empresa').trim()
+    if (!regAbertoSessao2.value && !razao) return
     const id = regAbertoSessao2.value || await _criarProcessoBaixa()
     await persistirEtapas(id, data, true)
-    // Mantém razao_social atualizada no banco
-    const bv = key => etapasBaixa.value.find(e => e.key === key)?.valor || ''
-    const razao = bv('empresa')
-    if (razao) supabase.from('processos').update({ razao_social: razao }).eq('id', id)
+    if (razao) {
+      const reg = registros.value.find(r => r.id === id)
+      if (reg) reg.razaoSocial = razao
+      supabase.from('processos').update({ razao_social: razao }).eq('id', id)
+    }
   }, 1500)
 }
 function setStatusEtapaBaixa(etapa, status) {
@@ -3808,7 +3823,9 @@ const rlGrupos = computed(() => {
 
   const conc = [], and = [], naoIniciados = []
   for (const [, h] of seenHist) {
-    const item = { id: h.id, processoId: h.processoId, empresa: h.empresa, protocolo: h.protocolo || '—', dataStr: h.data }
+    const nome = nomeHistorico(h)
+    if (!nome) continue
+    const item = { id: h.id, processoId: h.processoId, empresa: nome, protocolo: h.protocolo || '—', dataStr: h.data }
     if ((h.pct ?? 0) === 100)      conc.push(item)
     else if ((h.pct ?? 0) > 0)     and.push(item)
     else                            naoIniciados.push(item)
@@ -3822,14 +3839,15 @@ const rlGrupos = computed(() => {
     .filter(r => {
       const key = String(r.id)
       if (classIds.has(key)) return false
+      if (!nomeProcesso(r)) return false
       return r.prazo === 'urgente' || r.prazo === 'priorizar' || diasRestantes(r) < 0
     })
-    .map(r => { classIds.add(String(r.id)); return { id: r.id, processoId: r.id, empresa: r.razaoSocial, protocolo: '—', dataStr: r.dataFormatada } })
+    .map(r => { classIds.add(String(r.id)); return { id: r.id, processoId: r.id, empresa: nomeProcesso(r), protocolo: '—', dataStr: r.dataFormatada } })
 
   // N/I — processos do mês não cobertos pelo histórico nem por PEN
   const niExtra = regMes
-    .filter(r => !classIds.has(String(r.id)))
-    .map(r => ({ id: r.id, processoId: r.id, empresa: r.razaoSocial, protocolo: '—', dataStr: r.dataFormatada }))
+    .filter(r => !classIds.has(String(r.id)) && nomeProcesso(r))
+    .map(r => ({ id: r.id, processoId: r.id, empresa: nomeProcesso(r), protocolo: '—', dataStr: r.dataFormatada }))
 
   naoIniciados.push(...niExtra)
 
@@ -4535,8 +4553,17 @@ function salvarEtapas() {
     if (reg) reg.etapas = etapasData
     // Persiste no Supabase após 1,5s de inatividade
     clearTimeout(_syncEtapasTimer)
-    _syncEtapasTimer = setTimeout(() => {
-      persistirEtapas(regAberto.value, etapasData, true)
+    _syncEtapasTimer = setTimeout(async () => {
+      const id = regAberto.value
+      const razao = etapaValor('empresa')?.trim()
+      await persistirEtapas(id, etapasData, true)
+      if (razao) {
+        const reg = registros.value.find(r => r.id === id)
+        if (reg && reg.razaoSocial !== razao) {
+          reg.razaoSocial = razao
+          await supabase.from('processos').update({ razao_social: razao }).eq('id', id)
+        }
+      }
     }, 1500)
   }
 }
@@ -5248,6 +5275,15 @@ async function salvarConfig() {
 }
 
 async function salvarRegistro(prazo = 'normal') {
+  const razao = docsEmpresa.value.find(d => d.label === 'Razão social')?.valor?.trim()
+  if (!razao) {
+    $q.notify({
+      icon: 'warning', color: 'warning', position: 'top', timeout: 4000,
+      message: 'Preencha a Razão Social no Resumo antes de concluir.',
+    })
+    return
+  }
+
   const agora = new Date()
   const vencimento = new Date(agora)
   vencimento.setDate(vencimento.getDate() + 10)
@@ -5264,7 +5300,7 @@ async function salvarRegistro(prazo = 'normal') {
     dataVencFormatada: new Intl.DateTimeFormat('pt-BR', {
       day: '2-digit', month: '2-digit', year: 'numeric'
     }).format(vencimento),
-    razaoSocial: docsEmpresa.value.find(d => d.label === 'Razão social')?.valor || '',
+    razaoSocial: razao,
     empresa:    docsEmpresa.value.map(d => ({ label: d.label, valor: d.valor })),
     socio:      docsSocio.value.map(d => ({ label: d.label, valor: d.valor })),
     socios:     serializarSocios(),
@@ -5284,6 +5320,35 @@ async function salvarRegistro(prazo = 'normal') {
       timeout: 6000,
     })
   }
+}
+
+function nomeProcesso(reg) {
+  if (!reg) return ''
+  const razao = (reg.razaoSocial || '').trim()
+  if (razao) return razao
+  const fromJson = reg.empresa?.find(d => d.label === 'Razão social')?.valor?.trim()
+  if (fromJson) return fromJson
+  const fromEtapa = reg.etapas?.find(e => e.key === 'empresa')?.valor?.trim()
+  if (fromEtapa) return fromEtapa
+  return ''
+}
+
+function nomeHistorico(h) {
+  if (!h) return ''
+  const emp = (h.empresa || '').trim()
+  if (emp) return emp
+  if (h.processoId != null) {
+    const reg = registros.value.find(r => String(r.id) === String(h.processoId))
+    return nomeProcesso(reg)
+  }
+  return ''
+}
+
+function resolverNomeEmpresaGuia() {
+  return etapaValor('empresa')?.trim()
+    || docsEmpresa.value.find(d => d.label === 'Razão social')?.valor?.trim()
+    || (regAberto.value ? nomeProcesso(registros.value.find(r => r.id === regAberto.value)) : '')
+    || ''
 }
 
 function diasRestantes(reg) {
@@ -5344,6 +5409,7 @@ const historicoExpandido = ref(false)
 const dialogComplementar  = ref(false)
 const dialogNovoProcesso  = ref(false)
 const dialogImportarResumo      = ref(false)
+const importarResumoParaGuia    = ref(false)
 const dialogEditarResumo        = ref(false)
 const resumoModalSnapshot       = ref(null)
 const resumoModalProcessoId     = ref(null)
@@ -5359,15 +5425,51 @@ const processosParaImportar = computed(() => {
     .slice(0, 30)
 })
 
+function abrirImportarResumo(paraGuia = false) {
+  importarResumoParaGuia.value = paraGuia
+  buscaImportarResumo.value = ''
+  regImportarSelecionado.value = null
+
+  if (paraGuia) {
+    const nome = (etapaValor('empresa') || '').trim()
+    if (nome) {
+      const reg = registros.value.find(r =>
+        (r.razaoSocial || '').trim().toLowerCase() === nome.toLowerCase() && !r.concluido,
+      )
+      if (reg) regImportarSelecionado.value = reg
+    }
+  }
+
+  dialogImportarResumo.value = true
+}
+
+function fecharImportarResumo() {
+  dialogImportarResumo.value = false
+  importarResumoParaGuia.value = false
+  buscaImportarResumo.value = ''
+  regImportarSelecionado.value = null
+}
+
 function importarResumo(reg) {
   aplicarEmpresaSalva(reg.empresa)
   if (reg.socio?.length || reg.socios?.length) carregarSocios(reg.socio, reg.socios)
   aplicarTaxasSalvas(reg.taxas)
-  if (reg.observacao)       observacao.value   = reg.observacao
+  if (reg.observacao) observacao.value = reg.observacao
   salvarResumo()
-  dialogImportarResumo.value = false
-  buscaImportarResumo.value  = ''
-  $q.notify({ icon: 'check', color: 'positive', message: `Resumo de "${reg.razaoSocial}" importado!`, position: 'top', timeout: 2500 })
+
+  if (importarResumoParaGuia.value) {
+    const etapaProcesso = etapas.value.find(e => e.key === 'processo')
+    if (etapaProcesso) {
+      etapaProcesso.obs = reg.observacao || observacao.value || ''
+      salvarEtapas()
+    }
+  }
+
+  const msg = importarResumoParaGuia.value
+    ? `Observação e resumo de "${reg.razaoSocial}" importados!`
+    : `Resumo de "${reg.razaoSocial}" importado!`
+  fecharImportarResumo()
+  $q.notify({ icon: 'check', color: 'positive', message: msg, position: 'top', timeout: 2500 })
 }
 
 function editarResumo() {
@@ -5854,6 +5956,12 @@ function computarValorProcesso(etapa) {
     .join(' / ')
 }
 
+function contagemSaiEntra(etapa) {
+  const sai = (etapa.saiItens || []).filter(i => i.nome?.trim()).length
+  const entra = (etapa.entraItens || []).filter(i => i.nome?.trim()).length
+  return sai + entra
+}
+
 function adicionarProcessoItem(etapa) {
   if (!etapa.procItens) etapa.procItens = []
   etapa.procItens.push({ tipo: '', desc: '' })
@@ -6032,10 +6140,24 @@ async function concluirDepois() {
     const reg = registros.value.find(r => r.id === id)
     if (reg) await persistirEtapas(id, reg.etapas, false)
   }
-  const empresa     = etapaValor('empresa')     || ''
+  const empresa = resolverNomeEmpresaGuia()
+  if (!empresa) {
+    $q.notify({
+      icon: 'warning', color: 'warning', position: 'top', timeout: 4000,
+      message: 'Preencha o nome da empresa (etapa 1 ou Resumo) antes de concluir.',
+    })
+    return
+  }
+  if (id) {
+    const reg = registros.value.find(r => r.id === id)
+    if (reg && reg.razaoSocial !== empresa) {
+      reg.razaoSocial = empresa
+      await supabase.from('processos').update({ razao_social: empresa }).eq('id', id)
+    }
+  }
   const protocolo   = etapaValor('protocolo')   || ''
   const localizacao = etapaValor('localizacao') || ''
-  await salvarHistorico(empresa, protocolo, localizacao)
+  await salvarHistorico(empresa, protocolo, localizacao, { processoId: id })
   $q.notify({ icon: 'schedule', color: 'primary', message: 'Progresso salvo. Você pode continuar depois.', position: 'top', timeout: 2500 })
   ctrlSessao3.value = 'Consultar'
   ctrlSessao1.value = null
@@ -6045,10 +6167,21 @@ async function concluirDepoisBaixa() {
   const data = _etapasBaixaData()
   localStorage.setItem('wms_baixa', JSON.stringify(data))
   if (_syncEtapasBaixaTimer) { clearTimeout(_syncEtapasBaixaTimer); _syncEtapasBaixaTimer = null }
+  const bv = key => etapasBaixa.value.find(e => e.key === key)?.valor || ''
+  const empresa = bv('empresa').trim()
+  if (!empresa) {
+    $q.notify({
+      icon: 'warning', color: 'warning', position: 'top', timeout: 4000,
+      message: 'Preencha o nome da empresa antes de concluir.',
+    })
+    return
+  }
   const id = regAbertoSessao2.value || await _criarProcessoBaixa()
   await persistirEtapas(id, data, false)
-  const bv = key => etapasBaixa.value.find(e => e.key === key)?.valor || ''
-  await salvarHistorico(bv('empresa'), bv('protocolo'), bv('localizacao'), { processoId: id, pct: progressoBaixa.value })
+  const reg = registros.value.find(r => r.id === id)
+  if (reg) reg.razaoSocial = empresa
+  await supabase.from('processos').update({ razao_social: empresa }).eq('id', id)
+  await salvarHistorico(empresa, bv('protocolo'), bv('localizacao'), { processoId: id, pct: progressoBaixa.value })
   $q.notify({ icon: 'schedule', color: 'primary', message: 'Progresso salvo. Você pode continuar depois.', position: 'top', timeout: 2500 })
   ctrlSessao1.value = null
   ctrlSessao2.value = null
@@ -6169,6 +6302,15 @@ onMounted(async () => {
 
   if (procs && procs.length > 0) {
     registros.value = procs.map(processoFromDb)
+
+    // Repara processos antigos sem razao_social mas com nome nas etapas/resumo
+    for (const reg of registros.value) {
+      const nome = nomeProcesso(reg)
+      if (nome && nome !== reg.razaoSocial) {
+        reg.razaoSocial = nome
+        supabase.from('processos').update({ razao_social: nome }).eq('id', reg.id)
+      }
+    }
 
     // Reconcilia regAberto com o ID real do Supabase (pode diferir do ID gerado no frontend)
     const nomeAtual = etapaValor('empresa')
@@ -6446,16 +6588,6 @@ function salvarResumo() {
   if (razao) localStorage.setItem(`wms_obs_emp_${razao}`, observacao.value || '')
 }
 
-// Observacao para o botão "Puxar" no Guia de Constituição:
-// prioriza a observacao salva para a empresa selecionada no passo 1.
-const obsEtapa1 = computed(() => {
-  const empNome = etapaValor('empresa')
-  if (empNome) {
-    const stored = localStorage.getItem(`wms_obs_emp_${empNome}`)
-    if (stored !== null) return stored
-  }
-  return observacao.value
-})
 
 // Sincroniza rascunho do Resumo com o processo ativo (mesma razão social) no banco.
 watch([docsEmpresa, sociosLista, taxas, observacao], () => {
@@ -8463,8 +8595,21 @@ const alerts = [
 }
 .et-proc-sai-entra {
   display: flex; flex-direction: column; gap: 5px;
-  padding: 4px 0 4px 4px; margin-bottom: 2px;
+  padding: 4px 0 4px 4px; margin-bottom: 2px; margin-top: 4px;
   border-left: 2px solid rgba(255,255,255,0.08);
+}
+.et-proc-se-toggle {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  padding: 7px 12px; border-radius: 8px; cursor: pointer; font-family: inherit;
+  background: rgba(255,255,255,0.04); border: 1px dashed rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.5); font-size: 0.8rem; font-weight: 600;
+  transition: all 0.15s; margin-top: 4px;
+}
+.et-proc-se-toggle:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.75); }
+.et-proc-se-badge {
+  margin-left: auto; font-size: 0.68rem; font-weight: 700;
+  padding: 1px 7px; border-radius: 999px;
+  background: rgba(90,184,46,0.15); color: #7dd45a;
 }
 .et-proc-se-row {
   display: flex; align-items: center; gap: 8px;
