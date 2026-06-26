@@ -5,6 +5,49 @@ export const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY
 )
 
+const SOCIOS_EXTRAS_KEY = '_socios_extras'
+
+function packSocioForDb(socio, socios) {
+  const principal = (socio || []).filter(
+    d => d.label !== 'Quadro Societário' && d.label !== SOCIOS_EXTRAS_KEY,
+  )
+  const packed = [...principal]
+  const extras = (socios || []).slice(1)
+  if (extras.length > 0) {
+    packed.push({ label: SOCIOS_EXTRAS_KEY, valor: JSON.stringify(extras) })
+  }
+  return packed
+}
+
+function unpackSocioFromDb(rawSocio, rawSocios) {
+  if (rawSocios?.length) {
+    const principal = (rawSocio || []).filter(
+      d => d.label !== 'Quadro Societário' && d.label !== SOCIOS_EXTRAS_KEY,
+    )
+    return { socio: principal, socios: rawSocios }
+  }
+
+  const arr = rawSocio || []
+  const extrasEntry = arr.find(d => d.label === SOCIOS_EXTRAS_KEY)
+  const principal = arr.filter(
+    d => d.label !== SOCIOS_EXTRAS_KEY && d.label !== 'Quadro Societário',
+  )
+  let socios = []
+  if (extrasEntry?.valor) {
+    try {
+      const extras = JSON.parse(extrasEntry.valor)
+      socios = Array.isArray(extras) && extras.length
+        ? [principal, ...extras]
+        : (principal.length ? [principal] : [])
+    } catch {
+      socios = principal.length ? [principal] : []
+    }
+  } else if (principal.length) {
+    socios = [principal]
+  }
+  return { socio: principal, socios }
+}
+
 // ── Processos ─────────────────────────────────────────────────────────────────
 export function processoToDb(r) {
   return {
@@ -16,7 +59,7 @@ export function processoToDb(r) {
     data_formatada:     r.dataFormatada || '',
     data_venc_formatada: r.dataVencFormatada || '',
     empresa:            r.empresa    || [],
-    socio:              r.socio      || [],
+    socio:              packSocioForDb(r.socio, r.socios),
     taxas:              r.taxas      || [],
     observacao:         r.observacao || '',
     concluido:          r.concluido  || false,
@@ -25,6 +68,7 @@ export function processoToDb(r) {
 }
 
 export function processoFromDb(row) {
+  const { socio, socios } = unpackSocioFromDb(row.socio, row.socios)
   return {
     id:                 row.id,
     prazo:              row.prazo || 'normal',
@@ -34,7 +78,8 @@ export function processoFromDb(row) {
     dataFormatada:      row.data_formatada || '',
     dataVencFormatada:  row.data_venc_formatada || '',
     empresa:            row.empresa    || [],
-    socio:              row.socio      || [],
+    socio,
+    socios,
     taxas:              row.taxas      || [],
     observacao:         row.observacao || '',
     concluido:          row.concluido  || false,

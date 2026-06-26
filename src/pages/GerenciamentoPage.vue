@@ -257,8 +257,8 @@
                   <div class="rs-card-sub">Documentação pessoal</div>
                 </div>
                 <div class="rs-card-count">
-                  <span :class="docsSocioOk === docsSocio.length ? 'rs-count--done' : ''">
-                    {{ docsSocioOk }}/{{ docsSocio.length }}
+                  <span :class="docsSocioOk === docsSocioCount ? 'rs-count--done' : ''">
+                    {{ docsSocioOk }}/{{ docsSocioCount }}
                   </span>
                 </div>
                 <button class="sec-copy-btn" @click="copiarSecaoSocio">
@@ -266,35 +266,50 @@
                   Copiar
                 </button>
               </div>
-              <div class="rp-fields">
-                <div
-                  v-for="doc in docsSocio"
-                  :key="doc.label"
-                  class="rp-field"
-                  :class="{ 'rp-field--filled': doc.valor, 'rp-field--invalido': doc.valor && !campoValido(doc) }"
-                >
-                  <label class="rp-field-label">{{ doc.label }}</label>
-                  <textarea
-                    v-if="doc.tipo === 'textarea'"
-                    :value="doc.valor"
-                    class="rp-obs-textarea"
-                    placeholder="Ex: NOME 1&#10;NOME 2"
-                    rows="4"
-                    @input="onInputDoc(doc, $event)"
-                  />
-                  <div v-else class="rp-field-wrap">
-                    <input
-                      :value="doc.valor"
-                      class="rp-field-input"
-                      :placeholder="placeholderCampo(doc)"
-                      :type="doc.tipo === 'email' ? 'email' : 'text'"
-                      :inputmode="inputmodeCampo(doc)"
-                      @input="onInputDoc(doc, $event)"
-                    />
-                    <q-icon v-if="doc.valor && campoValido(doc)"  name="check_circle" size="16px" class="rp-field-ok" />
-                    <q-icon v-else-if="doc.valor && !campoValido(doc)" name="error" size="16px" class="rp-field-err" />
+              <div
+                v-for="(socio, si) in sociosLista"
+                :key="socio.id"
+                class="rs-socio-block"
+                :class="{ 'rs-socio-block--extra': si > 0 }"
+              >
+                <div v-if="si > 0" class="rs-socio-block-head">
+                  <span class="rs-socio-block-title">Sócio {{ si + 1 }}</span>
+                  <button type="button" class="rs-socio-remove-btn" @click="removerSocio(socio.id)" title="Remover sócio">
+                    <q-icon name="close" size="14px" />
+                  </button>
+                </div>
+                <div class="rp-fields">
+                  <div
+                    v-for="doc in socio.campos"
+                    :key="doc.label"
+                    class="rp-field"
+                    :class="{ 'rp-field--filled': doc.valor, 'rp-field--invalido': doc.valor && !campoValido(doc) }"
+                  >
+                    <label class="rp-field-label">{{ doc.label }}</label>
+                    <div class="rp-field-wrap">
+                      <input
+                        :value="doc.valor"
+                        class="rp-field-input"
+                        :placeholder="placeholderCampo(doc)"
+                        :type="doc.tipo === 'email' ? 'email' : 'text'"
+                        :inputmode="inputmodeCampo(doc)"
+                        @input="onInputSocioCampo(doc, $event)"
+                      />
+                      <q-icon v-if="doc.valor && campoValido(doc)"  name="check_circle" size="16px" class="rp-field-ok" />
+                      <q-icon v-else-if="doc.valor && !campoValido(doc)" name="error" size="16px" class="rp-field-err" />
+                    </div>
                   </div>
                 </div>
+              </div>
+
+              <button type="button" class="rs-socio-add-btn" @click="adicionarSocio">
+                <q-icon name="person_add" size="16px" />
+                Adicionar sócio
+              </button>
+
+              <div v-if="sociosLista.length > 1 && quadroSocietarioNomes" class="rs-quadro-preview">
+                <div class="rs-quadro-preview-label">Quadro Societário</div>
+                <div class="rs-quadro-preview-text">{{ quadroSocietarioNomes }}</div>
               </div>
             </div>
 
@@ -783,6 +798,10 @@
                   <q-icon name="download_for_offline" size="15px" />
                   Importar Resumo
                 </button>
+                <button class="rp-btn-editar-resumo" @click="editarResumo">
+                  <q-icon name="edit_note" size="15px" />
+                  Editar Resumo
+                </button>
                 <button class="rp-btn-novo-proc" @click="dialogNovoProcesso = true">
                   <q-icon name="add_circle_outline" size="15px" />
                   Novo Processo
@@ -1240,6 +1259,10 @@
                 <button class="rp-btn-importar-resumo" @click="dialogImportarResumo = true; buscaImportarResumo = ''; regImportarSelecionado = null">
                   <q-icon name="download_for_offline" size="15px" />
                   Importar Resumo
+                </button>
+                <button class="rp-btn-editar-resumo" @click="editarResumo">
+                  <q-icon name="edit_note" size="15px" />
+                  Editar Resumo
                 </button>
               </div>
 
@@ -2283,12 +2306,33 @@
           </div>
 
           <div v-if="resumoProcessoReg.socio?.some(d => d.valor)" class="resumo-proc-section">
-            <div class="resumo-proc-section-title"><q-icon name="person" size="14px" /> Dados do Sócio</div>
+            <div class="resumo-proc-section-title"><q-icon name="person" size="14px" /> Sócio Administrador</div>
             <div class="resumo-proc-grid">
-              <div v-for="d in resumoProcessoReg.socio?.filter(x => x.valor)" :key="d.label" class="resumo-proc-field">
+              <div v-for="d in camposSocioVisiveis(resumoProcessoReg.socio)" :key="d.label" class="resumo-proc-field">
                 <span class="resumo-proc-label">{{ d.label }}</span>
                 <span class="resumo-proc-valor">{{ d.valor }}</span>
               </div>
+            </div>
+          </div>
+
+          <div
+            v-for="(socioCampos, si) in sociosExtrasDoReg(resumoProcessoReg)"
+            :key="'socio-extra-' + si"
+            class="resumo-proc-section"
+          >
+            <div class="resumo-proc-section-title"><q-icon name="person" size="14px" /> Sócio {{ si + 2 }}</div>
+            <div class="resumo-proc-grid">
+              <div v-for="d in camposSocioVisiveis(socioCampos)" :key="d.label" class="resumo-proc-field">
+                <span class="resumo-proc-label">{{ d.label }}</span>
+                <span class="resumo-proc-valor">{{ d.valor }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="quadroNomesDoReg(resumoProcessoReg)" class="resumo-proc-section">
+            <div class="resumo-proc-section-title"><q-icon name="groups" size="14px" /> Quadro Societário</div>
+            <div class="resumo-proc-field" style="grid-column:1/-1">
+              <span class="resumo-proc-valor" style="white-space:pre-line;font-weight:700">{{ quadroNomesDoReg(resumoProcessoReg) }}</span>
             </div>
           </div>
 
@@ -2309,7 +2353,7 @@
             </div>
           </div>
 
-          <div v-if="!resumoProcessoReg.empresa?.some(d => d.valor) && !resumoProcessoReg.socio?.some(d => d.valor) && !resumoProcessoReg.taxas?.some(d => d.valor) && !resumoProcessoReg.observacao" class="resumo-proc-empty">
+          <div v-if="!resumoProcessoReg.empresa?.some(d => d.valor) && !resumoProcessoReg.socio?.some(d => d.valor) && !sociosExtrasDoReg(resumoProcessoReg).length && !resumoProcessoReg.taxas?.some(d => d.valor) && !resumoProcessoReg.observacao" class="resumo-proc-empty">
             <q-icon name="folder_off" size="36px" style="color:rgba(255,255,255,0.15)" />
             <p>Nenhum dado do Resumo foi preenchido para este processo.</p>
           </div>
@@ -2570,10 +2614,25 @@
               </template>
 
               <template v-if="regImportarSelecionado.socio?.some(d => d.valor)">
-                <div class="imp-resumo-preview-secao">Sócio</div>
-                <div v-for="d in regImportarSelecionado.socio.filter(d => d.valor)" :key="d.label" class="imp-resumo-preview-campo">
+                <div class="imp-resumo-preview-secao">Sócio Administrador</div>
+                <div v-for="d in camposSocioVisiveis(regImportarSelecionado.socio)" :key="d.label" class="imp-resumo-preview-campo">
                   <span class="imp-resumo-preview-label">{{ d.label }}</span>
                   <span class="imp-resumo-preview-valor">{{ d.valor }}</span>
+                </div>
+              </template>
+
+              <template v-for="(socioCampos, si) in sociosExtrasDoReg(regImportarSelecionado)" :key="'imp-socio-' + si">
+                <div class="imp-resumo-preview-secao">Sócio {{ si + 2 }}</div>
+                <div v-for="d in camposSocioVisiveis(socioCampos)" :key="d.label" class="imp-resumo-preview-campo">
+                  <span class="imp-resumo-preview-label">{{ d.label }}</span>
+                  <span class="imp-resumo-preview-valor">{{ d.valor }}</span>
+                </div>
+              </template>
+
+              <template v-if="quadroNomesDoReg(regImportarSelecionado)">
+                <div class="imp-resumo-preview-secao">Quadro Societário</div>
+                <div class="imp-resumo-preview-campo">
+                  <span class="imp-resumo-preview-valor" style="white-space:pre-line;font-weight:700">{{ quadroNomesDoReg(regImportarSelecionado) }}</span>
                 </div>
               </template>
 
@@ -2598,6 +2657,136 @@
           >
             <q-icon name="check" size="16px" />
             Confirmar Importação
+          </button>
+        </div>
+      </div>
+    </q-dialog>
+
+    <!-- Dialog: Editar Resumo (inline, sem sair da página) -->
+    <q-dialog v-model="dialogEditarResumo" persistent>
+      <div class="edit-resumo-dialog">
+        <div class="edit-resumo-header">
+          <q-icon name="edit_note" size="20px" style="color:#fbbf24" />
+          <div class="edit-resumo-header-text">
+            <span class="edit-resumo-title">Editar Resumo</span>
+            <span v-if="resumoModalTitulo" class="edit-resumo-sub">{{ resumoModalTitulo }}</span>
+          </div>
+          <button class="edit-resumo-close" @click="cancelarEdicaoResumoModal">
+            <q-icon name="close" size="18px" />
+          </button>
+        </div>
+
+        <div class="edit-resumo-body">
+          <div class="edit-resumo-section">
+            <div class="edit-resumo-section-title"><q-icon name="business" size="14px" /> Dados da Empresa</div>
+            <div class="edit-resumo-grid">
+              <div
+                v-for="doc in docsEmpresa"
+                :key="doc.label"
+                class="edit-resumo-field"
+                :class="{ 'edit-resumo-field--invalido': doc.valor && !campoValido(doc) }"
+              >
+                <label class="edit-resumo-label">{{ doc.label }}</label>
+                <input
+                  :value="doc.valor"
+                  class="edit-resumo-input"
+                  :placeholder="placeholderCampo(doc)"
+                  :type="doc.tipo === 'email' ? 'email' : 'text'"
+                  :inputmode="inputmodeCampo(doc)"
+                  @input="onInputDoc(doc, $event)"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div class="edit-resumo-section">
+            <div class="edit-resumo-section-title"><q-icon name="person" size="14px" /> Dados do Sócio</div>
+            <div
+              v-for="(socio, si) in sociosLista"
+              :key="'modal-socio-' + socio.id"
+              class="edit-resumo-socio-block"
+              :class="{ 'edit-resumo-socio-block--extra': si > 0 }"
+            >
+              <div v-if="si > 0" class="edit-resumo-socio-head">
+                <span>Sócio {{ si + 1 }}</span>
+                <button type="button" class="edit-resumo-socio-remove" @click="removerSocio(socio.id)">
+                  <q-icon name="close" size="13px" />
+                </button>
+              </div>
+              <div class="edit-resumo-grid">
+                <div
+                  v-for="doc in socio.campos"
+                  :key="doc.label"
+                  class="edit-resumo-field"
+                  :class="{ 'edit-resumo-field--invalido': doc.valor && !campoValido(doc) }"
+                >
+                  <label class="edit-resumo-label">{{ doc.label }}</label>
+                  <input
+                    :value="doc.valor"
+                    class="edit-resumo-input"
+                    :placeholder="placeholderCampo(doc)"
+                    :type="doc.tipo === 'email' ? 'email' : 'text'"
+                    :inputmode="inputmodeCampo(doc)"
+                    @input="onInputSocioCampo(doc, $event)"
+                  />
+                </div>
+              </div>
+            </div>
+            <button type="button" class="edit-resumo-add-socio" @click="adicionarSocio">
+              <q-icon name="person_add" size="15px" />
+              Adicionar sócio
+            </button>
+            <div v-if="sociosLista.length > 1 && quadroSocietarioNomes" class="edit-resumo-quadro">
+              <div class="edit-resumo-quadro-label">Quadro Societário</div>
+              <div class="edit-resumo-quadro-text">{{ quadroSocietarioNomes }}</div>
+            </div>
+          </div>
+
+          <div class="edit-resumo-section">
+            <div class="edit-resumo-section-title"><q-icon name="payments" size="14px" /> Taxas e Custos</div>
+            <div class="edit-resumo-grid">
+              <div v-for="taxa in taxas" :key="taxa.label" class="edit-resumo-field">
+                <label class="edit-resumo-label">{{ taxa.label }}</label>
+                <div v-if="taxa.tipo === 'simnom'" class="edit-resumo-simnom">
+                  <button
+                    :class="['edit-resumo-simnom-btn', taxa.valor === 'SIM' && 'edit-resumo-simnom-btn--sim']"
+                    @click="taxa.valor = taxa.valor === 'SIM' ? '' : 'SIM'"
+                  >SIM</button>
+                  <button
+                    :class="['edit-resumo-simnom-btn', taxa.valor === 'NÃO' && 'edit-resumo-simnom-btn--nom']"
+                    @click="taxa.valor = taxa.valor === 'NÃO' ? '' : 'NÃO'"
+                  >NÃO</button>
+                </div>
+                <div v-else class="edit-resumo-input-wrap">
+                  <span class="edit-resumo-prefix">R$</span>
+                  <input
+                    :value="taxa.valor"
+                    class="edit-resumo-input"
+                    placeholder="0,00"
+                    inputmode="numeric"
+                    @input="onInputDoc(taxa, $event)"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="edit-resumo-section">
+            <div class="edit-resumo-section-title"><q-icon name="notes" size="14px" /> Observação</div>
+            <textarea
+              v-model="observacao"
+              class="edit-resumo-textarea"
+              placeholder="Anotações livres..."
+              rows="3"
+            />
+          </div>
+        </div>
+
+        <div class="edit-resumo-footer">
+          <button class="edit-resumo-btn edit-resumo-btn--cancel" @click="cancelarEdicaoResumoModal">Cancelar</button>
+          <button class="edit-resumo-btn edit-resumo-btn--save" :disabled="salvandoEdicaoResumo" @click="salvarEdicaoResumoModal">
+            <q-spinner-dots v-if="salvandoEdicaoResumo" size="16px" color="white" />
+            <template v-else><q-icon name="save" size="16px" /> Salvar</template>
           </button>
         </div>
       </div>
@@ -3396,6 +3585,15 @@ function quadroSocietarioTexto(soc) {
   ].filter(Boolean).join('\n')
 }
 
+function quadroSocietarioNomesLista() {
+  // Sócios adicionais (2º em diante) — o 1º é o Sócio Administrador no relatório
+  return sociosLista.value
+    .slice(1)
+    .map(s => s.campos.find(c => c.label === 'Nome do Sócio')?.valor?.trim())
+    .filter(Boolean)
+    .join('\n')
+}
+
 async function _executarRelatorioBaixa() {
   const bv  = key => etapasBaixa.value.find(e => e.key === key)?.valor  || ''
   const bs  = key => etapasBaixa.value.find(e => e.key === key)?.status || ''
@@ -3468,7 +3666,7 @@ async function _executarRelatorioBaixa() {
     PROCURACAO:  bs('cancelamento_proc') === 'concluida' ? 'CANCELADA' : '',
     VERI:        bs('exclusao_veri') === 'concluida' ? 'EXCLUÍDO' : '',
     GOVBR:       bo('assinatura') || soc('Senha do Gov.Br (Nível Ouro)'),
-    QUADRO:      soc('Quadro Societário') || quadroSocietarioTexto(soc),
+    QUADRO:      quadroSocietarioNomesLista(),
     PROCESSOS:   processosTexto,
   }, `Relatorio_Baixa_${empresa || 'Processo'}_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.docx`)
 
@@ -3702,11 +3900,14 @@ async function gerarRelatorioPDF(valores, nomeArquivo) {
         if (_rpr.includes(t)) return _rpr.replace(t, col + t)
       return _rpr.replace('</w:rPr>', col + '</w:rPr>')
     }
-    // SAI/ENTRA usam parágrafo próprio com recuo suspenso para alinhar nomes perfeitamente
+    // Largura do rótulo em twips (Tahoma/negrito ~11pt no template) — calibrado no PDF
+    const _tabNomeTwips = lbl => {
+      if (lbl.startsWith('ENTRA')) return 720
+      return 480
+    }
     const _rprI = _rpr.replace(/^<w:rPr>/, '').replace(/<\/w:rPr>$/, '')
-    const _mkPPr = (ind) => ind
-      ? `<w:pPr><w:ind w:left="${ind}" w:hanging="${ind}"/><w:rPr>${_rprI}</w:rPr></w:pPr>`
-      : `<w:pPr><w:rPr>${_rprI}</w:rPr></w:pPr>`
+    const _mkPPr = () => `<w:pPr><w:rPr>${_rprI}</w:rPr></w:pPr>`
+    const _mkPPrTab = tab => `<w:pPr><w:tabs><w:tab w:val="left" w:pos="${tab}"/></w:tabs><w:rPr>${_rprI}</w:rPr></w:pPr>`
     const _plines = (valores.PROCESSOS || '').split('\n')
     let _procXml = ''
     let _openPar = true  // parágrafo do template começa aberto
@@ -3714,22 +3915,30 @@ async function gerarRelatorioPDF(valores, nomeArquivo) {
       const _ln = _plines[_pi]
       if (_ln.startsWith('SAI: ') || _ln.startsWith('ENTRA: ')) {
         const _isSAI = _ln.startsWith('SAI: ')
-        const _lbl = _isSAI ? 'SAI: ' : 'ENTRA: '
-        // SAI: ~480 twips (24pt); ENTRA: ~840 twips (42pt) em Tahoma Bold 11pt
-        const _ind = _isSAI ? 480 : 840
+        const _lblChave = _isSAI ? 'SAI: ' : 'ENTRA: '
+        const _lblCurto = _isSAI ? 'SAI:' : 'ENTRA:'
         const _col = _isSAI ? 'FF0000' : '0070C0'
-        const _nms = _ln.slice(_lbl.length).split('\r').map(xmlEscape).join('</w:t><w:br/><w:t xml:space="preserve">')
-        _procXml += (_openPar ? '</w:t></w:r></w:p>' : '')
-          + `<w:p>${_mkPPr(_ind)}<w:r>${_rpr}<w:t xml:space="preserve">${xmlEscape(_lbl)}</w:t></w:r>`
-          + `<w:r>${_mkRpr(_col)}<w:t xml:space="preserve">${_nms}</w:t></w:r></w:p>`
+        const _nomes = _ln.slice(_lblChave.length).split('\r').map(n => n.trim()).filter(Boolean)
+        const _tab = _tabNomeTwips(_lblChave)
+        if (_nomes.length > 0) {
+          // Todas as linhas de nomes usam a mesma tab → alinhadas entre si
+          _procXml += (_openPar ? '</w:t></w:r></w:p>' : '')
+            + `<w:p>${_mkPPrTab(_tab)}<w:r>${_rpr}<w:t xml:space="preserve">${xmlEscape(_lblCurto)}</w:t></w:r>`
+            + `<w:r>${_rpr}<w:tab/></w:r>`
+            + `<w:r>${_mkRpr(_col)}<w:t xml:space="preserve">${xmlEscape(_nomes[0])}</w:t></w:r></w:p>`
+          for (let _ni = 1; _ni < _nomes.length; _ni++) {
+            _procXml += `<w:p>${_mkPPrTab(_tab)}<w:r>${_rpr}<w:tab/></w:r>`
+              + `<w:r>${_mkRpr(_col)}<w:t xml:space="preserve">${xmlEscape(_nomes[_ni])}</w:t></w:r></w:p>`
+          }
+        }
         _openPar = false
       } else {
-        if (!_openPar) { _procXml += `<w:p>${_mkPPr(0)}<w:r>${_rpr}<w:t xml:space="preserve">`; _openPar = true }
+        if (!_openPar) { _procXml += `<w:p>${_mkPPr()}<w:r>${_rpr}<w:t xml:space="preserve">`; _openPar = true }
         else if (_pi > 0) _procXml += '</w:t><w:br/><w:t xml:space="preserve">'
         _procXml += xmlEscape(_ln)
       }
     }
-    if (!_openPar) _procXml += `<w:p>${_mkPPr(0)}<w:r>${_rpr}<w:t xml:space="preserve">`
+    if (!_openPar) _procXml += `<w:p>${_mkPPr()}<w:r>${_rpr}<w:t xml:space="preserve">`
     docXml = docXml.split('{PROCESSOS}').join(_procXml)
   }
   Object.entries(valores).forEach(([token, v]) => {
@@ -4508,7 +4717,6 @@ const steps = [
 ]
 
 const docsEmpresaOk  = computed(() => docsEmpresa.value.filter(d => d.valor).length)
-const docsSocioOk    = computed(() => docsSocio.value.filter(d => d.valor).length)
 
 function mascarar(v, tipo) {
   if (!v) return ''
@@ -4584,12 +4792,170 @@ function onInputDoc(doc, event) {
   if (event.target.value !== masked) event.target.value = masked
 }
 
+function onInputSocioCampo(doc, event) {
+  onInputDoc(doc, event)
+}
+
+function aplicarEmpresaSalva(empresaSalva) {
+  if (!empresaSalva?.length) return
+  empresaSalva.forEach(s => {
+    const d = docsEmpresa.value.find(x => x.label === s.label)
+    if (!d) return
+    d.valor = s.valor || ''
+    if (d.tipo === 'moeda' && d.valor) d.valor = mascarar(d.valor, 'moeda')
+  })
+}
+
+function aplicarTaxasSalvas(taxasSalvas) {
+  if (!taxasSalvas?.length) return
+  taxasSalvas.forEach(s => {
+    const t = taxas.value.find(x => x.label === s.label)
+    if (!t) return
+    t.valor = s.valor || ''
+    if (t.tipo === 'moeda' && t.valor) t.valor = mascarar(t.valor, 'moeda')
+  })
+}
+
 const totalCampos = computed(() =>
-  docsEmpresa.value.length + docsSocio.value.length + taxas.value.length
+  docsEmpresa.value.length + sociosLista.value.length * SOCIO_CAMPOS_PADRAO.length + taxas.value.length
 )
 const totalPreenchido = computed(() =>
-  [...docsEmpresa.value, ...docsSocio.value, ...taxas.value].filter(d => d.valor).length
+  [
+    ...docsEmpresa.value,
+    ...sociosLista.value.flatMap(s => s.campos),
+    ...taxas.value,
+  ].filter(d => d.valor).length
 )
+
+const SOCIO_CAMPOS_PADRAO = [
+  { label: 'Nome do Sócio',               valor: '', tipo: 'texto'   },
+  { label: 'CPF',                         valor: '', tipo: 'cpf'    },
+  { label: 'RG ou CNH',                   valor: '', tipo: 'rg'     },
+  { label: 'Endereço pessoa física',      valor: '', tipo: 'texto'  },
+  { label: 'Senha do Gov.Br (Nível Ouro)', valor: '', tipo: 'texto'  },
+  { label: 'Telefone',                    valor: '', tipo: 'telefone'},
+  { label: 'E-Mail',                      valor: '', tipo: 'email'  },
+]
+
+let _socioIdSeq = 0
+function criarSocioVazio() {
+  return { id: ++_socioIdSeq, campos: SOCIO_CAMPOS_PADRAO.map(c => ({ ...c })) }
+}
+
+function criarSocioDeCampos(campos) {
+  return {
+    id: ++_socioIdSeq,
+    campos: SOCIO_CAMPOS_PADRAO.map(c => ({
+      ...c,
+      valor: campos.find(x => x.label === c.label)?.valor || '',
+    })),
+  }
+}
+
+const sociosLista = ref([criarSocioVazio()])
+
+function serializarSocios() {
+  return sociosLista.value.map(s => s.campos.map(c => ({ label: c.label, valor: c.valor })))
+}
+
+function camposSocioVisiveis(campos) {
+  return (campos || []).filter(d => d.valor && d.label !== '_socios_extras' && d.label !== 'Quadro Societário')
+}
+
+function sociosExtrasDoReg(reg) {
+  return (reg?.socios || []).slice(1)
+}
+
+function quadroNomesDoReg(reg) {
+  return sociosExtrasDoReg(reg)
+    .map(c => c.find(d => d.label === 'Nome do Sócio')?.valor?.trim())
+    .filter(Boolean)
+    .join('\n')
+}
+
+function acharProcessoPorRazao(razao) {
+  const r = (razao || '').trim().toLowerCase()
+  if (!r) return null
+  return registros.value.find(x => (x.razaoSocial || '').trim().toLowerCase() === r && !x.concluido) || null
+}
+
+let _syncResumoDbTimer = null
+function syncResumoAoProcesso() {
+  const razao = docsEmpresa.value.find(d => d.label === 'Razão social')?.valor?.trim()
+  if (!razao) return
+  const reg = acharProcessoPorRazao(razao)
+  if (!reg) return
+
+  const updated = {
+    ...reg,
+    razaoSocial: razao,
+    empresa:    docsEmpresa.value.map(d => ({ label: d.label, valor: d.valor })),
+    socio:      docsSocio.value.map(d => ({ label: d.label, valor: d.valor })),
+    socios:     serializarSocios(),
+    taxas:      taxas.value.map(t => ({ label: t.label, valor: t.valor })),
+    observacao: observacao.value || '',
+  }
+  const idx = registros.value.findIndex(r => r.id === reg.id)
+  if (idx !== -1) registros.value[idx] = updated
+  if (resumoProcessoReg.value?.id === reg.id) {
+    resumoProcessoReg.value = { ...updated, observacao: updated.observacao || resumoProcessoReg.value.observacao }
+  }
+
+  clearTimeout(_syncResumoDbTimer)
+  _syncResumoDbTimer = setTimeout(async () => {
+    const packed = processoToDb(updated)
+    const { error } = await supabase.from('processos').update({
+      empresa:      packed.empresa,
+      socio:        packed.socio,
+      taxas:        packed.taxas,
+      observacao:   packed.observacao,
+      razao_social: packed.razao_social,
+    }).eq('id', reg.id)
+    if (error) console.error('[syncResumo]', error.message)
+  }, 900)
+}
+
+function carregarSocios(socio, socios) {
+  if (socios?.length) {
+    sociosLista.value = socios.map(c => criarSocioDeCampos(c))
+    return
+  }
+  if (socio?.length) {
+    const limpo = socio.filter(d => d.label !== 'Quadro Societário')
+    sociosLista.value = [criarSocioDeCampos(limpo)]
+  } else {
+    sociosLista.value = [criarSocioVazio()]
+  }
+}
+
+function limparSocios() {
+  _socioIdSeq = 0
+  sociosLista.value = [criarSocioVazio()]
+}
+
+function adicionarSocio() {
+  const base = sociosLista.value[sociosLista.value.length - 1]
+  const copia = base.campos.map(c => ({
+    ...c,
+    valor: c.label === 'Nome do Sócio' ? '' : c.valor,
+  }))
+  sociosLista.value.push({ id: ++_socioIdSeq, campos: copia })
+  $q.notify({
+    icon: 'person_add', color: 'primary', position: 'top', timeout: 2500,
+    message: 'Novo sócio adicionado. Preencha o nome — demais dados foram copiados.',
+  })
+}
+
+function removerSocio(id) {
+  if (sociosLista.value.length <= 1) return
+  sociosLista.value = sociosLista.value.filter(s => s.id !== id)
+}
+
+const docsSocio             = computed(() => sociosLista.value[0]?.campos ?? [])
+const docsSocioOk           = computed(() => docsSocio.value.filter(d => d.valor).length)
+const docsSocioCount        = computed(() => SOCIO_CAMPOS_PADRAO.length)
+const quadroSocietarioNomes = computed(() => quadroSocietarioNomesLista())
+
 const progressPercent = computed(() =>
   totalCampos.value ? Math.round((totalPreenchido.value / totalCampos.value) * 100) : 0
 )
@@ -4608,17 +4974,6 @@ const docsEmpresa = ref([
   { label: 'Endereço',            valor: '', tipo: 'texto'   },
   { label: 'Telefone',            valor: '', tipo: 'telefone'},
   { label: 'E-Mail',              valor: '', tipo: 'email'   },
-])
-
-const docsSocio = ref([
-  { label: 'Nome do Sócio',                        valor: '', tipo: 'texto'   },
-  { label: 'Quadro Societário',                     valor: '', tipo: 'textarea'},
-  { label: 'CPF',                                   valor: '', tipo: 'cpf'    },
-  { label: 'RG ou CNH',                             valor: '', tipo: 'rg'     },
-  { label: 'Endereço pessoa física',                valor: '', tipo: 'texto'  },
-  { label: 'Senha do Gov.Br (Nível Ouro)',          valor: '', tipo: 'texto'  },
-  { label: 'Telefone',                              valor: '', tipo: 'telefone'},
-  { label: 'E-Mail',                                valor: '', tipo: 'email'  },
 ])
 
 function copiarTexto(texto, caption = '') {
@@ -4645,10 +5000,14 @@ function copiarSecaoEmpresa() {
 }
 
 function copiarSecaoSocio() {
-  const linhas = docsSocio.value
-    .map(d => `▲ ${d.label}${d.valor ? ': ' + d.valor : ''}`)
-    .join('\n')
-  const texto = `👤 *SÓCIO*\n${linhas}`
+  const blocos = sociosLista.value.map((s, i) => {
+    const linhas = s.campos.map(d => `▲ ${d.label}${d.valor ? ': ' + d.valor : ''}`).join('\n')
+    return sociosLista.value.length > 1 ? `👤 *SÓCIO ${i + 1}*\n${linhas}` : linhas
+  })
+  const quadro = quadroSocietarioNomesLista()
+  const texto = sociosLista.value.length > 1
+    ? `👤 *SÓCIOS*\n${blocos.join('\n\n')}${quadro ? `\n\n📋 *QUADRO SOCIETÁRIO*\n${quadro}` : ''}`
+    : `👤 *SÓCIO*\n${blocos[0]}${quadro ? `\n\n📋 *QUADRO SOCIETÁRIO*\n${quadro}` : ''}`
   copiarTexto(texto, 'Seção Sócio')
 }
 
@@ -4661,9 +5020,10 @@ function montarMensagem(prazo = 'normal') {
   const linhaEmpresa = docsEmpresa.value
     .map(d => `▲ ${d.label}${d.valor ? ': ' + d.valor : ''}`)
     .join('\n')
-  const linhaSocio = docsSocio.value
-    .map(d => `▲ ${d.label}${d.valor ? ': ' + d.valor : ''}`)
-    .join('\n')
+  const linhaSocio = sociosLista.value.map((s, i) => {
+    const linhas = s.campos.map(d => `▲ ${d.label}${d.valor ? ': ' + d.valor : ''}`).join('\n')
+    return sociosLista.value.length > 1 ? `Sócio ${i + 1}:\n${linhas}` : linhas
+  }).join('\n\n')
   const linhaTaxas = taxas.value
     .map(t => `◆ ${t.label}: R$ ${t.valor || 'A definir'}`)
     .join('\n')
@@ -4907,6 +5267,7 @@ async function salvarRegistro(prazo = 'normal') {
     razaoSocial: docsEmpresa.value.find(d => d.label === 'Razão social')?.valor || '',
     empresa:    docsEmpresa.value.map(d => ({ label: d.label, valor: d.valor })),
     socio:      docsSocio.value.map(d => ({ label: d.label, valor: d.valor })),
+    socios:     serializarSocios(),
     taxas:      taxas.value.map(t => ({ label: t.label, valor: t.valor })),
     observacao: observacao.value || '',
   }
@@ -4983,6 +5344,10 @@ const historicoExpandido = ref(false)
 const dialogComplementar  = ref(false)
 const dialogNovoProcesso  = ref(false)
 const dialogImportarResumo      = ref(false)
+const dialogEditarResumo        = ref(false)
+const resumoModalSnapshot       = ref(null)
+const resumoModalProcessoId     = ref(null)
+const salvandoEdicaoResumo      = ref(false)
 const buscaImportarResumo       = ref('')
 const regImportarSelecionado    = ref(null)
 
@@ -4995,13 +5360,127 @@ const processosParaImportar = computed(() => {
 })
 
 function importarResumo(reg) {
-  if (reg.empresa?.length)  docsEmpresa.value  = reg.empresa.map(d => ({ ...d }))
-  if (reg.socio?.length)    docsSocio.value    = reg.socio.map(d => ({ ...d }))
-  if (reg.taxas?.length)    taxas.value        = reg.taxas.map(t => ({ ...t }))
+  aplicarEmpresaSalva(reg.empresa)
+  if (reg.socio?.length || reg.socios?.length) carregarSocios(reg.socio, reg.socios)
+  aplicarTaxasSalvas(reg.taxas)
+  if (reg.observacao)       observacao.value   = reg.observacao
+  salvarResumo()
   dialogImportarResumo.value = false
   buscaImportarResumo.value  = ''
   $q.notify({ icon: 'check', color: 'positive', message: `Resumo de "${reg.razaoSocial}" importado!`, position: 'top', timeout: 2500 })
 }
+
+function editarResumo() {
+  resumoModalSnapshot.value = clonarEstadoResumo()
+
+  const idAberto = regAberto.value || regAbertoSessao2.value
+  const porId = idAberto
+    ? registros.value.find(r => r.id === idAberto)
+    : null
+  const nomeGuia = (etapaValor('empresa') || '').trim()
+  const porNome = nomeGuia
+    ? registros.value.find(r =>
+        (r.razaoSocial || '').trim().toLowerCase() === nomeGuia.toLowerCase() && !r.concluido,
+      )
+    : null
+  const reg = porId || porNome
+  resumoModalProcessoId.value = reg?.id || null
+
+  if (reg) {
+    aplicarEmpresaSalva(reg.empresa)
+    if (reg.socio?.length || reg.socios?.length) carregarSocios(reg.socio, reg.socios)
+    aplicarTaxasSalvas(reg.taxas)
+    observacao.value = reg.observacao
+      || localStorage.getItem(`wms_obs_emp_${reg.razaoSocial}`)
+      || observacao.value
+      || ''
+  }
+
+  dialogEditarResumo.value = true
+}
+
+function clonarEstadoResumo() {
+  return {
+    empresa: docsEmpresa.value.map(d => ({ ...d })),
+    socios: serializarSocios(),
+    taxas: taxas.value.map(t => ({ ...t })),
+    observacao: observacao.value,
+  }
+}
+
+function restaurarEstadoResumo(snapshot) {
+  if (!snapshot) return
+  aplicarEmpresaSalva(snapshot.empresa)
+  carregarSocios(snapshot.socios?.[0], snapshot.socios)
+  aplicarTaxasSalvas(snapshot.taxas)
+  observacao.value = snapshot.observacao || ''
+}
+
+function cancelarEdicaoResumoModal() {
+  restaurarEstadoResumo(resumoModalSnapshot.value)
+  salvarResumo()
+  resumoModalSnapshot.value = null
+  resumoModalProcessoId.value = null
+  dialogEditarResumo.value = false
+}
+
+async function salvarEdicaoResumoModal() {
+  if (salvandoEdicaoResumo.value) return
+  salvandoEdicaoResumo.value = true
+  try {
+    salvarResumo()
+    clearTimeout(_syncResumoDbTimer)
+
+    const razao = docsEmpresa.value.find(d => d.label === 'Razão social')?.valor?.trim()
+    const reg = resumoModalProcessoId.value
+      ? registros.value.find(r => r.id === resumoModalProcessoId.value)
+      : acharProcessoPorRazao(razao)
+
+    if (reg) {
+      const updated = {
+        ...reg,
+        razaoSocial: razao || reg.razaoSocial,
+        empresa: docsEmpresa.value.map(d => ({ label: d.label, valor: d.valor })),
+        socio: docsSocio.value.map(d => ({ label: d.label, valor: d.valor })),
+        socios: serializarSocios(),
+        taxas: taxas.value.map(t => ({ label: t.label, valor: t.valor })),
+        observacao: observacao.value || '',
+      }
+      const idx = registros.value.findIndex(r => r.id === reg.id)
+      if (idx !== -1) registros.value[idx] = updated
+      if (resumoProcessoReg.value?.id === reg.id) {
+        resumoProcessoReg.value = { ...updated }
+      }
+
+      const packed = processoToDb(updated)
+      const { error } = await supabase.from('processos').update({
+        empresa: packed.empresa,
+        socio: packed.socio,
+        taxas: packed.taxas,
+        observacao: packed.observacao,
+        razao_social: packed.razao_social,
+      }).eq('id', reg.id)
+
+      if (error) {
+        $q.notify({ icon: 'error', color: 'negative', message: 'Erro ao salvar: ' + error.message, position: 'top', timeout: 5000 })
+        return
+      }
+    }
+
+    resumoModalSnapshot.value = null
+    resumoModalProcessoId.value = null
+    dialogEditarResumo.value = false
+    $q.notify({ icon: 'check', color: 'positive', message: 'Resumo salvo!', position: 'top', timeout: 2500 })
+  } finally {
+    salvandoEdicaoResumo.value = false
+  }
+}
+
+const resumoModalTitulo = computed(() =>
+  docsEmpresa.value.find(d => d.label === 'Razão social')?.valor?.trim()
+  || etapaValor('empresa')
+  || '',
+)
 const dialogDocs           = ref(false)
 const docsDialogEmpresa    = ref('')
 
@@ -5018,7 +5497,21 @@ const editandoResumo       = ref(false)
 const resumoEditData       = ref(null)
 
 function abrirResumoProcesso(reg) {
-  const base = registros.value.find(r => r.id === reg.id) || reg
+  let base = registros.value.find(r => r.id === reg.id) || reg
+  const razaoForm = docsEmpresa.value.find(d => d.label === 'Razão social')?.valor?.trim()
+  if (razaoForm && (base.razaoSocial || '').trim().toLowerCase() === razaoForm.toLowerCase()) {
+    const sociosForm = serializarSocios()
+    if (sociosForm.length > (base.socios?.length || 0)) {
+      base = {
+        ...base,
+        empresa:    docsEmpresa.value.map(d => ({ label: d.label, valor: d.valor })),
+        socio:      docsSocio.value.map(d => ({ label: d.label, valor: d.valor })),
+        socios:     sociosForm,
+        taxas:      taxas.value.map(t => ({ label: t.label, valor: t.valor })),
+        observacao: observacao.value || base.observacao,
+      }
+    }
+  }
   const obs = base.observacao || localStorage.getItem(`wms_obs_emp_${base.razaoSocial}`) || ''
   resumoProcessoReg.value = { ...base, observacao: obs }
   editandoResumo.value = false
@@ -5031,6 +5524,7 @@ function iniciarEdicaoResumo() {
   resumoEditData.value = {
     empresa:    r.empresa?.map(d => ({ ...d })) || [],
     socio:      r.socio?.map(d => ({ ...d })) || [],
+    socios:     r.socios?.map(s => s.map(d => ({ ...d }))) || [],
     taxas:      r.taxas?.map(d => ({ ...d })) || [],
     observacao: r.observacao || '',
   }
@@ -5045,18 +5539,37 @@ function cancelarEdicaoResumo() {
 async function salvarEdicaoResumo() {
   const reg = resumoProcessoReg.value
   const novaRazao = resumoEditData.value.empresa.find(d => d.label === 'Razão social')?.valor?.trim() || reg.razaoSocial
+  const payload = processoToDb({
+    ...reg,
+    razaoSocial: novaRazao,
+    empresa:     resumoEditData.value.empresa,
+    socio:       resumoEditData.value.socio,
+    socios:      resumoEditData.value.socios?.length
+      ? resumoEditData.value.socios
+      : [resumoEditData.value.socio],
+    taxas:       resumoEditData.value.taxas,
+    observacao:  resumoEditData.value.observacao,
+  })
   const { error } = await supabase.from('processos').update({
-    empresa:      resumoEditData.value.empresa,
-    socio:        resumoEditData.value.socio,
-    taxas:        resumoEditData.value.taxas,
-    observacao:   resumoEditData.value.observacao,
-    razao_social: novaRazao,
+    empresa:      payload.empresa,
+    socio:        payload.socio,
+    taxas:        payload.taxas,
+    observacao:   payload.observacao,
+    razao_social: payload.razao_social,
   }).eq('id', reg.id)
   if (error) {
     $q.notify({ icon: 'error', color: 'negative', message: 'Erro ao salvar: ' + error.message, position: 'top', timeout: 5000 })
     return
   }
-  const updated = { ...reg, empresa: resumoEditData.value.empresa, socio: resumoEditData.value.socio, taxas: resumoEditData.value.taxas, observacao: resumoEditData.value.observacao, razaoSocial: novaRazao }
+  const updated = {
+    ...reg,
+    empresa:     resumoEditData.value.empresa,
+    socio:       resumoEditData.value.socio,
+    socios:      resumoEditData.value.socios?.length ? resumoEditData.value.socios : [resumoEditData.value.socio],
+    taxas:       resumoEditData.value.taxas,
+    observacao:  resumoEditData.value.observacao,
+    razaoSocial: novaRazao,
+  }
   const idx = registros.value.findIndex(r => String(r.id) === String(reg.id))
   if (idx !== -1) registros.value[idx] = updated
   resumoProcessoReg.value = updated
@@ -5451,7 +5964,7 @@ function _coletarValoresRelatorio() {
       PROCURACAO:  procStatus,
       VERI:        veriVal,
       GOVBR:       senhaGov,
-      QUADRO:      soc('Quadro Societário') || quadroTexto,
+      QUADRO:      quadroSocietarioNomesLista(),
       PROCESSOS:   processosTexto,
     },
     nomeArquivo: `Relatorio_${razaoSocial || 'Constituicao'}_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.docx`,
@@ -5467,9 +5980,9 @@ async function gerarRelatorio() {
     const reg = registros.value.find(r => r.id === regAberto.value)
       || (nomeAtual ? registros.value.find(r => r.razaoSocial === nomeAtual && r.empresa?.length) : null)
     if (reg) {
-      reg.empresa?.forEach((s, i) => { if (docsEmpresa.value[i] && s.valor) docsEmpresa.value[i].valor = s.valor })
-      reg.socio?.forEach((s, i)   => { if (docsSocio.value[i]   && s.valor) docsSocio.value[i].valor   = s.valor })
-      reg.taxas?.forEach((s, i)   => { if (taxas.value[i]       && s.valor) taxas.value[i].valor         = s.valor })
+      aplicarEmpresaSalva(reg.empresa)
+      carregarSocios(reg.socio, reg.socios)
+      aplicarTaxasSalvas(reg.taxas)
     }
   }
 
@@ -5619,7 +6132,7 @@ function _limparFormulario() {
     subStatus: e.subItens ? Object.fromEntries(e.subItens.map(si => [si.key, { status: '', protocolo: '' }])) : {},
   }))
   docsEmpresa.value.forEach(d => { d.valor = '' })
-  docsSocio.value.forEach(d => { d.valor = '' })
+  limparSocios()
   taxas.value.forEach(t => { t.valor = '' })
   observacao.value = ''
 }
@@ -5727,6 +6240,9 @@ onMounted(async () => {
 
   if (cfg) Object.assign(configAPI.value, configFromDb(cfg))
 
+  // Sincroniza sócios extras do rascunho (localStorage) com o processo ativo no banco
+  syncResumoAoProcesso()
+
   if (Notification.permission === 'granted') {
     notifPermissao.value = 'granted'
     dispararNotificacoes()
@@ -5775,7 +6291,7 @@ function limparFormulario() {
   localStorage.removeItem('wms_resumo')
   regAberto.value = null
   docsEmpresa.value.forEach(d => d.valor = '')
-  docsSocio.value.forEach(d => d.valor = '')
+  limparSocios()
   taxas.value.forEach(t => t.valor = '')
   observacao.value = ''
   activeStep.value = 0
@@ -5899,9 +6415,21 @@ const observacao = ref('')
 ;(() => {
   const salvo = JSON.parse(localStorage.getItem('wms_resumo') || 'null')
   if (!salvo) return
-  salvo.empresa?.forEach(s => { const d = docsEmpresa.value.find(x => x.label === s.label); if (d) d.valor = s.valor })
-  salvo.socio?.forEach(s => { const d = docsSocio.value.find(x => x.label === s.label); if (d) d.valor = s.valor })
-  salvo.taxas?.forEach(s => { const t = taxas.value.find(x => x.label === s.label); if (t) t.valor = s.valor })
+  salvo.empresa?.forEach(s => {
+    const d = docsEmpresa.value.find(x => x.label === s.label)
+    if (d) {
+      d.valor = s.valor
+      if (d.tipo === 'moeda' && d.valor) d.valor = mascarar(d.valor, 'moeda')
+    }
+  })
+  carregarSocios(salvo.socio, salvo.socios)
+  salvo.taxas?.forEach(s => {
+    const t = taxas.value.find(x => x.label === s.label)
+    if (t) {
+      t.valor = s.valor
+      if (t.tipo === 'moeda' && t.valor) t.valor = mascarar(t.valor, 'moeda')
+    }
+  })
   if (salvo.observacao) observacao.value = salvo.observacao
 })()
 
@@ -5909,6 +6437,7 @@ function salvarResumo() {
   localStorage.setItem('wms_resumo', JSON.stringify({
     empresa:    docsEmpresa.value.map(d => ({ label: d.label, valor: d.valor })),
     socio:      docsSocio.value.map(d => ({ label: d.label, valor: d.valor })),
+    socios:     serializarSocios(),
     taxas:      taxas.value.map(t => ({ label: t.label, valor: t.valor })),
     observacao: observacao.value,
   }))
@@ -5928,11 +6457,10 @@ const obsEtapa1 = computed(() => {
   return observacao.value
 })
 
-// O Resumo (Relação de Documentos) é um rascunho de NOVO cadastro: persiste apenas
-// no localStorage. Não sincroniza com o banco e nunca é preenchido a partir de Consultar.
-// É inserido como novo processo somente ao concluir (salvarRegistro).
-watch([docsEmpresa, docsSocio, taxas, observacao], () => {
+// Sincroniza rascunho do Resumo com o processo ativo (mesma razão social) no banco.
+watch([docsEmpresa, sociosLista, taxas, observacao], () => {
   salvarResumo()
+  syncResumoAoProcesso()
 }, { deep: true })
 
 const today = new Intl.DateTimeFormat('pt-BR', {
@@ -6733,6 +7261,81 @@ const alerts = [
 }
 @media (max-width: 700px) { .rp-fields { grid-template-columns: 1fr; } }
 
+.rs-socio-block { margin-bottom: 4px; }
+.rs-socio-block--extra {
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+.rs-socio-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.rs-socio-block-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.45);
+}
+.rs-socio-remove-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px; height: 24px;
+  border-radius: 6px;
+  border: 1px solid rgba(239,68,68,0.35);
+  background: rgba(239,68,68,0.12);
+  color: #f87171;
+  cursor: pointer;
+}
+.rs-socio-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px dashed rgba(129,140,248,0.45);
+  background: rgba(99,102,241,0.08);
+  color: #a5b4fc;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.rs-socio-add-btn:hover {
+  background: rgba(99,102,241,0.16);
+  border-color: rgba(129,140,248,0.7);
+}
+.rs-quadro-preview {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.03);
+}
+.rs-quadro-preview-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+  margin-bottom: 6px;
+}
+.rs-quadro-preview-text {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.85);
+  white-space: pre-line;
+  line-height: 1.5;
+}
+
 .rp-field { display: flex; flex-direction: column; gap: 6px; }
 
 .rp-field-label {
@@ -7063,6 +7666,16 @@ const alerts = [
   transition: background 0.2s, color 0.2s;
 }
 .rp-btn-importar-resumo:hover { background: rgba(96,165,250,0.2); color: #93c5fd; }
+.rp-btn-editar-resumo {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 10px;
+  background: rgba(251,191,36,0.1);
+  border: 1px solid rgba(251,191,36,0.28);
+  color: #fbbf24; font-size: 0.82rem; font-weight: 600;
+  font-family: inherit; cursor: pointer; flex-shrink: 0;
+  transition: background 0.2s, color 0.2s;
+}
+.rp-btn-editar-resumo:hover { background: rgba(251,191,36,0.2); color: #fcd34d; }
 .rp-btn-novo-proc {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 7px 14px; border-radius: 10px;
@@ -7195,6 +7808,131 @@ const alerts = [
 .imp-resumo-confirmar:disabled {
   opacity: 0.35; cursor: not-allowed;
 }
+
+/* ── Dialog Editar Resumo ── */
+.edit-resumo-dialog {
+  width: 720px; max-width: 96vw; max-height: 90vh;
+  background: #0f1e3a; border-radius: 18px;
+  border: 1px solid rgba(251,191,36,0.25);
+  padding: 20px 22px 18px; display: flex; flex-direction: column; gap: 14px;
+}
+.edit-resumo-header {
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+}
+.edit-resumo-header-text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.edit-resumo-title { font-size: 1rem; font-weight: 700; color: #e2e8f0; }
+.edit-resumo-sub {
+  font-size: 0.78rem; color: rgba(251,191,36,0.85);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.edit-resumo-close {
+  background: none; border: none; color: rgba(255,255,255,0.4);
+  cursor: pointer; padding: 4px; border-radius: 6px; transition: color 0.15s;
+}
+.edit-resumo-close:hover { color: white; }
+.edit-resumo-body {
+  flex: 1; min-height: 0; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 14px;
+  padding-right: 4px;
+}
+.edit-resumo-section {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px; padding: 14px 16px;
+}
+.edit-resumo-section-title {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: rgba(255,255,255,0.45);
+  margin-bottom: 12px;
+}
+.edit-resumo-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px;
+}
+@media (max-width: 560px) { .edit-resumo-grid { grid-template-columns: 1fr; } }
+.edit-resumo-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.edit-resumo-label {
+  font-size: 0.68rem; font-weight: 600; letter-spacing: 0.04em;
+  text-transform: uppercase; color: rgba(255,255,255,0.38);
+}
+.edit-resumo-input {
+  width: 100%; box-sizing: border-box;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px; padding: 8px 10px;
+  color: #e2e8f0; font-size: 0.85rem; font-family: inherit;
+  outline: none; transition: border-color 0.15s;
+}
+.edit-resumo-input:focus { border-color: rgba(251,191,36,0.45); }
+.edit-resumo-field--invalido .edit-resumo-input { border-color: rgba(239,68,68,0.5); }
+.edit-resumo-input-wrap { display: flex; align-items: center; gap: 6px; }
+.edit-resumo-prefix { color: rgba(255,255,255,0.4); font-size: 0.82rem; flex-shrink: 0; }
+.edit-resumo-simnom { display: flex; gap: 6px; }
+.edit-resumo-simnom-btn {
+  flex: 1; padding: 7px 10px; border-radius: 8px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.55); font-size: 0.8rem; font-weight: 700;
+  font-family: inherit; cursor: pointer; transition: all 0.15s;
+}
+.edit-resumo-simnom-btn--sim { background: rgba(34,197,94,0.15); border-color: rgba(34,197,94,0.4); color: #4ade80; }
+.edit-resumo-simnom-btn--nom { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.35); color: #f87171; }
+.edit-resumo-socio-block--extra {
+  margin-top: 12px; padding-top: 12px;
+  border-top: 1px dashed rgba(255,255,255,0.1);
+}
+.edit-resumo-socio-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px; font-size: 0.78rem; font-weight: 700; color: #c4b5fd;
+}
+.edit-resumo-socio-remove {
+  background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3);
+  border-radius: 6px; color: #f87171; cursor: pointer; padding: 2px 5px;
+}
+.edit-resumo-add-socio {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+  padding: 8px 14px; border-radius: 10px;
+  background: transparent; border: 1px dashed rgba(255,255,255,0.18);
+  color: rgba(255,255,255,0.55); font-size: 0.8rem; font-weight: 600;
+  font-family: inherit; cursor: pointer; transition: all 0.15s;
+}
+.edit-resumo-add-socio:hover { border-color: rgba(251,191,36,0.4); color: #fbbf24; }
+.edit-resumo-quadro {
+  margin-top: 12px; padding: 10px 12px; border-radius: 10px;
+  background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.08);
+}
+.edit-resumo-quadro-label {
+  font-size: 0.65rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: rgba(255,255,255,0.35); margin-bottom: 6px;
+}
+.edit-resumo-quadro-text { font-size: 0.88rem; font-weight: 700; color: #e2e8f0; white-space: pre-line; }
+.edit-resumo-textarea {
+  width: 100%; box-sizing: border-box; resize: vertical; min-height: 72px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px; padding: 10px 12px;
+  color: #e2e8f0; font-size: 0.85rem; font-family: inherit; outline: none;
+}
+.edit-resumo-textarea:focus { border-color: rgba(251,191,36,0.45); }
+.edit-resumo-footer {
+  display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0;
+  padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.07);
+}
+.edit-resumo-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 18px; border-radius: 10px; font-size: 0.85rem; font-weight: 700;
+  font-family: inherit; cursor: pointer; transition: all 0.15s;
+}
+.edit-resumo-btn--cancel {
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.65);
+}
+.edit-resumo-btn--cancel:hover { background: rgba(255,255,255,0.1); color: white; }
+.edit-resumo-btn--save {
+  background: rgba(251,191,36,0.18); border: 1px solid rgba(251,191,36,0.4);
+  color: #fcd34d;
+}
+.edit-resumo-btn--save:hover:not(:disabled) {
+  background: rgba(251,191,36,0.28); border-color: rgba(251,191,36,0.6);
+}
+.edit-resumo-btn--save:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .prazos-legend { color: rgba(255,255,255,0.5); font-size: 0.78rem; font-weight: 600; }
 .prazos-legend-item { display: flex; align-items: center; gap: 6px; }
