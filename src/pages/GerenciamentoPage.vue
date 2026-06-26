@@ -6,10 +6,10 @@
       <q-toolbar class="q-px-lg">
         <q-btn flat dense round icon="menu" color="white" class="q-mr-md" @click="drawer = !drawer" />
         <div class="brand row items-center no-wrap">
-          <img src="/logo.png" alt="WMS" class="header-logo" />
-          <div class="q-ml-sm">
-            <div class="header-title">WMS</div>
-            <div class="header-sub">Consultoria</div>
+          <img src="/logo.png" alt="Gerenciamento de Processos" class="header-logo" />
+          <div class="q-ml-sm header-brand-text">
+            <div class="header-title">GERENCIAMENTO</div>
+            <div class="header-sub">DE PROCESSOS</div>
           </div>
         </div>
 
@@ -747,7 +747,7 @@
                 <div class="ctrl-card-icon" style="background:rgba(90,184,46,0.12)">
                   <q-icon name="domain_add" size="30px" style="color:#5ab82e" />
                 </div>
-                <span class="ctrl-card-label">Constituição</span>
+                <span class="ctrl-card-label">Processos</span>
                 <span class="ctrl-card-desc">Abertura · Alteração · Transformação · Novas Empresas</span>
                 <div class="ctrl-card-go">
                   Acessar <q-icon name="arrow_forward" size="15px" />
@@ -792,7 +792,7 @@
                     <q-icon name="inventory_2" size="15px" class="q-mr-xs" style="color:#5ab82e" />
                     <span>Abertura · Alteração · Transformação · Novas Empresas</span>
                   </div>
-                  <h2 class="rp-title">Constituição</h2>
+                  <h2 class="rp-title">Processos</h2>
                 </div>
                 <button class="rp-btn-importar-resumo" @click="abrirImportarResumo(false)">
                   <q-icon name="download_for_offline" size="15px" />
@@ -810,7 +810,7 @@
 
               <div class="et-guia-head">
                 <div>
-                  <div class="et-guia-title">Guia de Constituição</div>
+                  <div class="et-guia-title">Guia de Processos</div>
                   <div class="et-guia-sub">{{ etapasConcluidas }} de {{ etapas.length }} etapas concluídas</div>
                 </div>
                 <div class="et-guia-progress">
@@ -1642,7 +1642,7 @@
                     <div class="cons-info">
                       <div class="cons-empresa">
                         <span class="cons-tipo-badge" :class="`cons-tipo-badge--${p.tipo}`">
-                          {{ p.tipo === 'baixa' ? 'Baixa' : 'Constituição' }}
+                          {{ p.tipo === 'baixa' ? 'Baixa' : 'Processos' }}
                         </span>
                         {{ p.empresa }}
                         <span v-if="p.protocolo && p.protocolo !== '—'" class="cons-empresa-proto"># {{ p.protocolo }}</span>
@@ -3032,7 +3032,7 @@ const categoriasDocs = [
 // ══ ETAPAS DA CONSTITUIÇÃO ══
 const etapasPadrao = [
   { key: 'empresa',    titulo: 'Empresa',                     tipo: 'texto',  placeholder: 'Nome da empresa' },
-  { key: 'processo',   titulo: 'Processo',                    tipo: 'select', opcoes: ['Saiu', 'Baixa', 'Nova empresa', 'Abertura', 'Alteração', 'Transformação'] },
+  { key: 'processo',   titulo: 'Tipos de processos',          tipo: 'select', opcoes: ['Saiu', 'Baixa', 'Nova empresa', 'Abertura', 'Alteração', 'Transformação'] },
   { key: 'localizacao',titulo: 'Localização',                 tipo: 'texto',  placeholder: 'Município' },
   { key: 'assinatura', titulo: 'Tipo de Assinatura',          tipo: 'select', opcoes: ['GOV', 'Certificado'] },
   { key: 'protocolo',  titulo: 'Protocolo',                   tipo: 'texto',  placeholder: 'Número do protocolo' },
@@ -3143,7 +3143,7 @@ function hidratarEtapas(etapasSalvas) {
 // ── BAIXA ──
 const etapasBaixaPadrao = [
   { key: 'empresa',           titulo: 'Empresa',                       tipo: 'texto',     placeholder: 'Nome da empresa' },
-  { key: 'processo',          titulo: 'Processo',                      tipo: 'select',    opcoes: ['Saiu', 'Baixa', 'Nova empresa', 'Abertura', 'Alteração', 'Transformação'] },
+  { key: 'processo',          titulo: 'Tipos de processos',            tipo: 'select',    opcoes: ['Saiu', 'Baixa', 'Nova empresa', 'Abertura', 'Alteração', 'Transformação'] },
   { key: 'localizacao',       titulo: 'Localização',                   tipo: 'texto',     placeholder: 'Município' },
   { key: 'assinatura',        titulo: 'Tipo de Assinatura',            tipo: 'select',    opcoes: ['GOV', 'Certificado'] },
   { key: 'arquivamento',      titulo: 'Arquivamento de Informações',   tipo: 'checklist', itens: [
@@ -6773,9 +6773,9 @@ const alerts = [
 }
 .header-title {
   font-weight: 900;
-  font-size: 1.15rem;
-  letter-spacing: 0.14em;
-  line-height: 1;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
   background: linear-gradient(135deg, #ffffff 0%, #c7dcff 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -6783,12 +6783,14 @@ const alerts = [
 }
 .header-sub {
   color: #5ab82e;
-  font-size: 0.66rem;
+  font-size: 0.58rem;
   font-weight: 700;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   text-shadow: 0 0 8px rgba(90,184,46,0.6);
+  line-height: 1.2;
 }
+.header-brand-text { min-width: 0; }
 /* Status dot */
 .status-online {
   display: flex;
