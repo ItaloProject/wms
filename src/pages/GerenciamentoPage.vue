@@ -1761,6 +1761,21 @@
             </button>
           </div>
 
+          <!-- Busca (ativos e concluídos) -->
+          <div class="cons-search-row q-mb-lg">
+            <div class="cons-search-wrap">
+              <q-icon name="search" size="18px" class="cons-search-icon" />
+              <input
+                v-model="prazosBusca"
+                class="cons-search-input"
+                placeholder="Buscar por empresa, sócio, quadro societário, protocolo ou localização..."
+              />
+              <button v-if="prazosBusca" class="cons-search-clear" @click="prazosBusca = ''">
+                <q-icon name="close" size="16px" />
+              </button>
+            </div>
+          </div>
+
           <!-- Filtros (só para ativos) -->
           <div v-if="abaPrazos === 'ativos'" class="pz-filters q-mb-lg">
             <div class="pz-filter-group">
@@ -1799,8 +1814,8 @@
               </button>
             </div>
             <div v-else-if="registrosFiltrados.length === 0" class="prazos-empty">
-              <q-icon name="filter_list" size="40px" style="color:rgba(255,255,255,0.12)" />
-              <p>Nenhum registro para este filtro.</p>
+              <q-icon :name="prazosBusca.trim() ? 'search_off' : 'filter_list'" size="40px" style="color:rgba(255,255,255,0.12)" />
+              <p>{{ prazosBusca.trim() ? 'Nenhum processo encontrado.' : 'Nenhum registro para este filtro.' }}</p>
             </div>
             <div v-else class="prazos-list">
             <div
@@ -1858,9 +1873,13 @@
               <q-icon name="check_circle" size="48px" style="color:rgba(255,255,255,0.12)" />
               <p>Nenhum processo concluído ainda.</p>
             </div>
+            <div v-else-if="registrosConcluidosFiltrados.length === 0" class="prazos-empty">
+              <q-icon name="search_off" size="40px" style="color:rgba(255,255,255,0.12)" />
+              <p>Nenhum processo encontrado.</p>
+            </div>
             <div v-else class="prazos-list">
               <div
-                v-for="reg in registrosConcluidos"
+                v-for="reg in registrosConcluidosFiltrados"
                 :key="reg.id"
                 class="prazo-card prazo-card--concluido-item"
               >
@@ -4154,6 +4173,44 @@ function progressoDoRegistro(r) {
   return Math.round((ok / etapasPadrao.length) * 100)
 }
 
+function historicoRecentePorProcessoId() {
+  const map = {}
+  for (const h of historico.value) {
+    if (h.processoId && !map[h.processoId]) map[h.processoId] = h
+  }
+  return map
+}
+
+function valorEtapaReg(reg, key) {
+  if (reg?.id === regAberto.value) {
+    const v = etapaValor(key)
+    if (v) return v
+  }
+  return reg?.etapas?.find?.(e => e.key === key)?.valor || ''
+}
+
+function camposBuscaConsultar(reg, fallback = {}) {
+  if (!reg) {
+    return [fallback.empresa, fallback.protocolo, fallback.localizacao].filter(Boolean)
+  }
+  const h = historicoRecentePorProcessoId()[reg.id]
+  const empresa = reg.razaoSocial
+    || reg.empresa?.find?.(d => d.label === 'Razão social')?.valor
+    || fallback.empresa
+    || ''
+  const protocolo = h?.protocolo || valorEtapaReg(reg, 'protocolo') || fallback.protocolo || ''
+  const localizacao = h?.localizacao || valorEtapaReg(reg, 'localizacao') || fallback.localizacao || ''
+  return [empresa, protocolo, localizacao, ...nomesSociosDoReg(reg)]
+}
+
+function processoMatchesBusca(reg, q, fallback = {}) {
+  const termo = (q || '').trim().toLowerCase()
+  if (!termo) return true
+  return camposBuscaConsultar(reg, fallback)
+    .map(s => (s || '').toLowerCase())
+    .some(c => c.includes(termo))
+}
+
 const processosConsultar = computed(() => {
   // Mapeia processoId → entrada mais recente do histórico (já vem order by id desc)
   const latestByProcesso = {}
@@ -4223,17 +4280,13 @@ const processosConsultar = computed(() => {
     })
 
   const todos = [...ativos, ...concluidos]
-  const q = consultarBusca.value.trim().toLowerCase()
-  if (!q) return todos
-  return todos.filter(p => {
-    const campos = [
-      p.empresa,
-      p.protocolo,
-      p.localizacao,
-      ...nomesSociosDoReg(p._reg),
-    ].map(s => (s || '').toLowerCase())
-    return campos.some(c => c.includes(q))
-  })
+  const q = consultarBusca.value
+  if (!q.trim()) return todos
+  return todos.filter(p => processoMatchesBusca(p._reg, q, {
+    empresa: p.empresa,
+    protocolo: p.protocolo,
+    localizacao: p.localizacao,
+  }))
 })
 
 async function _excluirDocumentosDoProcesso(pid) {
@@ -4565,6 +4618,7 @@ const configAPI = ref({
 })
 const filtroUrgencia = ref('todos')
 const filtroTempo    = ref('todos')
+const prazosBusca    = ref('')
 
 const ordemPrazo = { urgente: 0, priorizar: 1, normal: 2 }
 
@@ -4587,11 +4641,21 @@ const registrosFiltrados = computed(() => {
   else if (filtroTempo.value === 'proximos7')
     lista = lista.filter(r => r._dias >= 0 && r._dias <= 7)
 
+  if (prazosBusca.value.trim())
+    lista = lista.filter(r => processoMatchesBusca(r, prazosBusca.value))
+
   lista.sort((a, b) => {
     const pA = ordemPrazo[a.prazo || 'normal']
     const pB = ordemPrazo[b.prazo || 'normal']
     return pA !== pB ? pA - pB : a._dias - b._dias
   })
+  return lista
+})
+
+const registrosConcluidosFiltrados = computed(() => {
+  let lista = registrosConcluidos.value
+  if (prazosBusca.value.trim())
+    lista = lista.filter(r => processoMatchesBusca(r, prazosBusca.value))
   return lista
 })
 
