@@ -3352,6 +3352,25 @@ function xmlValorRelatorio(s) {
   return xmlEscape(s).replace(/\n/g, '</w:t><w:br/><w:t xml:space="preserve">')
 }
 
+function injetarQuadroSocietario(docXml, quadro) {
+  if (!quadro || docXml.includes('{QUADRO}')) return docXml
+  const linhas = quadro.split(/\r?\n/)
+  const campos = ['F28', 'F29', 'F30', 'F31']
+  let out = docXml
+  for (let i = 0; i < campos.length; i++) {
+    const re = new RegExp(
+      '<w:r><w:rPr><w:b/><w:bCs/><w:lang w:val="pt-BR"/></w:rPr><w:fldChar w:fldCharType="begin"/></w:r>' +
+      '<w:r><w:rPr><w:b/><w:bCs/><w:lang w:val="pt-BR"/></w:rPr><w:instrText xml:space="preserve"> MERGEFIELD ' + campos[i] + ' </w:instrText></w:r>' +
+      '<w:r><w:rPr><w:b/><w:bCs/><w:lang w:val="pt-BR"/></w:rPr><w:fldChar w:fldCharType="end"/></w:r>',
+      'g',
+    )
+    const run = '<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:lang w:val="pt-BR"/></w:rPr>' +
+      '<w:t xml:space="preserve">' + xmlValorRelatorio(linhas[i] || '') + '</w:t></w:r>'
+    out = out.replace(re, run)
+  }
+  return out
+}
+
 const ultimoRelatorio = ref(null) // { nome, base64 } — guardado para envio automático
 
 function blobParaBase64(blob) {
@@ -3449,7 +3468,7 @@ async function _executarRelatorioBaixa() {
     PROCURACAO:  bs('cancelamento_proc') === 'concluida' ? 'CANCELADA' : '',
     VERI:        bs('exclusao_veri') === 'concluida' ? 'EXCLUÍDO' : '',
     GOVBR:       bo('assinatura') || soc('Senha do Gov.Br (Nível Ouro)'),
-    QUADRO:      soc('Quadro Societário'),
+    QUADRO:      soc('Quadro Societário') || quadroSocietarioTexto(soc),
     PROCESSOS:   processosTexto,
   }, `Relatorio_Baixa_${empresa || 'Processo'}_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.docx`)
 
@@ -3661,6 +3680,7 @@ async function gerarRelatorioPDF(valores, nomeArquivo) {
   const buf  = await resp.arrayBuffer()
   const zip  = await JSZip.loadAsync(buf)
   let docXml = await zip.file('word/document.xml').async('string')
+  if (valores.QUADRO) docXml = injetarQuadroSocietario(docXml, valores.QUADRO)
   // PROCESSOS: injetar XML colorido — SAI em vermelho, ENTRA em azul
   // Extrai rPr por posição (não regex multi-linha) para evitar capturar runs erradas
   if (valores.PROCESSOS !== undefined) {
@@ -5431,7 +5451,7 @@ function _coletarValoresRelatorio() {
       PROCURACAO:  procStatus,
       VERI:        veriVal,
       GOVBR:       senhaGov,
-      QUADRO:      soc('Quadro Societário'),
+      QUADRO:      soc('Quadro Societário') || quadroTexto,
       PROCESSOS:   processosTexto,
     },
     nomeArquivo: `Relatorio_${razaoSocial || 'Constituicao'}_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.docx`,
