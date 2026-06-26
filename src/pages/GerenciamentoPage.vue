@@ -274,7 +274,15 @@
                   :class="{ 'rp-field--filled': doc.valor, 'rp-field--invalido': doc.valor && !campoValido(doc) }"
                 >
                   <label class="rp-field-label">{{ doc.label }}</label>
-                  <div class="rp-field-wrap">
+                  <textarea
+                    v-if="doc.tipo === 'textarea'"
+                    :value="doc.valor"
+                    class="rp-obs-textarea"
+                    placeholder="Ex: NOME 1&#10;NOME 2"
+                    rows="4"
+                    @input="onInputDoc(doc, $event)"
+                  />
+                  <div v-else class="rp-field-wrap">
                     <input
                       :value="doc.valor"
                       class="rp-field-input"
@@ -771,6 +779,10 @@
                   </div>
                   <h2 class="rp-title">Constituição</h2>
                 </div>
+                <button class="rp-btn-importar-resumo" @click="dialogImportarResumo = true; buscaImportarResumo = ''; regImportarSelecionado = null">
+                  <q-icon name="download_for_offline" size="15px" />
+                  Importar Resumo
+                </button>
                 <button class="rp-btn-novo-proc" @click="dialogNovoProcesso = true">
                   <q-icon name="add_circle_outline" size="15px" />
                   Novo Processo
@@ -866,6 +878,49 @@
                         :class="{ 'et-toggle-btn--ativo': etapa.valor === op }"
                         @click="etapa.valor = etapa.valor === op ? '' : op; salvarEtapas()"
                       >{{ op }}</button>
+                    </div>
+                    <!-- Processo: lista de itens (mesmo tipo pode repetir) -->
+                    <div v-else-if="etapa.tipo === 'select' && etapa.key === 'processo'" class="et-proc-multi">
+                      <div v-for="(item, idx) in (etapa.procItens || [])" :key="idx" class="et-proc-item-row">
+                        <select v-model="item.tipo" class="et-proc-tipo-sel" @change="computarValorProcesso(etapa); salvarEtapas()">
+                          <option value="" disabled>Tipo...</option>
+                          <option v-for="op in etapa.opcoes" :key="op" :value="op">{{ op }}</option>
+                        </select>
+                        <input
+                          :value="item.desc"
+                          class="et-proc-desc"
+                          placeholder="O que foi feito..."
+                          style="text-transform:uppercase; flex:1"
+                          @input="item.desc = $event.target.value.toUpperCase(); computarValorProcesso(etapa); salvarEtapas()"
+                        />
+                        <button class="et-proc-del" @click="removerProcessoItem(etapa, idx)" title="Remover">
+                          <q-icon name="close" size="13px" />
+                        </button>
+                      </div>
+                      <button class="et-proc-add" @click="adicionarProcessoItem(etapa)">
+                        <q-icon name="add" size="14px" /> Adicionar processo
+                      </button>
+                      <div class="et-proc-sai-entra">
+                        <div v-for="(item, si) in (etapa.saiItens || [])" :key="'sai'+si" class="et-proc-se-row">
+                          <span class="et-proc-se-label">SAI:</span>
+                          <input :value="item.nome || ''" class="et-proc-se-input" placeholder="Nome de quem sai..." style="text-transform:uppercase" @input="item.nome = $event.target.value.toUpperCase(); salvarEtapas()" />
+                          <button class="et-proc-del" @click="etapa.saiItens.splice(si,1); salvarEtapas()" title="Remover"><q-icon name="close" size="13px" /></button>
+                        </div>
+                        <button class="et-proc-se-add" @click="(etapa.saiItens = etapa.saiItens||[]).push({nome:''}); salvarEtapas()">
+                          <q-icon name="add" size="13px" /> Quem sai
+                        </button>
+                        <div v-for="(item, ei) in (etapa.entraItens || [])" :key="'entra'+ei" class="et-proc-se-row">
+                          <span class="et-proc-se-label">ENTRA:</span>
+                          <input :value="item.nome || ''" class="et-proc-se-input" placeholder="Nome de quem entra..." style="text-transform:uppercase" @input="item.nome = $event.target.value.toUpperCase(); salvarEtapas()" />
+                          <button class="et-proc-del" @click="etapa.entraItens.splice(ei,1); salvarEtapas()" title="Remover"><q-icon name="close" size="13px" /></button>
+                        </div>
+                        <button class="et-proc-se-add" @click="(etapa.entraItens = etapa.entraItens||[]).push({nome:''}); salvarEtapas()">
+                          <q-icon name="add" size="13px" /> Quem entra
+                        </button>
+                      </div>
+                      <div v-if="etapa.valor" class="et-proc-preview">
+                        <q-icon name="edit_note" size="13px" />{{ etapa.valor }}
+                      </div>
                     </div>
                     <select
                       v-else-if="etapa.tipo === 'select'"
@@ -1175,13 +1230,17 @@
                   <q-icon name="arrow_back" size="16px" />
                   Controle
                 </button>
-                <div>
+                <div style="flex:1">
                   <div class="rp-eyebrow row items-center no-wrap q-mb-xs">
                     <q-icon name="inventory_2" size="15px" class="q-mr-xs" style="color:#ef4444" />
                     <span>Encerramento de empresa</span>
                   </div>
                   <h2 class="rp-title">Baixa</h2>
                 </div>
+                <button class="rp-btn-importar-resumo" @click="dialogImportarResumo = true; buscaImportarResumo = ''; regImportarSelecionado = null">
+                  <q-icon name="download_for_offline" size="15px" />
+                  Importar Resumo
+                </button>
               </div>
 
               <!-- Barra de progresso -->
@@ -1236,6 +1295,50 @@
                         :class="{ 'et-toggle-btn--ativo': etapa.valor === op }"
                         @click="etapa.valor = etapa.valor === op ? '' : op; salvarEtapasBaixa()"
                       >{{ op }}</button>
+                    </div>
+
+                    <!-- Processo: lista de itens (Baixa) -->
+                    <div v-else-if="etapa.tipo === 'select' && etapa.key === 'processo'" class="et-proc-multi">
+                      <div v-for="(item, idx) in (etapa.procItens || [])" :key="idx" class="et-proc-item-row">
+                        <select v-model="item.tipo" class="et-proc-tipo-sel" @change="computarValorProcesso(etapa); salvarEtapasBaixa()">
+                          <option value="" disabled>Tipo...</option>
+                          <option v-for="op in etapa.opcoes" :key="op" :value="op">{{ op }}</option>
+                        </select>
+                        <input
+                          :value="item.desc"
+                          class="et-proc-desc"
+                          placeholder="O que foi feito..."
+                          style="text-transform:uppercase; flex:1"
+                          @input="item.desc = $event.target.value.toUpperCase(); computarValorProcesso(etapa); salvarEtapasBaixa()"
+                        />
+                        <button class="et-proc-del" @click="removerProcessoItemBaixa(etapa, idx)" title="Remover">
+                          <q-icon name="close" size="13px" />
+                        </button>
+                      </div>
+                      <button class="et-proc-add" @click="adicionarProcessoItemBaixa(etapa)">
+                        <q-icon name="add" size="14px" /> Adicionar processo
+                      </button>
+                      <div class="et-proc-sai-entra">
+                        <div v-for="(item, si) in (etapa.saiItens || [])" :key="'sai'+si" class="et-proc-se-row">
+                          <span class="et-proc-se-label">SAI:</span>
+                          <input :value="item.nome || ''" class="et-proc-se-input" placeholder="Nome de quem sai..." style="text-transform:uppercase" @input="item.nome = $event.target.value.toUpperCase(); salvarEtapasBaixa()" />
+                          <button class="et-proc-del" @click="etapa.saiItens.splice(si,1); salvarEtapasBaixa()" title="Remover"><q-icon name="close" size="13px" /></button>
+                        </div>
+                        <button class="et-proc-se-add" @click="(etapa.saiItens = etapa.saiItens||[]).push({nome:''}); salvarEtapasBaixa()">
+                          <q-icon name="add" size="13px" /> Quem sai
+                        </button>
+                        <div v-for="(item, ei) in (etapa.entraItens || [])" :key="'entra'+ei" class="et-proc-se-row">
+                          <span class="et-proc-se-label">ENTRA:</span>
+                          <input :value="item.nome || ''" class="et-proc-se-input" placeholder="Nome de quem entra..." style="text-transform:uppercase" @input="item.nome = $event.target.value.toUpperCase(); salvarEtapasBaixa()" />
+                          <button class="et-proc-del" @click="etapa.entraItens.splice(ei,1); salvarEtapasBaixa()" title="Remover"><q-icon name="close" size="13px" /></button>
+                        </div>
+                        <button class="et-proc-se-add" @click="(etapa.entraItens = etapa.entraItens||[]).push({nome:''}); salvarEtapasBaixa()">
+                          <q-icon name="add" size="13px" /> Quem entra
+                        </button>
+                      </div>
+                      <div v-if="etapa.valor" class="et-proc-preview">
+                        <q-icon name="edit_note" size="13px" />{{ etapa.valor }}
+                      </div>
                     </div>
 
                     <!-- Select -->
@@ -1439,15 +1542,19 @@
                 </div>
               </div>
 
-              <!-- Botão Concluir -->
+              <!-- Botões de ação -->
               <div class="et-concluir-wrap">
-                <button class="et-concluir-btn--depois" @click="concluirDepois" :disabled="gerandoRelatorioBaixa">
+                <button class="et-concluir-btn--depois" @click="concluirDepoisBaixa" :disabled="gerandoRelatorioBaixa">
                   <q-icon name="schedule" size="18px" />
                   Concluir Depois
                 </button>
-                <button class="et-concluir-btn" @click="gerarRelatorioBaixa" :disabled="gerandoRelatorioBaixa">
+                <button class="et-concluir-btn--relatorio" @click="gerarRelatorioBaixa" :disabled="gerandoRelatorioBaixa">
                   <q-icon :name="gerandoRelatorioBaixa ? 'hourglass_empty' : 'download'" size="18px" />
-                  {{ gerandoRelatorioBaixa ? 'Gerando...' : 'Concluir e Gerar Relatório' }}
+                  {{ gerandoRelatorioBaixa ? 'Gerando...' : 'Gerar Relatório' }}
+                </button>
+                <button class="et-concluir-btn" @click="concluirBaixa" :disabled="gerandoRelatorioBaixa">
+                  <q-icon name="check_circle" size="18px" />
+                  Concluir
                 </button>
               </div>
 
@@ -1501,6 +1608,9 @@
                     <div class="cons-status-dot" :class="`cons-dot--${p.status}`"></div>
                     <div class="cons-info">
                       <div class="cons-empresa">
+                        <span class="cons-tipo-badge" :class="`cons-tipo-badge--${p.tipo}`">
+                          {{ p.tipo === 'baixa' ? 'Baixa' : 'Constituição' }}
+                        </span>
                         {{ p.empresa }}
                         <span v-if="p.protocolo && p.protocolo !== '—'" class="cons-empresa-proto"># {{ p.protocolo }}</span>
                         <button
@@ -1557,6 +1667,15 @@
                       <q-icon name="email" size="14px" />
                       E-mail
                       <span v-if="temEmailAgendado(p)" class="cons-email-badge"></span>
+                    </button>
+                    <button
+                      v-if="p.tipo === 'constituicao' && p._reg"
+                      class="cons-editar-btn"
+                      @click.stop="abrirResumoProcesso(p._reg)"
+                      title="Editar resumo do processo"
+                    >
+                      <q-icon name="edit" size="14px" />
+                      Editar
                     </button>
                     <div class="cons-continuar-btn" :class="{ 'cons-continuar-btn--ver': p.status === 'concluido' }">
                       <q-icon :name="p.status === 'concluido' ? 'visibility' : 'play_arrow'" size="14px" />
@@ -2094,9 +2213,11 @@
           <div v-for="campo in camposComplementar" :key="campo.token" class="compl-field">
             <label class="compl-label">{{ campo.label }}</label>
             <input
-              v-model="campo.valor"
+              :value="campo.valor"
               class="compl-input"
+              style="text-transform:uppercase"
               :placeholder="`Digite ${campo.label.toLowerCase()}…`"
+              @input="campo.valor = $event.target.value.toUpperCase(); $event.target.value = campo.valor"
             />
           </div>
         </div>
@@ -2133,22 +2254,26 @@
     <!-- Dialog: Resumo do processo (Prazos) -->
     <q-dialog v-model="dialogResumoProcesso">
       <div class="resumo-proc-dialog" v-if="resumoProcessoReg">
+        <!-- Header -->
         <div class="resumo-proc-header">
           <div>
             <div class="resumo-proc-title">{{ resumoProcessoReg.razaoSocial || 'Sem razão social' }}</div>
-            <div class="resumo-proc-sub">Resumo do processo · Vence {{ resumoProcessoReg.dataVencFormatada || '—' }}</div>
+            <div class="resumo-proc-sub">{{ editandoResumo ? 'Editando dados do processo' : 'Resumo do processo · Vence ' + (resumoProcessoReg.dataVencFormatada || '—') }}</div>
           </div>
-          <button class="resumo-proc-close" @click="dialogResumoProcesso = false">
-            <q-icon name="close" size="18px" />
-          </button>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+            <button v-if="!editandoResumo" class="resumo-proc-btn resumo-proc-btn--edit" @click="iniciarEdicaoResumo">
+              <q-icon name="edit" size="14px" /> Editar
+            </button>
+            <button class="resumo-proc-close" @click="editandoResumo ? cancelarEdicaoResumo() : (dialogResumoProcesso = false)">
+              <q-icon name="close" size="18px" />
+            </button>
+          </div>
         </div>
 
-        <div class="resumo-proc-body">
-          <!-- Dados da Empresa -->
+        <!-- VIEW MODE -->
+        <div v-if="!editandoResumo" class="resumo-proc-body">
           <div v-if="resumoProcessoReg.empresa?.some(d => d.valor)" class="resumo-proc-section">
-            <div class="resumo-proc-section-title">
-              <q-icon name="business" size="14px" /> Dados da Empresa
-            </div>
+            <div class="resumo-proc-section-title"><q-icon name="business" size="14px" /> Dados da Empresa</div>
             <div class="resumo-proc-grid">
               <div v-for="d in resumoProcessoReg.empresa?.filter(x => x.valor)" :key="d.label" class="resumo-proc-field">
                 <span class="resumo-proc-label">{{ d.label }}</span>
@@ -2157,11 +2282,8 @@
             </div>
           </div>
 
-          <!-- Dados do Sócio -->
           <div v-if="resumoProcessoReg.socio?.some(d => d.valor)" class="resumo-proc-section">
-            <div class="resumo-proc-section-title">
-              <q-icon name="person" size="14px" /> Dados do Sócio
-            </div>
+            <div class="resumo-proc-section-title"><q-icon name="person" size="14px" /> Dados do Sócio</div>
             <div class="resumo-proc-grid">
               <div v-for="d in resumoProcessoReg.socio?.filter(x => x.valor)" :key="d.label" class="resumo-proc-field">
                 <span class="resumo-proc-label">{{ d.label }}</span>
@@ -2170,11 +2292,8 @@
             </div>
           </div>
 
-          <!-- Taxas e Custos -->
           <div v-if="resumoProcessoReg.taxas?.some(d => d.valor)" class="resumo-proc-section">
-            <div class="resumo-proc-section-title">
-              <q-icon name="payments" size="14px" /> Taxas e Custos
-            </div>
+            <div class="resumo-proc-section-title"><q-icon name="payments" size="14px" /> Taxas e Custos</div>
             <div class="resumo-proc-grid">
               <div v-for="d in resumoProcessoReg.taxas?.filter(x => x.valor)" :key="d.label" class="resumo-proc-field">
                 <span class="resumo-proc-label">{{ d.label }}</span>
@@ -2183,10 +2302,75 @@
             </div>
           </div>
 
-          <div v-if="!resumoProcessoReg.empresa?.some(d => d.valor) && !resumoProcessoReg.socio?.some(d => d.valor) && !resumoProcessoReg.taxas?.some(d => d.valor)" class="resumo-proc-empty">
+          <div v-if="resumoProcessoReg.observacao" class="resumo-proc-section">
+            <div class="resumo-proc-section-title"><q-icon name="notes" size="14px" /> Observação</div>
+            <div class="resumo-proc-field" style="grid-column:1/-1">
+              <span class="resumo-proc-valor" style="white-space:pre-wrap">{{ resumoProcessoReg.observacao }}</span>
+            </div>
+          </div>
+
+          <div v-if="!resumoProcessoReg.empresa?.some(d => d.valor) && !resumoProcessoReg.socio?.some(d => d.valor) && !resumoProcessoReg.taxas?.some(d => d.valor) && !resumoProcessoReg.observacao" class="resumo-proc-empty">
             <q-icon name="folder_off" size="36px" style="color:rgba(255,255,255,0.15)" />
             <p>Nenhum dado do Resumo foi preenchido para este processo.</p>
           </div>
+        </div>
+
+        <!-- EDIT MODE -->
+        <div v-else-if="resumoEditData" class="resumo-proc-body">
+          <div class="resumo-proc-section">
+            <div class="resumo-proc-section-title"><q-icon name="business" size="14px" /> Dados da Empresa</div>
+            <div class="resumo-proc-grid">
+              <div v-for="d in resumoEditData.empresa" :key="d.label" class="resumo-proc-field">
+                <span class="resumo-proc-label">{{ d.label }}</span>
+                <input
+                  v-model="d.valor"
+                  class="resumo-proc-edit-input"
+                  :style="!d.label.toLowerCase().includes('e-mail') ? 'text-transform:uppercase' : ''"
+                  @input="!d.label.toLowerCase().includes('e-mail') && (d.valor = $event.target.value.toUpperCase())"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div class="resumo-proc-section">
+            <div class="resumo-proc-section-title"><q-icon name="person" size="14px" /> Dados do Sócio</div>
+            <div class="resumo-proc-grid">
+              <div v-for="d in resumoEditData.socio" :key="d.label" class="resumo-proc-field">
+                <span class="resumo-proc-label">{{ d.label }}</span>
+                <input
+                  v-model="d.valor"
+                  class="resumo-proc-edit-input"
+                  :style="!d.label.toLowerCase().includes('e-mail') ? 'text-transform:uppercase' : ''"
+                  @input="!d.label.toLowerCase().includes('e-mail') && (d.valor = $event.target.value.toUpperCase())"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div class="resumo-proc-section">
+            <div class="resumo-proc-section-title"><q-icon name="payments" size="14px" /> Taxas e Custos</div>
+            <div class="resumo-proc-grid">
+              <div v-for="d in resumoEditData.taxas" :key="d.label" class="resumo-proc-field">
+                <span class="resumo-proc-label">{{ d.label }}</span>
+                <input v-model="d.valor" class="resumo-proc-edit-input" inputmode="numeric" />
+              </div>
+            </div>
+          </div>
+
+          <div class="resumo-proc-section">
+            <div class="resumo-proc-section-title"><q-icon name="notes" size="14px" /> Observação</div>
+            <div class="resumo-proc-field" style="grid-column:1/-1">
+              <textarea v-model="resumoEditData.observacao" class="resumo-proc-edit-input resumo-proc-edit-textarea" placeholder="Anotações livres..." />
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer (edit mode only) -->
+        <div v-if="editandoResumo" class="resumo-proc-footer">
+          <button class="resumo-proc-btn resumo-proc-btn--cancel" @click="cancelarEdicaoResumo">Cancelar</button>
+          <button class="resumo-proc-btn resumo-proc-btn--save" @click="salvarEdicaoResumo">
+            <q-icon name="save" size="14px" /> Salvar
+          </button>
         </div>
       </div>
     </q-dialog>
@@ -2326,6 +2510,99 @@
       </div>
     </q-dialog>
 
+    <!-- Dialog: Importar Resumo -->
+    <q-dialog v-model="dialogImportarResumo" :maximized="false">
+      <div class="imp-resumo-dialog">
+        <!-- Header -->
+        <div class="imp-resumo-header">
+          <q-icon name="download_for_offline" size="20px" style="color:#60a5fa" />
+          <span class="imp-resumo-title">Importar Resumo</span>
+          <button class="imp-resumo-close" @click="dialogImportarResumo = false">
+            <q-icon name="close" size="18px" />
+          </button>
+        </div>
+
+        <!-- Corpo: lista + preview -->
+        <div class="imp-resumo-body">
+          <!-- Coluna esquerda: busca + lista -->
+          <div class="imp-resumo-col-lista">
+            <div class="imp-resumo-search-wrap">
+              <q-icon name="search" size="16px" style="color:rgba(255,255,255,0.4)" />
+              <input
+                v-model="buscaImportarResumo"
+                class="imp-resumo-search"
+                placeholder="Buscar empresa..."
+                autofocus
+              />
+            </div>
+            <div class="imp-resumo-list">
+              <div
+                v-for="reg in processosParaImportar"
+                :key="reg.id"
+                class="imp-resumo-item"
+                :class="{ 'imp-resumo-item--ativo': regImportarSelecionado?.id === reg.id }"
+                @click="regImportarSelecionado = reg"
+              >
+                <div class="imp-resumo-item-nome">{{ reg.razaoSocial || '—' }}</div>
+                <div class="imp-resumo-item-data">{{ reg.dataFormatada || '' }}</div>
+              </div>
+              <div v-if="!processosParaImportar.length" class="imp-resumo-empty">
+                Nenhum processo encontrado
+              </div>
+            </div>
+          </div>
+
+          <!-- Coluna direita: pré-visualização -->
+          <div class="imp-resumo-col-preview">
+            <div v-if="!regImportarSelecionado" class="imp-resumo-preview-vazio">
+              <q-icon name="touch_app" size="32px" style="color:rgba(255,255,255,0.15)" />
+              <span>Selecione um processo para ver a pré-visualização</span>
+            </div>
+            <div v-else class="imp-resumo-preview">
+              <div class="imp-resumo-preview-nome">{{ regImportarSelecionado.razaoSocial }}</div>
+
+              <template v-if="regImportarSelecionado.empresa?.some(d => d.valor)">
+                <div class="imp-resumo-preview-secao">Empresa</div>
+                <div v-for="d in regImportarSelecionado.empresa.filter(d => d.valor)" :key="d.label" class="imp-resumo-preview-campo">
+                  <span class="imp-resumo-preview-label">{{ d.label }}</span>
+                  <span class="imp-resumo-preview-valor">{{ d.valor }}</span>
+                </div>
+              </template>
+
+              <template v-if="regImportarSelecionado.socio?.some(d => d.valor)">
+                <div class="imp-resumo-preview-secao">Sócio</div>
+                <div v-for="d in regImportarSelecionado.socio.filter(d => d.valor)" :key="d.label" class="imp-resumo-preview-campo">
+                  <span class="imp-resumo-preview-label">{{ d.label }}</span>
+                  <span class="imp-resumo-preview-valor">{{ d.valor }}</span>
+                </div>
+              </template>
+
+              <template v-if="regImportarSelecionado.taxas?.some(t => t.valor)">
+                <div class="imp-resumo-preview-secao">Taxas</div>
+                <div v-for="t in regImportarSelecionado.taxas.filter(t => t.valor)" :key="t.label" class="imp-resumo-preview-campo">
+                  <span class="imp-resumo-preview-label">{{ t.label }}</span>
+                  <span class="imp-resumo-preview-valor">{{ t.valor }}</span>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="imp-resumo-footer">
+          <button class="imp-resumo-cancelar" @click="dialogImportarResumo = false">Cancelar</button>
+          <button
+            class="imp-resumo-confirmar"
+            :disabled="!regImportarSelecionado"
+            @click="importarResumo(regImportarSelecionado)"
+          >
+            <q-icon name="check" size="16px" />
+            Confirmar Importação
+          </button>
+        </div>
+      </div>
+    </q-dialog>
+
     <!-- Modal: Confirmação de Envio Baixa -->
     <transition name="modal-fade">
       <div v-if="mostrarModalEnvio" class="env-overlay" @click.self="mostrarModalEnvio = false">
@@ -2435,7 +2712,8 @@ const lightMode = ref(JSON.parse(localStorage.getItem('wms_light_mode') || 'fals
 watch(lightMode, v => localStorage.setItem('wms_light_mode', JSON.stringify(v)))
 
 const activeStep = ref(0)
-const regAberto = ref(_navSalvo?.regAberto || null)
+const regAberto       = ref(_navSalvo?.regAberto       || null)
+const regAbertoSessao2 = ref(_navSalvo?.regAbertoSessao2 || null)
 const dialogPrazo  = ref(false)
 const ctrlSessao1  = ref(_navSalvo?.ctrlSessao1 || null)
 const ctrlSessao2  = ref(_navSalvo?.ctrlSessao2 || null)
@@ -2443,18 +2721,22 @@ const ctrlSessao3  = ref(_navSalvo?.ctrlSessao3 || null)
 
 function salvarNavState() {
   localStorage.setItem('wms_nav_state', JSON.stringify({
-    activeNav:   activeNav.value,
-    regAberto:   regAberto.value,
-    ctrlSessao1: ctrlSessao1.value,
-    ctrlSessao2: ctrlSessao2.value,
-    ctrlSessao3: ctrlSessao3.value,
+    activeNav:         activeNav.value,
+    regAberto:         regAberto.value,
+    regAbertoSessao2:  regAbertoSessao2.value,
+    ctrlSessao1:       ctrlSessao1.value,
+    ctrlSessao2:       ctrlSessao2.value,
+    ctrlSessao3:       ctrlSessao3.value,
   }))
 }
-watch([activeNav, regAberto, ctrlSessao1, ctrlSessao2, ctrlSessao3], salvarNavState)
+watch([activeNav, regAberto, regAbertoSessao2, ctrlSessao1, ctrlSessao2, ctrlSessao3], salvarNavState)
 
-// Flush etapas no Supabase ao sair do Guia de Constituição
+// Flush etapas no Supabase ao sair das sessões
 watch(ctrlSessao1, (nova, anterior) => {
   if (anterior === 'Constituição' && nova !== 'Constituição') _flushEtapas()
+})
+watch(ctrlSessao2, (nova, anterior) => {
+  if (anterior === 'Baixa' && nova !== 'Baixa') _flushEtapasBaixa()
 })
 const mostrarSugestoes   = ref(false)
 const sugestoesFiltradas = ref([])
@@ -2587,7 +2869,24 @@ function carregarEtapas(processoId, usarFallbackLegado = false) {
         if (!subStatus[si.key]) subStatus[si.key] = { status: '', protocolo: '' }
       })
     }
-    return { ...e, status: s?.status || '', obs: s?.obs || '', valor: s?.valor || '', concluidaEm: s?.concluidaEm || '', statusItens: s?.statusItens || {}, subStatus }
+    let procItens = s?.procItens
+    if (e.key === 'processo' && !Array.isArray(procItens)) {
+      procItens = []
+      if (s?.statusItens && Object.keys(s.statusItens).length > 0) {
+        ;(e.opcoes || []).forEach(op => {
+          if (s.statusItens[op]?.ativo) procItens.push({ tipo: op, desc: s.statusItens[op].desc || '' })
+        })
+      } else if (s?.valor) {
+        s.valor.split(' / ').forEach(part => {
+          const idx = part.indexOf(' + ')
+          const tipo = idx !== -1 ? part.slice(0, idx).trim() : part.trim()
+          const desc = idx !== -1 ? part.slice(idx + 3).trim() : ''
+          const match = e.opcoes?.find(op => op.toUpperCase() === tipo.toUpperCase())
+          if (match) procItens.push({ tipo: match, desc })
+        })
+      }
+    }
+    return { ...e, status: s?.status || '', obs: s?.obs || '', valor: s?.valor || '', concluidaEm: s?.concluidaEm || '', statusItens: s?.statusItens || {}, procItens: procItens || [], subStatus, saiItens: s?.saiItens || [], entraItens: s?.entraItens || [] }
   })
 }
 
@@ -2598,9 +2897,27 @@ function hidratarEtapas(etapasSalvas) {
     const subStatus = e.subItens
       ? Object.fromEntries(e.subItens.map(si => [si.key, salva?.subStatus?.[si.key] || { status: '', protocolo: '' }]))
       : (salva?.subStatus || {})
-    return salva
-      ? { ...e, ...salva, subStatus }
-      : { ...e, status: '', obs: '', valor: '', concluidaEm: '', statusItens: {}, subStatus }
+    if (!salva) return { ...e, status: '', obs: '', valor: '', concluidaEm: '', statusItens: {}, procItens: [], subStatus }
+    let procItens = salva.procItens
+    if (e.key === 'processo' && !Array.isArray(procItens)) {
+      procItens = []
+      // Migração: formato checkbox antigo (statusItens) → procItens
+      if (salva.statusItens && Object.keys(salva.statusItens).length > 0) {
+        ;(e.opcoes || []).forEach(op => {
+          if (salva.statusItens[op]?.ativo) procItens.push({ tipo: op, desc: salva.statusItens[op].desc || '' })
+        })
+      } else if (salva.valor) {
+        // Migração: formato string antigo → procItens
+        salva.valor.split(' / ').forEach(part => {
+          const idx = part.indexOf(' + ')
+          const tipo = idx !== -1 ? part.slice(0, idx).trim() : part.trim()
+          const desc = idx !== -1 ? part.slice(idx + 3).trim() : ''
+          const match = e.opcoes?.find(op => op.toUpperCase() === tipo.toUpperCase())
+          if (match) procItens.push({ tipo: match, desc })
+        })
+      }
+    }
+    return { ...e, ...salva, procItens: procItens || [], subStatus }
   })
 }
 
@@ -2631,16 +2948,116 @@ function carregarEtapasBaixa() {
     const s = salvas?.find(x => x.key === e.key)
     const statusItens = { ...(s?.statusItens || {}) }
     if (e.itens) e.itens.forEach(item => { if (!statusItens[item]) statusItens[item] = '' })
-    return { ...e, status: s?.status || '', obs: s?.obs || '', valor: s?.valor || '', concluidaEm: s?.concluidaEm || '', statusItens }
+    let procItens = s?.procItens
+    if (e.key === 'processo' && !Array.isArray(procItens)) {
+      procItens = []
+      if (s?.statusItens && Object.keys(s.statusItens).length > 0) {
+        ;(e.opcoes || []).forEach(op => {
+          if (s.statusItens[op]?.ativo) procItens.push({ tipo: op, desc: s.statusItens[op].desc || '' })
+        })
+      } else if (s?.valor) {
+        s.valor.split(' / ').forEach(part => {
+          const idx = part.indexOf(' + ')
+          const tipo = idx !== -1 ? part.slice(0, idx).trim() : part.trim()
+          const desc = idx !== -1 ? part.slice(idx + 3).trim() : ''
+          const match = e.opcoes?.find(op => op.toUpperCase() === tipo.toUpperCase())
+          if (match) procItens.push({ tipo: match, desc })
+        })
+      }
+    }
+    const procFinal = procItens || []
+    const valorNorm = (e.key === 'processo' && procFinal.filter(i => i.tipo).length)
+      ? procFinal.filter(i => i.tipo).map(i => i.desc?.trim() ? `${i.tipo.toUpperCase()} ${i.desc}` : i.tipo.toUpperCase()).join(' / ')
+      : (s?.valor || '')
+    return { ...e, status: s?.status || '', obs: s?.obs || '', valor: valorNorm, concluidaEm: s?.concluidaEm || '', statusItens, procItens: procFinal, saiItens: s?.saiItens || [], entraItens: s?.entraItens || [] }
   })
 }
 
 const etapasBaixa = ref(carregarEtapasBaixa())
 
+function hidratarEtapasBaixa(etapasSalvas) {
+  return etapasBaixaPadrao.map(e => {
+    const salva = etapasSalvas.find(s => s.key === e.key)
+    const statusItens = { ...(salva?.statusItens || {}) }
+    if (e.itens) e.itens.forEach(item => { if (!statusItens[item]) statusItens[item] = '' })
+    let procItens = salva?.procItens
+    if (e.key === 'processo' && !Array.isArray(procItens)) {
+      procItens = []
+      if (salva?.statusItens && Object.keys(salva.statusItens).length > 0) {
+        ;(e.opcoes || []).forEach(op => {
+          if (salva.statusItens[op]?.ativo) procItens.push({ tipo: op, desc: salva.statusItens[op].desc || '' })
+        })
+      } else if (salva?.valor) {
+        salva.valor.split(' / ').forEach(part => {
+          const idx = part.indexOf(' + ')
+          const tipo = idx !== -1 ? part.slice(0, idx).trim() : part.trim()
+          const desc = idx !== -1 ? part.slice(idx + 3).trim() : ''
+          const match = e.opcoes?.find(op => op.toUpperCase() === tipo.toUpperCase())
+          if (match) procItens.push({ tipo: match, desc })
+        })
+      }
+    }
+    if (!salva) return { ...e, status: '', obs: '', valor: '', concluidaEm: '', statusItens, procItens: [] }
+    const procFinal = procItens || []
+    const valorNorm = (e.key === 'processo' && procFinal.filter(i => i.tipo).length)
+      ? procFinal.filter(i => i.tipo).map(i => i.desc?.trim() ? `${i.tipo.toUpperCase()} ${i.desc}` : i.tipo.toUpperCase()).join(' / ')
+      : (salva?.valor || '')
+    return { ...e, ...salva, valor: valorNorm, statusItens, procItens: procFinal }
+  })
+}
+
+let _syncEtapasBaixaTimer = null
+
+function _etapasBaixaData() {
+  return etapasBaixa.value.map(e => ({
+    key: e.key, status: e.status, obs: e.obs, valor: e.valor,
+    concluidaEm: e.concluidaEm || '', statusItens: e.statusItens, procItens: e.procItens || [],
+    saiItens: e.saiItens || [], entraItens: e.entraItens || [],
+  }))
+}
+
+async function _criarProcessoBaixa() {
+  const agora = new Date()
+  const venc  = new Date(agora); venc.setDate(venc.getDate() + 10)
+  const bv    = key => etapasBaixa.value.find(e => e.key === key)?.valor || ''
+  const id    = Date.now()
+  const reg   = {
+    id, prazo: 'baixa',
+    razaoSocial:       bv('empresa'),
+    dataISO:           agora.toISOString(),
+    dataVencimento:    venc.toISOString(),
+    dataFormatada:     new Intl.DateTimeFormat('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }).format(agora),
+    dataVencFormatada: new Intl.DateTimeFormat('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' }).format(venc),
+    empresa: [], socio: [], taxas: [], observacao: '', etapas: _etapasBaixaData(),
+  }
+  registros.value.unshift(reg)
+  regAbertoSessao2.value = id
+  await supabase.from('processos').insert(processoToDb(reg))
+  return id
+}
+
+function _flushEtapasBaixa() {
+  if (!_syncEtapasBaixaTimer) return
+  clearTimeout(_syncEtapasBaixaTimer)
+  _syncEtapasBaixaTimer = null
+  const id = regAbertoSessao2.value
+  if (!id) return
+  persistirEtapas(id, _etapasBaixaData(), true)
+}
+
 function salvarEtapasBaixa() {
-  localStorage.setItem('wms_baixa', JSON.stringify(
-    etapasBaixa.value.map(e => ({ key: e.key, status: e.status, obs: e.obs, valor: e.valor, concluidaEm: e.concluidaEm || '', statusItens: e.statusItens }))
-  ))
+  const data = _etapasBaixaData()
+  localStorage.setItem('wms_baixa', JSON.stringify(data))
+  if (_syncEtapasBaixaTimer) clearTimeout(_syncEtapasBaixaTimer)
+  _syncEtapasBaixaTimer = setTimeout(async () => {
+    _syncEtapasBaixaTimer = null
+    const id = regAbertoSessao2.value || await _criarProcessoBaixa()
+    await persistirEtapas(id, data, true)
+    // Mantém razao_social atualizada no banco
+    const bv = key => etapasBaixa.value.find(e => e.key === key)?.valor || ''
+    const razao = bv('empresa')
+    if (razao) supabase.from('processos').update({ razao_social: razao }).eq('id', id)
+  }, 1500)
 }
 function setStatusEtapaBaixa(etapa, status) {
   const novoStatus = etapa.status === status ? '' : status
@@ -2960,89 +3377,116 @@ function quadroSocietarioTexto(soc) {
   ].filter(Boolean).join('\n')
 }
 
+async function _executarRelatorioBaixa() {
+  const bv  = key => etapasBaixa.value.find(e => e.key === key)?.valor  || ''
+  const bs  = key => etapasBaixa.value.find(e => e.key === key)?.status || ''
+  const bo  = key => etapasBaixa.value.find(e => e.key === key)?.obs    || ''
+
+  const empresa     = bv('empresa')
+  const localizacao = bv('localizacao')
+  // Calcula processo direto dos procItens (evita "+" legado) — um por linha
+  const _procEtapa  = etapasBaixa.value.find(e => e.key === 'processo')
+  const _procItems  = (_procEtapa?.procItens || []).filter(i => i.tipo)
+  const processo    = (() => {
+    const linhas = _procItems.length
+      ? _procItems.map(i => i.desc?.trim() ? `${i.tipo.toUpperCase()} ${i.desc}` : i.tipo.toUpperCase())
+      : [bv('processo').replace(/\s*\+\s*/g, ' ').replace(/\s*\/\s*/g, '\n').trim()]
+    const _saiNomes   = (_procEtapa?.saiItens   || []).map(i => i.nome?.trim()).filter(Boolean).map(n => n.toUpperCase())
+    const _entraItens = (_procEtapa?.entraItens || []).map(i => i.nome?.trim()).filter(Boolean).map(n => n.toUpperCase())
+    if (_saiNomes.length > 0)   linhas.push(`SAI: ${_saiNomes.join('\r')}`)
+    if (_entraItens.length > 0) linhas.push(`ENTRA: ${_entraItens.join('\r')}`)
+    return linhas.filter(Boolean).join('\n')
+  })()
+  const assinatura  = bv('assinatura')
+  const protocolo   = bv('protocolo')
+  const contrato    = bv('contrato')
+
+  const emp = label => docsEmpresa.value.find(d => d.label === label)?.valor || ''
+  const soc = label => docsSocio.value.find(d => d.label === label)?.valor   || ''
+  const tax = label => taxas.value.find(t => t.label === label)?.valor       || ''
+
+  const statusLabel = key => {
+    const s = bs(key)
+    return s === 'concluida' ? 'CONCLUÍDO' : s === 'nao_concluida' ? 'NÃO CONCLUÍDO' : s === 'pendente' ? 'PENDENTE' : '—'
+  }
+
+  const processosTexto = [
+    processo ? processo.toUpperCase() : '',
+    protocolo                     ? `PROTOCOLO: ${protocolo}`                                            : '',
+    contrato                      ? `DATA DO CONTRATO: ${contrato}`                                      : '',
+    bs('exclusao_contador')       ? `EXCLUSÃO DO CONTADOR: ${statusLabel('exclusao_contador')}`          : '',
+    bs('cancelamento_proc')       ? `CANCELAMENTO DA PROCURAÇÃO: ${statusLabel('cancelamento_proc')}`   : '',
+    bs('exclusao_veri')           ? `EXCLUSÃO DO VERI: ${statusLabel('exclusao_veri')}`                  : '',
+    bs('redesim')                 ? `REDE SIM: ${statusLabel('redesim')}`                                : '',
+    bs('fcn')                     ? `FCN: ${statusLabel('fcn')}`                                         : '',
+    bs('taxa')                    ? `TAXA: ${statusLabel('taxa')}`                                       : '',
+    tax('Jucema')                        ? `JUCEMA: R$ ${tax('Jucema')}`                                 : '',
+    tax('Certificado digital da empresa') ? `CERT. DIGITAL: ${tax('Certificado digital da empresa')}`    : '',
+    tax('Alvará da prefeitura')          ? `ALVARÁ PREFEITURA: R$ ${tax('Alvará da prefeitura')}`        : '',
+  ].filter(Boolean).join('\n')
+
+  await preencherRelatorioGeral({
+    RAZAO:       empresa,
+    CNPJ:        '',
+    ABERTURA:    '',
+    CAPITAL:     emp('Capital Social'),
+    MUN_EST:     localizacao,
+    DONO:        '',
+    INSC_EST:    '',
+    INSC_MUN:    '',
+    SOCIO:       '',
+    CPF:         soc('CPF'),
+    NIRE:        '',
+    SEN_EST:     '',
+    SEN_MUN:     '',
+    CERTIFICADO: assinatura === 'Certificado' ? 'SIM' : assinatura ? 'NÃO' : '',
+    NFSE1:       '',
+    NFSE2:       '',
+    SEGMENTO:    '',
+    CUIDADOR:    '',
+    REGIME:      '',
+    DOMINIO:     '',
+    PROCURACAO:  bs('cancelamento_proc') === 'concluida' ? 'CANCELADA' : '',
+    VERI:        bs('exclusao_veri') === 'concluida' ? 'EXCLUÍDO' : '',
+    GOVBR:       bo('assinatura') || soc('Senha do Gov.Br (Nível Ouro)'),
+    QUADRO:      soc('Quadro Societário'),
+    PROCESSOS:   processosTexto,
+  }, `Relatorio_Baixa_${empresa || 'Processo'}_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.docx`)
+
+  return { empresa, protocolo, localizacao, processo }
+}
+
 async function gerarRelatorioBaixa() {
   gerandoRelatorioBaixa.value = true
   try {
-    const bv  = key => etapasBaixa.value.find(e => e.key === key)?.valor  || ''
-    const bs  = key => etapasBaixa.value.find(e => e.key === key)?.status || ''
+    await _executarRelatorioBaixa()
+    $q.notify({ icon: 'download', color: 'positive', message: 'Relatório gerado com sucesso!', position: 'top', timeout: 3000 })
+  } finally {
+    gerandoRelatorioBaixa.value = false
+  }
+}
 
-    const empresa     = bv('empresa')
-    const localizacao = bv('localizacao')
-    const processo    = bv('processo')
-    const assinatura  = bv('assinatura')
-    const protocolo   = bv('protocolo')
-    const contrato    = bv('contrato')
-
-    // Dados do Resumo
-    const emp = label => docsEmpresa.value.find(d => d.label === label)?.valor || ''
-    const soc = label => docsSocio.value.find(d => d.label === label)?.valor   || ''
-    const tax = label => taxas.value.find(t => t.label === label)?.valor       || ''
-
-    const statusLabel = key => {
-      const s = bs(key)
-      return s === 'concluida' ? 'CONCLUÍDO' : s === 'nao_concluida' ? 'NÃO CONCLUÍDO' : s === 'pendente' ? 'PENDENTE' : '—'
-    }
-
-    const processosTexto = [
-      `BAIXA${processo ? ' – ' + processo.toUpperCase() : ''}`,
-      protocolo                  ? `PROTOCOLO: ${protocolo}`                            : '',
-      contrato                   ? `DATA DO CONTRATO: ${contrato}`                      : '',
-      `EXCLUSÃO DO CONTADOR: ${statusLabel('exclusao_contador')}`,
-      `CANCELAMENTO DA PROCURAÇÃO: ${statusLabel('cancelamento_proc')}`,
-      `EXCLUSÃO DO VERI: ${statusLabel('exclusao_veri')}`,
-      `REDE SIM: ${statusLabel('redesim')}`,
-      `FCN: ${statusLabel('fcn')}`,
-      `TAXA: ${statusLabel('taxa')}`,
-      tax('Jucema')              ? `JUCEMA: R$ ${tax('Jucema')}`                        : '',
-      tax('Certificado digital da empresa') ? `CERT. DIGITAL: ${tax('Certificado digital da empresa')}` : '',
-      tax('Alvará da prefeitura') ? `ALVARÁ PREFEITURA: R$ ${tax('Alvará da prefeitura')}` : '',
-    ].filter(Boolean).join('\n')
-
-    await preencherRelatorioGeral({
-      RAZAO:       empresa,
-      CNPJ:        '',
-      ABERTURA:    '',
-      CAPITAL:     emp('Capital Social'),
-      MUN_EST:     localizacao,
-      DONO:        '',
-      INSC_EST:    '',
-      INSC_MUN:    '',
-      SOCIO:       '',
-      CPF:         soc('CPF'),
-      NIRE:        '',
-      SEN_EST:     '',
-      SEN_MUN:     '',
-      CERTIFICADO: assinatura === 'Certificado' ? 'SIM' : 'NÃO',
-      NFSE1:       '',
-      NFSE2:       '',
-      SEGMENTO:    '',
-      CUIDADOR:    '',
-      REGIME:      '',
-      DOMINIO:     '',
-      PROCURACAO:  bs('cancelamento_proc') === 'concluida' ? 'CANCELADA' : '',
-      VERI:        bs('exclusao_veri') === 'concluida' ? 'EXCLUÍDO' : '',
-      GOVBR:       soc('Senha do Gov.Br (Nível Ouro)'),
-      QUADRO:      quadroSocietarioTexto(soc),
-      PROCESSOS:   processosTexto,
-    }, `Relatorio_Baixa_${empresa || 'Processo'}_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.docx`)
-
-    historico.value.unshift({
-      id:           Date.now(),
-      empresa,
-      protocolo,
-      localizacao,
-      pct:          progressoBaixa.value,
-      tipo:         'baixa',
-      data:         new Date().toLocaleDateString('pt-BR'),
-      hora:         new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      concluidoPor: nomeUsuarioLogado.value,
-    })
-    localStorage.setItem('wms_historico_constituicao', JSON.stringify(historico.value))
-
+async function concluirBaixa() {
+  gerandoRelatorioBaixa.value = true
+  try {
+    const { empresa, protocolo, localizacao, processo } = await _executarRelatorioBaixa()
+    const id = regAbertoSessao2.value || await _criarProcessoBaixa()
+    await salvarHistorico(empresa, protocolo, localizacao, { processoId: id, pct: 100 })
+    // Marca processo como concluído no banco
+    await supabase.from('processos').update({ concluido: true }).eq('id', id)
+    const idx = registros.value.findIndex(r => String(r.id) === String(id))
+    if (idx !== -1) registros.value[idx] = { ...registros.value[idx], concluido: true }
     _docsAnexadosSnap.value  = Object.values(docsAnexados.value).flat()
     empresaBaixaEnvio.value  = empresa
     processoBaixaEnvio.value = processo
     mostrarModalEnvio.value  = true
+    // Reseta a sessão de Baixa
+    localStorage.removeItem('wms_baixa')
+    regAbertoSessao2.value = null
+    etapasBaixa.value = carregarEtapasBaixa()
+    ctrlSessao1.value = null
+    ctrlSessao2.value = null
+    ctrlSessao3.value = 'Consultar'
   } finally {
     gerandoRelatorioBaixa.value = false
   }
@@ -3217,7 +3661,59 @@ async function gerarRelatorioPDF(valores, nomeArquivo) {
   const buf  = await resp.arrayBuffer()
   const zip  = await JSZip.loadAsync(buf)
   let docXml = await zip.file('word/document.xml').async('string')
+  // PROCESSOS: injetar XML colorido — SAI em vermelho, ENTRA em azul
+  // Extrai rPr por posição (não regex multi-linha) para evitar capturar runs erradas
+  if (valores.PROCESSOS !== undefined) {
+    const _pidx = docXml.indexOf('{PROCESSOS}')
+    let _rpr = ''
+    if (_pidx !== -1) {
+      const _rs = Math.max(docXml.lastIndexOf('<w:r>', _pidx), docXml.lastIndexOf('<w:r ', _pidx))
+      const _re = docXml.indexOf('</w:r>', _pidx)
+      if (_rs !== -1 && _re !== -1) {
+        const _runStr = docXml.slice(_rs, _re + 6)
+        _rpr = _runStr.match(/<w:rPr>[\s\S]*?<\/w:rPr>/)?.[0] || ''
+      }
+    }
+    const _mkRpr = c => {
+      const col = `<w:color w:val="${c}"/>`
+      if (!_rpr) return `<w:rPr>${col}</w:rPr>`
+      if (_rpr.includes('<w:color')) return _rpr.replace(/<w:color[^/]*\/>/, `<w:color w:val="${c}"/>`)
+      for (const t of ['<w:lang', '<w:sz', '<w:highlight', '<w:u '])
+        if (_rpr.includes(t)) return _rpr.replace(t, col + t)
+      return _rpr.replace('</w:rPr>', col + '</w:rPr>')
+    }
+    // SAI/ENTRA usam parágrafo próprio com recuo suspenso para alinhar nomes perfeitamente
+    const _rprI = _rpr.replace(/^<w:rPr>/, '').replace(/<\/w:rPr>$/, '')
+    const _mkPPr = (ind) => ind
+      ? `<w:pPr><w:ind w:left="${ind}" w:hanging="${ind}"/><w:rPr>${_rprI}</w:rPr></w:pPr>`
+      : `<w:pPr><w:rPr>${_rprI}</w:rPr></w:pPr>`
+    const _plines = (valores.PROCESSOS || '').split('\n')
+    let _procXml = ''
+    let _openPar = true  // parágrafo do template começa aberto
+    for (let _pi = 0; _pi < _plines.length; _pi++) {
+      const _ln = _plines[_pi]
+      if (_ln.startsWith('SAI: ') || _ln.startsWith('ENTRA: ')) {
+        const _isSAI = _ln.startsWith('SAI: ')
+        const _lbl = _isSAI ? 'SAI: ' : 'ENTRA: '
+        // SAI: ~480 twips (24pt); ENTRA: ~840 twips (42pt) em Tahoma Bold 11pt
+        const _ind = _isSAI ? 480 : 840
+        const _col = _isSAI ? 'FF0000' : '0070C0'
+        const _nms = _ln.slice(_lbl.length).split('\r').map(xmlEscape).join('</w:t><w:br/><w:t xml:space="preserve">')
+        _procXml += (_openPar ? '</w:t></w:r></w:p>' : '')
+          + `<w:p>${_mkPPr(_ind)}<w:r>${_rpr}<w:t xml:space="preserve">${xmlEscape(_lbl)}</w:t></w:r>`
+          + `<w:r>${_mkRpr(_col)}<w:t xml:space="preserve">${_nms}</w:t></w:r></w:p>`
+        _openPar = false
+      } else {
+        if (!_openPar) { _procXml += `<w:p>${_mkPPr(0)}<w:r>${_rpr}<w:t xml:space="preserve">`; _openPar = true }
+        else if (_pi > 0) _procXml += '</w:t><w:br/><w:t xml:space="preserve">'
+        _procXml += xmlEscape(_ln)
+      }
+    }
+    if (!_openPar) _procXml += `<w:p>${_mkPPr(0)}<w:r>${_rpr}<w:t xml:space="preserve">`
+    docXml = docXml.split('{PROCESSOS}').join(_procXml)
+  }
   Object.entries(valores).forEach(([token, v]) => {
+    if (token === 'PROCESSOS') return
     docXml = docXml.split(`{${token}}`).join(xmlValorRelatorio(v || ''))
   })
   zip.file('word/document.xml', docXml)
@@ -3246,7 +3742,13 @@ async function gerarRelatorioPDF(valores, nomeArquivo) {
   const nomeFinal = `${baseNome}.${ext}`
   ultimoRelatorio.value = { nome: nomeFinal, base64: await blobParaBase64(blob) }
 
-  // 3. Salvar — seletor de pasta nativo ou download direto
+  // 3. Salvar — seletor de pasta nativo com fallback para download direto
+  const _downloadDireto = () => {
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = nomeFinal; a.click()
+    URL.revokeObjectURL(url)
+  }
   if (window.showSaveFilePicker) {
     const accept = ext === 'pdf'
       ? { 'application/pdf': ['.pdf'] }
@@ -3261,12 +3763,11 @@ async function gerarRelatorioPDF(valores, nomeArquivo) {
       await writable.close()
     } catch (err) {
       if (err.name === 'AbortError') return
+      // showSaveFilePicker falhou (contexto de gesto expirou, etc.) — usa download direto
+      _downloadDireto()
     }
   } else {
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url; a.download = nomeFinal; a.click()
-    URL.revokeObjectURL(url)
+    _downloadDireto()
   }
 
   // 4. Anexar ao processo automaticamente (R2 + Supabase)
@@ -3469,6 +3970,7 @@ const processosConsultar = computed(() => {
         || (r.id === regAberto.value ? etapaValor('localizacao') : '')
         || '—'
       const data  = h ? `${h.data} ${h.hora}` : (r.dataFormatada ? `Aberto ${r.dataFormatada}` : '—')
+      const tipo = r.prazo === 'baixa' ? 'baixa' : 'constituicao'
       return {
         id:          r.id,
         processoId:  r.id,
@@ -3477,6 +3979,8 @@ const processosConsultar = computed(() => {
         localizacao: local,
         data,
         pct,
+        tipo,
+        _reg:        r,
         status:      pct === 100 ? 'concluido' : pct > 0 ? 'andamento' : 'nao_iniciado',
       }
     })
@@ -3485,17 +3989,23 @@ const processosConsultar = computed(() => {
   // Processos concluídos — do histórico (pct = 100)
   const concluidos = historico.value
     .filter(h => (h.pct ?? 0) === 100)
-    .map(h => ({
-      id:           h.id,
-      processoId:   h.processoId || null,
-      empresa:      h.empresa || '—',
-      protocolo:    h.protocolo || '—',
-      localizacao:  h.localizacao || '—',
-      data:         h.data + ' ' + h.hora,
-      pct:          100,
-      status:       'concluido',
-      concluidoPor: h.concluidoPor || '',
-    }))
+    .map(h => {
+      const reg  = registros.value.find(r => String(r.id) === String(h.processoId))
+      const tipo = reg?.prazo === 'baixa' ? 'baixa' : 'constituicao'
+      return {
+        id:           h.id,
+        processoId:   h.processoId || null,
+        empresa:      h.empresa || '—',
+        protocolo:    h.protocolo || '—',
+        localizacao:  h.localizacao || '—',
+        data:         h.data + ' ' + h.hora,
+        pct:          100,
+        tipo,
+        _reg:         reg || null,
+        status:       'concluido',
+        concluidoPor: h.concluidoPor || '',
+      }
+    })
 
   const todos = [...ativos, ...concluidos]
   const q = consultarBusca.value.trim().toLowerCase()
@@ -3507,6 +4017,14 @@ const processosConsultar = computed(() => {
   )
 })
 
+async function _excluirDocumentosDoProcesso(pid) {
+  const { data: docs } = await supabase.from('documentos').select('id, r2_key').eq('processo_id', pid)
+  if (docs?.length) {
+    await Promise.all(docs.filter(d => d.r2_key).map(d => r2Delete(d.r2_key)))
+    await supabase.from('documentos').delete().eq('processo_id', pid)
+  }
+}
+
 function excluirProcessoConsultar(p) {
   $q.dialog({
     title: 'Excluir processo?',
@@ -3517,14 +4035,14 @@ function excluirProcessoConsultar(p) {
     dark: true,
   }).onOk(async () => {
     const pid = p.processoId ?? p.id
-    // Converte para string para evitar mismatch number vs string (bigint do Supabase)
     const pidStr = String(pid)
+
+    await _excluirDocumentosDoProcesso(pid)
 
     if (p.processoId != null) {
       historico.value = historico.value.filter(h => String(h.processoId) !== pidStr)
       await supabase.from('historico').delete().eq('processo_id', pid)
     } else {
-      // sem processoId: remove apenas esta entrada do histórico pelo id direto
       historico.value = historico.value.filter(h => String(h.id) !== pidStr)
       await supabase.from('historico').delete().eq('id', pid)
     }
@@ -3538,6 +4056,28 @@ function excluirProcessoConsultar(p) {
 
 async function continuarProcesso(p) {
   ctrlSessao3.value = null
+
+  // Processos de Baixa abrem a sessão de Baixa, não Constituição
+  const isBaixa = p.tipo === 'baixa' || p._reg?.prazo === 'baixa'
+  if (isBaixa) {
+    if (!p.processoId) return
+    ctrlSessao1.value = null
+    const { data: freshData } = await supabase.from('processos').select('*').eq('id', p.processoId).single()
+    if (!freshData) return
+    const reg = processoFromDb(freshData)
+    const idx = registros.value.findIndex(r => String(r.id) === String(reg.id))
+    if (idx !== -1) registros.value[idx] = reg
+    else registros.value.push(reg)
+    regAbertoSessao2.value = reg.id
+    const temBanco = reg.etapas?.some(e => e.status || e.valor || e.obs)
+    if (temBanco) {
+      etapasBaixa.value = hidratarEtapasBaixa(reg.etapas)
+      localStorage.setItem('wms_baixa', JSON.stringify(reg.etapas))
+    }
+    ctrlSessao2.value = 'Baixa'
+    return
+  }
+
   ctrlSessao1.value = 'Constituição'
   if (!p.processoId) return
 
@@ -3753,6 +4293,7 @@ function salvarEtapas() {
   const etapasData = etapas.value.map(e => ({
     key: e.key, status: e.status, obs: e.obs, valor: e.valor, concluidaEm: e.concluidaEm || '',
     statusItens: e.statusItens || {}, subStatus: e.subStatus || {},
+    saiItens: e.saiItens || [], entraItens: e.entraItens || [],
   }))
   const data = JSON.stringify(etapasData)
   if (regAberto.value) localStorage.setItem(`wms_etapas_${regAberto.value}`, data)
@@ -4017,9 +4558,9 @@ function inputmodeCampo(doc) {
 }
 
 function onInputDoc(doc, event) {
-  const masked = mascarar(event.target.value, doc.tipo)
+  const raw = doc.tipo !== 'email' ? event.target.value.toUpperCase() : event.target.value
+  const masked = doc.tipo === 'textarea' ? raw : mascarar(raw, doc.tipo)
   doc.valor = masked
-  // Keeps cursor-position stable (prevents DOM drift on masked fields)
   if (event.target.value !== masked) event.target.value = masked
 }
 
@@ -4051,6 +4592,7 @@ const docsEmpresa = ref([
 
 const docsSocio = ref([
   { label: 'Nome do Sócio',                        valor: '', tipo: 'texto'   },
+  { label: 'Quadro Societário',                     valor: '', tipo: 'textarea'},
   { label: 'CPF',                                   valor: '', tipo: 'cpf'    },
   { label: 'RG ou CNH',                             valor: '', tipo: 'rg'     },
   { label: 'Endereço pessoa física',                valor: '', tipo: 'texto'  },
@@ -4343,9 +4885,10 @@ async function salvarRegistro(prazo = 'normal') {
       day: '2-digit', month: '2-digit', year: 'numeric'
     }).format(vencimento),
     razaoSocial: docsEmpresa.value.find(d => d.label === 'Razão social')?.valor || '',
-    empresa: docsEmpresa.value.map(d => ({ label: d.label, valor: d.valor })),
-    socio:   docsSocio.value.map(d => ({ label: d.label, valor: d.valor })),
-    taxas:   taxas.value.map(t => ({ label: t.label, valor: t.valor })),
+    empresa:    docsEmpresa.value.map(d => ({ label: d.label, valor: d.valor })),
+    socio:      docsSocio.value.map(d => ({ label: d.label, valor: d.valor })),
+    taxas:      taxas.value.map(t => ({ label: t.label, valor: t.valor })),
+    observacao: observacao.value || '',
   }
   registros.value.unshift(reg)
   regAberto.value = reg.id
@@ -4419,6 +4962,26 @@ const historico          = ref([])
 const historicoExpandido = ref(false)
 const dialogComplementar  = ref(false)
 const dialogNovoProcesso  = ref(false)
+const dialogImportarResumo      = ref(false)
+const buscaImportarResumo       = ref('')
+const regImportarSelecionado    = ref(null)
+
+const processosParaImportar = computed(() => {
+  const q = buscaImportarResumo.value.trim().toLowerCase()
+  return registros.value
+    .filter(r => r.empresa?.some(d => d.valor) || r.razaoSocial)
+    .filter(r => !q || (r.razaoSocial || '').toLowerCase().includes(q))
+    .slice(0, 30)
+})
+
+function importarResumo(reg) {
+  if (reg.empresa?.length)  docsEmpresa.value  = reg.empresa.map(d => ({ ...d }))
+  if (reg.socio?.length)    docsSocio.value    = reg.socio.map(d => ({ ...d }))
+  if (reg.taxas?.length)    taxas.value        = reg.taxas.map(t => ({ ...t }))
+  dialogImportarResumo.value = false
+  buscaImportarResumo.value  = ''
+  $q.notify({ icon: 'check', color: 'positive', message: `Resumo de "${reg.razaoSocial}" importado!`, position: 'top', timeout: 2500 })
+}
 const dialogDocs           = ref(false)
 const docsDialogEmpresa    = ref('')
 
@@ -4431,11 +4994,58 @@ const EMAIL_DESTINATARIOS = [
 ]
 const dialogResumoProcesso = ref(false)
 const resumoProcessoReg    = ref(null)
+const editandoResumo       = ref(false)
+const resumoEditData       = ref(null)
 
 function abrirResumoProcesso(reg) {
-  resumoProcessoReg.value = registros.value.find(r => r.id === reg.id) || reg
+  const base = registros.value.find(r => r.id === reg.id) || reg
+  const obs = base.observacao || localStorage.getItem(`wms_obs_emp_${base.razaoSocial}`) || ''
+  resumoProcessoReg.value = { ...base, observacao: obs }
+  editandoResumo.value = false
+  resumoEditData.value = null
   dialogResumoProcesso.value = true
 }
+
+function iniciarEdicaoResumo() {
+  const r = resumoProcessoReg.value
+  resumoEditData.value = {
+    empresa:    r.empresa?.map(d => ({ ...d })) || [],
+    socio:      r.socio?.map(d => ({ ...d })) || [],
+    taxas:      r.taxas?.map(d => ({ ...d })) || [],
+    observacao: r.observacao || '',
+  }
+  editandoResumo.value = true
+}
+
+function cancelarEdicaoResumo() {
+  editandoResumo.value = false
+  resumoEditData.value = null
+}
+
+async function salvarEdicaoResumo() {
+  const reg = resumoProcessoReg.value
+  const novaRazao = resumoEditData.value.empresa.find(d => d.label === 'Razão social')?.valor?.trim() || reg.razaoSocial
+  const { error } = await supabase.from('processos').update({
+    empresa:      resumoEditData.value.empresa,
+    socio:        resumoEditData.value.socio,
+    taxas:        resumoEditData.value.taxas,
+    observacao:   resumoEditData.value.observacao,
+    razao_social: novaRazao,
+  }).eq('id', reg.id)
+  if (error) {
+    $q.notify({ icon: 'error', color: 'negative', message: 'Erro ao salvar: ' + error.message, position: 'top', timeout: 5000 })
+    return
+  }
+  const updated = { ...reg, empresa: resumoEditData.value.empresa, socio: resumoEditData.value.socio, taxas: resumoEditData.value.taxas, observacao: resumoEditData.value.observacao, razaoSocial: novaRazao }
+  const idx = registros.value.findIndex(r => String(r.id) === String(reg.id))
+  if (idx !== -1) registros.value[idx] = updated
+  resumoProcessoReg.value = updated
+  editandoResumo.value = false
+  resumoEditData.value = null
+  $q.notify({ icon: 'check', color: 'positive', message: 'Dados atualizados!', position: 'top', timeout: 2000 })
+}
+
+watch(dialogResumoProcesso, v => { if (!v) { editandoResumo.value = false; resumoEditData.value = null } })
 
 const dialogEmail        = ref(false)
 const emailDialogEmpresa = ref('')
@@ -4661,14 +5271,14 @@ const LABEL_CAMPO = {
   GOVBR:    'Senha Gov.Br',
 }
 
-async function salvarHistorico(empresa, protocolo, localizacao) {
+async function salvarHistorico(empresa, protocolo, localizacao, { processoId, pct } = {}) {
   const h = {
     id:           Date.now(),
-    processoId:   regAberto.value || null,
+    processoId:   processoId ?? regAberto.value ?? null,
     empresa,
     protocolo,
     localizacao,
-    pct:          progressoEtapas.value,
+    pct:          pct ?? progressoEtapas.value,
     data:         new Date().toLocaleDateString('pt-BR'),
     hora:         new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
     concluidoPor: nomeUsuarioLogado.value,
@@ -4702,6 +5312,37 @@ async function salvarHistorico(empresa, protocolo, localizacao) {
 function removerHistorico(id) {
   historico.value = historico.value.filter(h => h.id !== id)
   supabase.from('historico').delete().eq('id', id)
+}
+
+function computarValorProcesso(etapa) {
+  etapa.valor = (etapa.procItens || [])
+    .filter(i => i.tipo)
+    .map(i => i.desc?.trim() ? `${i.tipo.toUpperCase()} ${i.desc}` : i.tipo.toUpperCase())
+    .join(' / ')
+}
+
+function adicionarProcessoItem(etapa) {
+  if (!etapa.procItens) etapa.procItens = []
+  etapa.procItens.push({ tipo: '', desc: '' })
+  salvarEtapas()
+}
+
+function removerProcessoItem(etapa, idx) {
+  etapa.procItens.splice(idx, 1)
+  computarValorProcesso(etapa)
+  salvarEtapas()
+}
+
+function adicionarProcessoItemBaixa(etapa) {
+  if (!etapa.procItens) etapa.procItens = []
+  etapa.procItens.push({ tipo: '', desc: '' })
+  salvarEtapasBaixa()
+}
+
+function removerProcessoItemBaixa(etapa, idx) {
+  etapa.procItens.splice(idx, 1)
+  computarValorProcesso(etapa)
+  salvarEtapasBaixa()
 }
 
 function etapaValor(key) {
@@ -4750,7 +5391,20 @@ function _coletarValoresRelatorio() {
     emailSocio     ? `E-MAIL: ${emailSocio}`                             : '',
   ].filter(Boolean).join('\n')
 
-  const processosTexto = processoVal ? processoVal.toUpperCase() : 'CONSTITUIÇÃO'
+  const _procEtapaConst = etapas.value.find(e => e.key === 'processo')
+  const _procItemsConst = (_procEtapaConst?.procItens || []).filter(i => i.tipo)
+  const processosTexto = (() => {
+    const linhas = _procItemsConst.length
+      ? _procItemsConst.map(i => i.desc?.trim() ? `${i.tipo.toUpperCase()} ${i.desc}` : i.tipo.toUpperCase())
+      : processoVal
+        ? [processoVal.toUpperCase().replace(/\s*\+\s*/g, ' ').split(/\s*\/\s*/).join('\n')]
+        : ['CONSTITUIÇÃO']
+    const _saiNomesConst   = (_procEtapaConst?.saiItens   || []).map(i => i.nome?.trim()).filter(Boolean).map(n => n.toUpperCase())
+    const _entraItensConst = (_procEtapaConst?.entraItens || []).map(i => i.nome?.trim()).filter(Boolean).map(n => n.toUpperCase())
+    if (_saiNomesConst.length > 0)   linhas.push(`SAI: ${_saiNomesConst.join('\r')}`)
+    if (_entraItensConst.length > 0) linhas.push(`ENTRA: ${_entraItensConst.join('\r')}`)
+    return linhas.filter(Boolean).join('\n')
+  })()
 
   return {
     valores: {
@@ -4777,7 +5431,7 @@ function _coletarValoresRelatorio() {
       PROCURACAO:  procStatus,
       VERI:        veriVal,
       GOVBR:       senhaGov,
-      QUADRO:      quadroTexto,
+      QUADRO:      soc('Quadro Societário'),
       PROCESSOS:   processosTexto,
     },
     nomeArquivo: `Relatorio_${razaoSocial || 'Constituicao'}_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.docx`,
@@ -4838,7 +5492,6 @@ async function concluirProcesso() {
 
 async function concluirDepois() {
   salvarEtapas()
-  // Flush imediato no banco (sem esperar o debounce) para o progresso ficar consistente ao retomar
   const id = regAberto.value
   if (id) {
     clearTimeout(_syncEtapasTimer)
@@ -4846,13 +5499,27 @@ async function concluirDepois() {
     const reg = registros.value.find(r => r.id === id)
     if (reg) await persistirEtapas(id, reg.etapas, false)
   }
-  const empresa     = etapaValor('empresa')     || etapaValor('empresa_baixa') || ''
+  const empresa     = etapaValor('empresa')     || ''
   const protocolo   = etapaValor('protocolo')   || ''
   const localizacao = etapaValor('localizacao') || ''
   await salvarHistorico(empresa, protocolo, localizacao)
   $q.notify({ icon: 'schedule', color: 'primary', message: 'Progresso salvo. Você pode continuar depois.', position: 'top', timeout: 2500 })
   ctrlSessao3.value = 'Consultar'
   ctrlSessao1.value = null
+}
+
+async function concluirDepoisBaixa() {
+  const data = _etapasBaixaData()
+  localStorage.setItem('wms_baixa', JSON.stringify(data))
+  if (_syncEtapasBaixaTimer) { clearTimeout(_syncEtapasBaixaTimer); _syncEtapasBaixaTimer = null }
+  const id = regAbertoSessao2.value || await _criarProcessoBaixa()
+  await persistirEtapas(id, data, false)
+  const bv = key => etapasBaixa.value.find(e => e.key === key)?.valor || ''
+  await salvarHistorico(bv('empresa'), bv('protocolo'), bv('localizacao'), { processoId: id, pct: progressoBaixa.value })
+  $q.notify({ icon: 'schedule', color: 'primary', message: 'Progresso salvo. Você pode continuar depois.', position: 'top', timeout: 2500 })
+  ctrlSessao1.value = null
+  ctrlSessao2.value = null
+  ctrlSessao3.value = 'Consultar'
 }
 
 async function confirmarComplementar() {
@@ -4934,8 +5601,7 @@ function _limparFormulario() {
   docsEmpresa.value.forEach(d => { d.valor = '' })
   docsSocio.value.forEach(d => { d.valor = '' })
   taxas.value.forEach(t => { t.valor = '' })
-  // observacao é mantida para que o botão "Puxar Observação do Resumo" no Guia funcione
-  // após salvar o processo. Só é limpa quando o usuário clicar "+ Novo".
+  observacao.value = ''
 }
 
 function novoProcesso() {
@@ -4951,6 +5617,9 @@ function abrirNovaConstituicao() {
 
 function abrirNovaBaixa() {
   localStorage.removeItem('wms_baixa')
+  regAbertoSessao2.value = null
+  ctrlSessao1.value = null
+  ctrlSessao3.value = null
   etapasBaixa.value = carregarEtapasBaixa()
   ctrlSessao2.value = 'Baixa'
 }
@@ -5051,6 +5720,16 @@ onMounted(async () => {
 
   // Flush pendente ao fechar/recarregar a aba
   window.addEventListener('beforeunload', _flushEtapas)
+  window.addEventListener('beforeunload', _flushEtapasBaixa)
+
+  // Restaura etapas da Baixa do Supabase se houver sessão salva
+  if (regAbertoSessao2.value) {
+    const regBaixa = registros.value.find(r => String(r.id) === String(regAbertoSessao2.value))
+    if (regBaixa?.etapas?.some(e => e.status || e.valor || e.obs)) {
+      etapasBaixa.value = hidratarEtapasBaixa(regBaixa.etapas)
+      localStorage.setItem('wms_baixa', JSON.stringify(regBaixa.etapas))
+    }
+  }
 })
 
 function _flushEtapas() {
@@ -5128,9 +5807,10 @@ function reeniviarWhatsApp(reg) {
   abrirWhatsApp(texto)
 }
 
-function excluirRegistro(id) {
+async function excluirRegistro(id) {
+  await _excluirDocumentosDoProcesso(id)
   registros.value = registros.value.filter(r => r.id !== id)
-  supabase.from('processos').delete().eq('id', id)
+  await supabase.from('processos').delete().eq('id', id)
   if (regAberto.value === id) regAberto.value = null
 }
 
@@ -6077,6 +6757,7 @@ const alerts = [
   min-width: 0;
 }
 .rp-field-input::placeholder { color: rgba(255,255,255,0.2); }
+.rp-field-input:not([type="email"]) { text-transform: uppercase; }
 
 .rp-field-ok  { color: #5ab82e; flex-shrink: 0; }
 .rp-field-err { color: #ef4444; flex-shrink: 0; }
@@ -6352,6 +7033,16 @@ const alerts = [
   transition: background 0.2s, color 0.2s;
 }
 .rp-btn-back:hover { background: rgba(255,255,255,0.13); color: white; }
+.rp-btn-importar-resumo {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 10px;
+  background: rgba(96,165,250,0.1);
+  border: 1px solid rgba(96,165,250,0.25);
+  color: #60a5fa; font-size: 0.82rem; font-weight: 600;
+  font-family: inherit; cursor: pointer; flex-shrink: 0;
+  transition: background 0.2s, color 0.2s;
+}
+.rp-btn-importar-resumo:hover { background: rgba(96,165,250,0.2); color: #93c5fd; }
 .rp-btn-novo-proc {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 7px 14px; border-radius: 10px;
@@ -6362,6 +7053,128 @@ const alerts = [
   transition: background 0.2s, color 0.2s;
 }
 .rp-btn-novo-proc:hover { background: rgba(90,184,46,0.22); color: #7fda52; }
+
+/* ── Dialog Importar Resumo ── */
+.imp-resumo-dialog {
+  width: 860px; max-width: 96vw; max-height: 86vh;
+  background: #0f1e3a; border-radius: 18px;
+  border: 1px solid rgba(96,165,250,0.2);
+  padding: 22px 24px 20px; display: flex; flex-direction: column; gap: 16px;
+}
+.imp-resumo-header {
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+}
+.imp-resumo-title {
+  flex: 1; font-size: 1rem; font-weight: 700; color: #e2e8f0;
+}
+.imp-resumo-close {
+  background: none; border: none; color: rgba(255,255,255,0.4);
+  cursor: pointer; padding: 4px; border-radius: 6px; transition: color 0.15s;
+}
+.imp-resumo-close:hover { color: white; }
+
+.imp-resumo-body {
+  display: grid; grid-template-columns: 280px 1fr; gap: 16px;
+  min-height: 0; flex: 1; overflow: hidden;
+}
+.imp-resumo-col-lista {
+  display: flex; flex-direction: column; gap: 10px; min-height: 0;
+}
+.imp-resumo-search-wrap {
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px; padding: 8px 12px;
+}
+.imp-resumo-search {
+  flex: 1; background: none; border: none; outline: none;
+  color: white; font-size: 0.85rem; font-family: inherit;
+}
+.imp-resumo-search::placeholder { color: rgba(255,255,255,0.3); }
+.imp-resumo-list {
+  display: flex; flex-direction: column; gap: 4px;
+  overflow-y: auto; flex: 1;
+}
+.imp-resumo-item {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 9px 12px; border-radius: 10px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+  cursor: pointer; transition: all 0.15s; flex-shrink: 0;
+}
+.imp-resumo-item:hover {
+  background: rgba(96,165,250,0.1); border-color: rgba(96,165,250,0.25);
+}
+.imp-resumo-item--ativo {
+  background: rgba(96,165,250,0.15) !important;
+  border-color: rgba(96,165,250,0.5) !important;
+}
+.imp-resumo-item-nome {
+  font-size: 0.82rem; font-weight: 600; color: #e2e8f0;
+}
+.imp-resumo-item-data {
+  font-size: 0.7rem; color: rgba(255,255,255,0.35);
+}
+.imp-resumo-empty {
+  text-align: center; color: rgba(255,255,255,0.3);
+  font-size: 0.82rem; padding: 24px 0;
+}
+
+/* Preview */
+.imp-resumo-col-preview {
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px; overflow-y: auto; padding: 16px;
+}
+.imp-resumo-preview-vazio {
+  height: 100%; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 12px;
+  color: rgba(255,255,255,0.3); font-size: 0.82rem; text-align: center;
+}
+.imp-resumo-preview { display: flex; flex-direction: column; gap: 4px; }
+.imp-resumo-preview-nome {
+  font-size: 0.95rem; font-weight: 700; color: #60a5fa;
+  margin-bottom: 10px; padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.imp-resumo-preview-secao {
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: rgba(255,255,255,0.35);
+  margin-top: 10px; margin-bottom: 4px;
+}
+.imp-resumo-preview-campo {
+  display: flex; gap: 8px; align-items: baseline;
+  padding: 5px 8px; border-radius: 7px; background: rgba(255,255,255,0.03);
+}
+.imp-resumo-preview-label {
+  font-size: 0.72rem; color: rgba(255,255,255,0.4); white-space: nowrap; min-width: 110px;
+}
+.imp-resumo-preview-valor {
+  font-size: 0.8rem; color: #e2e8f0; font-weight: 500; word-break: break-word;
+}
+
+/* Footer */
+.imp-resumo-footer {
+  display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-shrink: 0;
+  padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.07);
+}
+.imp-resumo-cancelar {
+  padding: 8px 18px; border-radius: 9px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.6); font-size: 0.82rem; font-weight: 600;
+  font-family: inherit; cursor: pointer; transition: all 0.15s;
+}
+.imp-resumo-cancelar:hover { background: rgba(255,255,255,0.1); color: white; }
+.imp-resumo-confirmar {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 20px; border-radius: 9px;
+  background: rgba(96,165,250,0.15); border: 1px solid rgba(96,165,250,0.35);
+  color: #60a5fa; font-size: 0.82rem; font-weight: 700;
+  font-family: inherit; cursor: pointer; transition: all 0.15s;
+}
+.imp-resumo-confirmar:hover:not(:disabled) {
+  background: rgba(96,165,250,0.28); border-color: rgba(96,165,250,0.6); color: #93c5fd;
+}
+.imp-resumo-confirmar:disabled {
+  opacity: 0.35; cursor: not-allowed;
+}
 
 .prazos-legend { color: rgba(255,255,255,0.5); font-size: 0.78rem; font-weight: 600; }
 .prazos-legend-item { display: flex; align-items: center; gap: 6px; }
@@ -6852,6 +7665,71 @@ const alerts = [
 }
 .et-input:focus, .et-select:focus { border-color: rgba(90,184,46,0.5); }
 .et-toggle-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* ── Processo lista de itens ── */
+.et-proc-multi { display: flex; flex-direction: column; gap: 5px; width: 100%; }
+.et-proc-item-row { display: flex; align-items: center; gap: 5px; }
+.et-proc-tipo-sel {
+  flex-shrink: 0; width: 130px; padding: 7px 8px; border-radius: 8px; outline: none;
+  background: #0f1e3a; border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.85); font-size: 0.8rem; font-family: inherit;
+  cursor: pointer; transition: border-color 0.15s;
+}
+.et-proc-tipo-sel:focus { border-color: rgba(90,184,46,0.45); }
+.et-proc-tipo-sel option { background: #0f1e3a; color: rgba(255,255,255,0.85); }
+.et-proc-desc {
+  padding: 7px 10px; border-radius: 8px; outline: none; min-width: 0;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.9); font-size: 0.8rem; font-family: inherit;
+  transition: border-color 0.15s;
+}
+.et-proc-desc:focus { border-color: rgba(90,184,46,0.45); }
+.et-proc-del {
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 6px; cursor: pointer;
+  background: transparent; border: 1px solid rgba(239,68,68,0.2);
+  color: rgba(239,68,68,0.4); transition: all 0.15s;
+}
+.et-proc-del:hover { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.5); color: #f87171; }
+.et-proc-add {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  padding: 7px 12px; border-radius: 8px; cursor: pointer; font-family: inherit;
+  background: rgba(90,184,46,0.06); border: 1px dashed rgba(90,184,46,0.25);
+  color: rgba(90,184,46,0.6); font-size: 0.8rem; transition: all 0.15s;
+}
+.et-proc-add:hover { background: rgba(90,184,46,0.12); border-color: rgba(90,184,46,0.45); color: #7dd45a; }
+.et-proc-preview {
+  display: flex; align-items: flex-start; gap: 5px; margin-top: 2px;
+  font-size: 0.72rem; color: rgba(255,255,255,0.3); padding: 0 2px;
+  font-style: italic; word-break: break-word; line-height: 1.4;
+}
+.et-proc-sai-entra {
+  display: flex; flex-direction: column; gap: 5px;
+  padding: 4px 0 4px 4px; margin-bottom: 2px;
+  border-left: 2px solid rgba(255,255,255,0.08);
+}
+.et-proc-se-row {
+  display: flex; align-items: center; gap: 8px;
+}
+.et-proc-se-label {
+  font-size: 0.72rem; font-weight: 700; color: rgba(255,255,255,0.35);
+  letter-spacing: 0.04em; width: 48px; flex-shrink: 0; text-align: right;
+}
+.et-proc-se-input {
+  flex: 1; padding: 5px 9px; border-radius: 7px; outline: none; min-width: 0;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09);
+  color: rgba(255,255,255,0.7); font-size: 0.8rem; font-family: inherit;
+  transition: border-color 0.15s;
+}
+.et-proc-se-input:focus { border-color: rgba(90,184,46,0.4); }
+.et-proc-se-add {
+  display: inline-flex; align-items: center; gap: 4px; margin: 2px 0;
+  padding: 4px 10px; border-radius: 7px; cursor: pointer; font-family: inherit;
+  font-size: 0.78rem; color: rgba(255,255,255,0.4);
+  background: rgba(255,255,255,0.04); border: 1px dashed rgba(255,255,255,0.12);
+  transition: all 0.15s;
+}
+.et-proc-se-add:hover { background: rgba(90,184,46,0.08); border-color: rgba(90,184,46,0.3); color: rgba(90,184,46,0.8); }
 .et-carimbo {
   display: flex; align-items: center; gap: 8px;
   padding: 8px 12px; border-radius: 9px; width: 100%;
@@ -7093,6 +7971,32 @@ const alerts = [
   background: #f59e0b;
   border: 1.5px solid #0d1b3e;
 }
+.cons-tipo-badge {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px; border-radius: 5px;
+  font-size: 0.62rem; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; white-space: nowrap; flex-shrink: 0;
+  margin-right: 6px;
+}
+.cons-tipo-badge--constituicao {
+  background: rgba(96,165,250,0.15); border: 1px solid rgba(96,165,250,0.3);
+  color: #60a5fa;
+}
+.cons-tipo-badge--baixa {
+  background: rgba(251,191,36,0.15); border: 1px solid rgba(251,191,36,0.3);
+  color: #fbbf24;
+}
+.cons-editar-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 12px; border-radius: 8px;
+  background: rgba(167,139,250,0.1); border: 1px solid rgba(167,139,250,0.2);
+  color: rgba(167,139,250,0.85); font-size: 0.72rem; font-weight: 600;
+  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.cons-editar-btn:hover {
+  background: rgba(167,139,250,0.2); border-color: rgba(167,139,250,0.5);
+  color: #a78bfa;
+}
 .cons-excluir-btn {
   display: flex; align-items: center; justify-content: center;
   width: 30px; height: 30px; border-radius: 7px;
@@ -7142,6 +8046,39 @@ const alerts = [
 .resumo-proc-empty { text-align: center; padding: 32px 0; color: rgba(255,255,255,0.3); font-size: 0.85rem; display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .prazo-card--clicavel { cursor: pointer; }
 .prazo-card--clicavel:hover { border-color: rgba(255,255,255,0.15); }
+
+.resumo-proc-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 6px 12px; border-radius: 8px;
+  font-size: 0.78rem; font-weight: 600; cursor: pointer;
+  border: 1px solid transparent; transition: all 0.15s; font-family: inherit;
+}
+.resumo-proc-btn--edit {
+  background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.55);
+}
+.resumo-proc-btn--edit:hover { background: rgba(255,255,255,0.09); color: rgba(255,255,255,0.9); }
+.resumo-proc-btn--save {
+  background: rgba(90,184,46,0.14); border-color: rgba(90,184,46,0.4); color: #5ab82e;
+}
+.resumo-proc-btn--save:hover { background: rgba(90,184,46,0.24); }
+.resumo-proc-btn--cancel {
+  background: transparent; border-color: rgba(255,255,255,0.1); color: rgba(255,255,255,0.4);
+}
+.resumo-proc-btn--cancel:hover { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.7); }
+
+.resumo-proc-edit-input {
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px; color: rgba(255,255,255,0.9); font-size: 0.85rem; font-weight: 500;
+  padding: 5px 8px; width: 100%; outline: none; transition: border-color 0.15s; font-family: inherit;
+}
+.resumo-proc-edit-input:focus { border-color: rgba(90,184,46,0.5); background: rgba(255,255,255,0.09); }
+.resumo-proc-edit-textarea { resize: vertical; min-height: 72px; }
+.resumo-proc-footer {
+  display: flex; gap: 8px; justify-content: flex-end;
+  padding: 12px 20px 16px; border-top: 1px solid rgba(255,255,255,0.07);
+  flex-shrink: 0;
+}
 
 .email-dialog {
   width: 480px; max-width: 96vw;

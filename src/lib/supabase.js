@@ -15,11 +15,12 @@ export function processoToDb(r) {
     data_vencimento:    r.dataVencimento || null,
     data_formatada:     r.dataFormatada || '',
     data_venc_formatada: r.dataVencFormatada || '',
-    empresa:            r.empresa || [],
-    socio:              r.socio   || [],
-    taxas:              r.taxas   || [],
-    concluido:          r.concluido || false,
-    etapas:             r.etapas  || [],
+    empresa:            r.empresa    || [],
+    socio:              r.socio      || [],
+    taxas:              r.taxas      || [],
+    observacao:         r.observacao || '',
+    concluido:          r.concluido  || false,
+    etapas:             r.etapas     || [],
   }
 }
 
@@ -32,11 +33,12 @@ export function processoFromDb(row) {
     dataVencimento:     row.data_vencimento || '',
     dataFormatada:      row.data_formatada || '',
     dataVencFormatada:  row.data_venc_formatada || '',
-    empresa:            row.empresa || [],
-    socio:              row.socio   || [],
-    taxas:              row.taxas   || [],
-    concluido:          row.concluido || false,
-    etapas:             row.etapas  || [],
+    empresa:            row.empresa    || [],
+    socio:              row.socio      || [],
+    taxas:              row.taxas      || [],
+    observacao:         row.observacao || '',
+    concluido:          row.concluido  || false,
+    etapas:             row.etapas     || [],
   }
 }
 
