@@ -3949,36 +3949,73 @@ const rlGrupos = computed(() => {
     const d = new Date(iso)
     return d.getMonth() + 1 === mes && d.getFullYear() === ano
   }
+  const chaveHistorico = (h) => {
+    if (h.processoId != null) return `pid:${h.processoId}`
+    const nome = (h.empresa || '').trim().toLowerCase()
+    if (nome) return `nome:${nome}`
+    return `hid:${h.id}`
+  }
+  const pctHistorico = (h) => Number(h?.pct ?? 0)
 
-  // historico já vem ORDER BY id DESC → primeira ocorrência por processo é a mais recente
   const histMes = historico.value.filter(h => matchDMY(h.data))
   const regMes  = registros.value.filter(r => matchISO(r.dataISO))
 
-  // Para cada processo, pega apenas a entrada mais recente do histórico
-  const seenHist = new Map()
+  // Maior pct do mês por processo (evita AND quando houve save posterior com pct menor)
+  const aggMes = new Map()
   for (const h of histMes) {
-    const key = String(h.processoId ?? h.empresa ?? h.id)
-    if (!seenHist.has(key)) seenHist.set(key, h)
+    const key = chaveHistorico(h)
+    const pct = pctHistorico(h)
+    const prev = aggMes.get(key)
+    if (!prev || pct > prev.maxPct) aggMes.set(key, { maxPct: pct, h })
   }
 
   const conc = [], and = [], naoIniciados = []
-  for (const [, h] of seenHist) {
+  for (const [, { maxPct, h }] of aggMes) {
     const nome = nomeHistorico(h)
     if (!nome) continue
     const item = { id: h.id, processoId: h.processoId, empresa: nome, protocolo: h.protocolo || '—', dataStr: h.data }
-    if ((h.pct ?? 0) === 100)      conc.push(item)
-    else if ((h.pct ?? 0) > 0)     and.push(item)
-    else                            naoIniciados.push(item)
+    if (maxPct >= 100)           conc.push(item)
+    else if (maxPct > 0)         and.push(item)
+    else                         naoIniciados.push(item)
   }
 
-  // IDs de processos já classificados via histórico
-  const classIds = new Set([...seenHist.keys()])
+  // Processos marcados concluídos no banco → CONC (ex.: Baixa finalizada)
+  for (const r of registros.value) {
+    if (!r.concluido) continue
+    const pid = String(r.id)
+    if (conc.some(c => String(c.processoId) === pid)) continue
+    const andIdx = and.findIndex(c => String(c.processoId) === pid)
+    if (andIdx !== -1) {
+      conc.push(and.splice(andIdx, 1)[0])
+      continue
+    }
+    const hMes = histMes.find(h => String(h.processoId) === pid)
+    if (!hMes) continue
+    const nome = nomeProcesso(r) || nomeHistorico(hMes)
+    if (!nome) continue
+    conc.push({
+      id: hMes.id,
+      processoId: r.id,
+      empresa: nome,
+      protocolo: hMes.protocolo || '—',
+      dataStr: hMes.data,
+    })
+  }
+
+  const classIds = new Set()
+  for (const [key, { h }] of aggMes) {
+    classIds.add(key)
+    if (h.processoId != null) classIds.add(String(h.processoId))
+  }
+  for (const c of conc) {
+    if (c.processoId != null) classIds.add(String(c.processoId))
+  }
 
   // PEN — processos urgentes/priorizar/vencidos do mês, não já em AND/CONC
   const pen = regMes
     .filter(r => {
-      const key = String(r.id)
-      if (classIds.has(key)) return false
+      const pid = String(r.id)
+      if (classIds.has(pid) || classIds.has(`pid:${pid}`)) return false
       if (!nomeProcesso(r)) return false
       return r.prazo === 'urgente' || r.prazo === 'priorizar' || diasRestantes(r) < 0
     })
@@ -3986,7 +4023,10 @@ const rlGrupos = computed(() => {
 
   // N/I — processos do mês não cobertos pelo histórico nem por PEN
   const niExtra = regMes
-    .filter(r => !classIds.has(String(r.id)) && nomeProcesso(r))
+    .filter(r => {
+      const pid = String(r.id)
+      return !classIds.has(pid) && !classIds.has(`pid:${pid}`) && nomeProcesso(r)
+    })
     .map(r => ({ id: r.id, processoId: r.id, empresa: nomeProcesso(r), protocolo: '—', dataStr: r.dataFormatada }))
 
   naoIniciados.push(...niExtra)
@@ -4423,7 +4463,7 @@ const processosConsultar = computed(() => {
 
   // Processos concluídos — do histórico (pct = 100)
   const concluidos = historico.value
-    .filter(h => (h.pct ?? 0) === 100)
+    .filter(h => Number(h.pct ?? 0) >= 100)
     .map(h => {
       const reg  = registros.value.find(r => String(r.id) === String(h.processoId))
       const tipo = reg?.prazo === 'baixa' ? 'baixa' : 'constituicao'
@@ -6244,13 +6284,12 @@ async function salvarHistorico(empresa, protocolo, localizacao, { processoId, pc
   if (regAberto.value) {
     const proxPasso = etapas.value.find(e => !etapaResolvida(e) && e.titulo)?.titulo || ''
     await supabase.from('processos').update({ proximo_passo: proxPasso }).eq('id', regAberto.value)
+  }
 
-    // Se atingiu 100%, marca o processo como concluído no banco
-    if (h.pct === 100) {
-      const original = registros.value.find(r => r.id === regAberto.value)
-      if (original) original.concluido = true
-      await supabase.from('processos').update({ concluido: true }).eq('id', regAberto.value)
-    }
+  if (Number(h.pct) >= 100 && pid != null) {
+    const original = registros.value.find(r => String(r.id) === String(pid))
+    if (original) original.concluido = true
+    await supabase.from('processos').update({ concluido: true }).eq('id', pid)
   }
 }
 function removerHistorico(id) {
