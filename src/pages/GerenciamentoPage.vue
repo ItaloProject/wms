@@ -3576,13 +3576,13 @@ function dataUrlParaBase64(dataUrl) {
   return String(dataUrl || '').split(',').pop()
 }
 
-async function anexosParaEnvio() {
+async function anexosParaEnvio(relatorioSnap, docsSnap) {
   const lista = []
-  if (ultimoRelatorio.value) {
-    lista.push({ nome: ultimoRelatorio.value.nome, base64: ultimoRelatorio.value.base64 })
+  if (relatorioSnap) {
+    lista.push({ nome: relatorioSnap.nome, base64: relatorioSnap.base64 })
   }
   // Usa apenas o snapshot do envio atual — nunca o estado vivo da Baixa (evita docs de outra empresa)
-  for (const f of _docsAnexadosSnap.value) {
+  for (const f of docsSnap) {
     if (f.categoria === 'relatorio') continue
     if (f.r2_key) {
       try {
@@ -3663,7 +3663,7 @@ async function enviarWhatsAppDocumento(nomeArquivo, base64, legenda = '') {
   }
 }
 
-async function enviarRelatorioWhatsApp() {
+async function enviarRelatorioWhatsApp(relatorioSnap, docsSnap) {
   const cfg = configAPI.value
   const pronto = cfg.provider === 'zapi'
     ? (cfg.zInstanceId && cfg.zToken && cfg.telefone)
@@ -3692,7 +3692,7 @@ async function enviarRelatorioWhatsApp() {
 
     const ok = await enviarWhatsApp(msgTexto)
     if (!ok) throw new Error('Falha no envio da mensagem de texto')
-    for (const anexo of await anexosParaEnvio()) {
+    for (const anexo of await anexosParaEnvio(relatorioSnap, docsSnap)) {
       await enviarWhatsAppDocumento(anexo.nome, anexo.base64)
     }
     statusWhats.value = 'ok'
@@ -3704,7 +3704,7 @@ async function enviarRelatorioWhatsApp() {
 
 // Envio via função serverless do Vercel (Gmail SMTP). As credenciais ficam
 // em variáveis de ambiente do servidor — nunca expostas no navegador.
-async function enviarRelatorioEmail() {
+async function enviarRelatorioEmail(relatorioSnap, docsSnap) {
   // As funções serverless só existem em produção (Vercel); em dev (vite) não há /api.
   if (import.meta.env.DEV) {
     statusEmail.value = 'skip'
@@ -3714,7 +3714,7 @@ async function enviarRelatorioEmail() {
   try {
     const tipo        = processoBaixaEnvio.value || 'Processo'
     const empresa     = empresaBaixaEnvio.value  || ''
-    const todosAnexos = await anexosParaEnvio()
+    const todosAnexos = await anexosParaEnvio(relatorioSnap, docsSnap)
     const res = await fetch('/api/enviar-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -3745,8 +3745,13 @@ watch(mostrarModalEnvio, (val) => {
   }
   statusEmail.value = 'idle'
   statusWhats.value = 'idle'
-  enviarRelatorioEmail()
-  enviarRelatorioWhatsApp()
+  // Captura imediata dos snapshots (síncrona, antes de qualquer await) para evitar
+  // race condition: processos seguintes podem sobrescrever essas refs globais enquanto
+  // o envio assíncrono (fetch R2) ainda está em andamento.
+  const relatorioSnap = ultimoRelatorio.value ? { ...ultimoRelatorio.value } : null
+  const docsSnap = [..._docsAnexadosSnap.value]
+  enviarRelatorioEmail(relatorioSnap, docsSnap)
+  enviarRelatorioWhatsApp(relatorioSnap, docsSnap)
 })
 
 async function baixarAnexoBaixa(file) {
