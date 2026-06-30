@@ -3581,7 +3581,9 @@ async function anexosParaEnvio() {
   if (ultimoRelatorio.value) {
     lista.push({ nome: ultimoRelatorio.value.nome, base64: ultimoRelatorio.value.base64 })
   }
-  for (const f of todosAnexosBaixa.value) {
+  // Usa apenas o snapshot do envio atual — nunca o estado vivo da Baixa (evita docs de outra empresa)
+  for (const f of _docsAnexadosSnap.value) {
+    if (f.categoria === 'relatorio') continue
     if (f.r2_key) {
       try {
         const url = await r2ViewUrl(f.r2_key)
@@ -3589,8 +3591,8 @@ async function anexosParaEnvio() {
         const blob = await resp.blob()
         lista.push({ nome: f.nome, base64: await blobParaBase64(blob) })
       } catch { /* ignora arquivo que falhou */ }
-    } else if (f.data64) {
-      lista.push({ nome: f.nomeCustom || f.nome, base64: dataUrlParaBase64(f.data64) })
+    } else if (f.data64 || f.dataUrl) {
+      lista.push({ nome: f.nomeCustom || f.nome, base64: dataUrlParaBase64(f.data64 || f.dataUrl) })
     }
   }
   return lista
@@ -3700,20 +3702,6 @@ async function enviarRelatorioWhatsApp() {
   }
 }
 
-async function baixarDocsR2ParaEnvio() {
-  const lista = []
-  for (const arq of _docsAnexadosSnap.value) {
-    if (!arq.r2_key || arq.categoria === 'relatorio') continue
-    try {
-      const url  = await r2ViewUrl(arq.r2_key)
-      const resp = await fetch(url)
-      const blob = await resp.blob()
-      lista.push({ nome: arq.nome, base64: await blobParaBase64(blob) })
-    } catch { /* ignora arquivo que falhou no download */ }
-  }
-  return lista
-}
-
 // Envio via função serverless do Vercel (Gmail SMTP). As credenciais ficam
 // em variáveis de ambiente do servidor — nunca expostas no navegador.
 async function enviarRelatorioEmail() {
@@ -3724,10 +3712,9 @@ async function enviarRelatorioEmail() {
   }
   statusEmail.value = 'sending'
   try {
-    const r2Docs      = await baixarDocsR2ParaEnvio()
     const tipo        = processoBaixaEnvio.value || 'Processo'
     const empresa     = empresaBaixaEnvio.value  || ''
-    const todosAnexos = [...await anexosParaEnvio(), ...r2Docs]
+    const todosAnexos = await anexosParaEnvio()
     const res = await fetch('/api/enviar-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -3752,7 +3739,10 @@ async function enviarRelatorioEmail() {
 }
 
 watch(mostrarModalEnvio, (val) => {
-  if (!val) return
+  if (!val) {
+    _docsAnexadosSnap.value = []
+    return
+  }
   statusEmail.value = 'idle'
   statusWhats.value = 'idle'
   enviarRelatorioEmail()
@@ -3900,11 +3890,11 @@ async function concluirBaixa() {
     await supabase.from('processos').update({ concluido: true }).eq('id', id)
     const idx = registros.value.findIndex(r => String(r.id) === String(id))
     if (idx !== -1) registros.value[idx] = { ...registros.value[idx], concluido: true }
-    _docsAnexadosSnap.value  = []  // Baixa docs vão via anexosParaEnvio (R2)
+    _docsAnexadosSnap.value  = [...todosAnexosBaixa.value]
     empresaBaixaEnvio.value  = empresa
     processoBaixaEnvio.value = processo
-    mostrarModalEnvio.value  = true
-    // Reseta a sessão de Baixa
+    protocoloEnvio.value     = protocolo
+    // Reseta a sessão de Baixa antes de abrir o modal (snapshot já guardado)
     localStorage.removeItem('wms_baixa')
     docsAnexadosBaixa.value    = {}
     docsArquivamentoBaixa.value = {}
@@ -3913,6 +3903,7 @@ async function concluirBaixa() {
     ctrlSessao1.value = null
     ctrlSessao2.value = null
     ctrlSessao3.value = 'Consultar'
+    mostrarModalEnvio.value  = true
   } finally {
     gerandoRelatorioBaixa.value = false
   }
@@ -6538,15 +6529,23 @@ async function gerarRelatorio() {
 
 async function concluirProcesso() {
   const { valores, nomeArquivo, razaoSocial, municipioEstado } = _coletarValoresRelatorio()
-  await salvarHistorico(razaoSocial, etapaValor('protocolo'), municipioEstado)
-  _docsAnexadosSnap.value  = Object.values(docsAnexados.value).flat()
-  empresaBaixaEnvio.value  = razaoSocial
-  processoBaixaEnvio.value = etapaValor('processo') || 'Constituição'
-  protocoloEnvio.value     = etapaValor('protocolo')
-  senhaSemfazEnvio.value   = etapaValor('semfaz')
-  senhaSefazEnvio.value    = etapaValor('sefaznet')
-  mostrarModalEnvio.value  = true
-  resetarFormConstituicao()
+  gerandoRelatorio.value = true
+  try {
+    await preencherRelatorioGeral(valores, nomeArquivo)
+    await salvarHistorico(razaoSocial, etapaValor('protocolo'), municipioEstado)
+    _docsAnexadosSnap.value  = Object.values(docsAnexados.value).flat()
+    docsAnexadosBaixa.value    = {}
+    docsArquivamentoBaixa.value = {}
+    empresaBaixaEnvio.value  = razaoSocial
+    processoBaixaEnvio.value = etapaValor('processo') || 'Constituição'
+    protocoloEnvio.value     = etapaValor('protocolo')
+    senhaSemfazEnvio.value   = etapaValor('semfaz')
+    senhaSefazEnvio.value    = etapaValor('sefaznet')
+    mostrarModalEnvio.value  = true
+    resetarFormConstituicao()
+  } finally {
+    gerandoRelatorio.value = false
+  }
 }
 
 async function concluirDepois() {
