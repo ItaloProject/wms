@@ -1476,7 +1476,7 @@
                           <div v-if="docsArquivamentoBaixa[item]?.length" class="et-anx-files">
                             <div v-for="arq in docsArquivamentoBaixa[item]" :key="arq.id" class="et-anx-file">
                               <q-icon :name="iconeTipoArquivo(arq.tipo)" size="13px" class="et-anx-file-icon" />
-                              <span class="et-anx-file-nome" @click="abrirArquivo(arq)" :title="arq.nome">{{ arq.nomeCustom || arq.nome }}</span>
+                              <span class="et-anx-file-nome" @click="verDoc(arq)" :title="arq.nome">{{ arq.nome }}</span>
                               <span class="et-anx-file-size">{{ formatarTamanho(arq.tamanho) }}</span>
                               <button class="et-anx-del-btn" @click="removerArquivamento(item, arq.id)"><q-icon name="close" size="11px" /></button>
                             </div>
@@ -1543,14 +1543,15 @@
                       <div v-for="cat in categoriasBaixaDocs" :key="cat.key" class="et-anx-cat">
                         <div class="et-anx-cat-head">
                           <span class="et-anx-cat-label">{{ cat.label }}</span>
-                          <button class="et-anx-add-btn" @click="abrirAnexoBaixa(cat.key)">
-                            <q-icon name="add" size="13px" />
+                          <button class="et-anx-add-btn" @click="abrirAnexoBaixa(cat.key)" :disabled="uploadAndoBaixa">
+                            <q-spinner v-if="uploadAndoBaixa && catAnexoBaixaAtiva === cat.key" size="13px" />
+                            <q-icon v-else name="add" size="13px" />
                           </button>
                         </div>
                         <div v-if="docsAnexadosBaixa[cat.key] && docsAnexadosBaixa[cat.key].length" class="et-anx-files">
                           <div v-for="arq in docsAnexadosBaixa[cat.key]" :key="arq.id" class="et-anx-file">
                             <q-icon :name="iconeTipoArquivo(arq.tipo)" size="13px" class="et-anx-file-icon" />
-                            <span class="et-anx-file-nome" @click="abrirArquivo(arq)" :title="arq.nome">{{ arq.nome }}</span>
+                            <span class="et-anx-file-nome" @click="verDoc(arq)" :title="arq.nome" style="cursor:pointer">{{ arq.nome }}</span>
                             <span class="et-anx-file-size">{{ formatarTamanho(arq.tamanho) }}</span>
                             <button class="et-anx-del-btn" @click="removerAnexoBaixa(cat.key, arq.id)"><q-icon name="close" size="11px" /></button>
                           </div>
@@ -3307,10 +3308,11 @@ const progressoBaixa = computed(() => {
 })
 
 // Anexos da Baixa
-const docsAnexadosBaixa    = ref(JSON.parse(localStorage.getItem('wms_docs_baixa') || '{}'))
+const docsAnexadosBaixa    = ref({})
 const catAnexoBaixaAtiva   = ref('')
 const anexosBaixaExpandido = ref(false)
 const inputAnexoBaixaRef   = ref(null)
+const uploadAndoBaixa      = ref(false)
 
 const categoriasBaixaDocs = [
   { key: 'contrato_social', label: 'CONTRATO SOCIAL AUTENTICADO' },
@@ -3331,26 +3333,70 @@ function abrirAnexoBaixa(catKey) {
   el?.click()
 }
 
-function onAnexoBaixaSelecionado(e) {
+async function onAnexoBaixaSelecionado(e) {
   const files = Array.from(e.target.files)
-  files.forEach(file => {
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      if (!docsAnexadosBaixa.value[catAnexoBaixaAtiva.value]) docsAnexadosBaixa.value[catAnexoBaixaAtiva.value] = []
-      docsAnexadosBaixa.value[catAnexoBaixaAtiva.value].push({
-        id: Date.now() + Math.random(), nome: file.name,
-        tipo: file.type, tamanho: file.size, data64: ev.target.result,
-      })
-      localStorage.setItem('wms_docs_baixa', JSON.stringify(docsAnexadosBaixa.value))
+  if (!files.length) return
+  if (!regAbertoSessao2.value) {
+    const empAtual = etapasBaixa.value.find(x => x.key === 'empresa')?.valor || ''
+    const encontrado = empAtual ? registros.value.find(r => r.razaoSocial === empAtual) : null
+    if (encontrado) regAbertoSessao2.value = encontrado.id
+    else {
+      $q.notify({ icon: 'warning', color: 'warning', message: 'Salve o progresso antes de anexar documentos.', position: 'top', timeout: 4000 })
+      e.target.value = ''
+      return
     }
-    reader.readAsDataURL(file)
-  })
+  }
+  uploadAndoBaixa.value = true
+  const cat = catAnexoBaixaAtiva.value
+  const catLabel = categoriasBaixaDocs.find(c => c.key === cat)?.label || cat
+  const empresa = etapasBaixa.value.find(x => x.key === 'empresa')?.valor || ''
+  for (const file of files) {
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const key = `processos/${regAbertoSessao2.value}/${cat}/${Date.now()}_${safeName}`
+    try {
+      await r2Upload(key, file)
+      const { data, error } = await supabase.from('documentos').insert({
+        processo_id: regAbertoSessao2.value, empresa,
+        categoria: cat, categoria_label: catLabel,
+        nome: file.name, tamanho: file.size,
+        tipo: file.type || 'application/octet-stream', r2_key: key,
+      }).select().single()
+      if (error) throw error
+      if (!docsAnexadosBaixa.value[cat]) docsAnexadosBaixa.value[cat] = []
+      docsAnexadosBaixa.value[cat].push({ id: data.id, nome: file.name, tamanho: file.size, tipo: file.type, r2_key: key, created_at: data.created_at })
+    } catch (err) {
+      $q.notify({ icon: 'error', color: 'negative', message: `Erro ao enviar ${file.name}: ${err.message}`, position: 'top', timeout: 5000 })
+    }
+  }
+  uploadAndoBaixa.value = false
   e.target.value = ''
 }
 
-function removerAnexoBaixa(catKey, id) {
+async function removerAnexoBaixa(catKey, id) {
+  const arq = docsAnexadosBaixa.value[catKey]?.find(a => a.id === id)
+  if (arq?.r2_key) await r2Delete(arq.r2_key)
+  await supabase.from('documentos').delete().eq('id', id)
   docsAnexadosBaixa.value[catKey] = docsAnexadosBaixa.value[catKey].filter(a => a.id !== id)
-  localStorage.setItem('wms_docs_baixa', JSON.stringify(docsAnexadosBaixa.value))
+}
+
+async function carregarDocsBaixa(processoId) {
+  if (!processoId) { docsAnexadosBaixa.value = {}; docsArquivamentoBaixa.value = {}; return }
+  const { data } = await supabase.from('documentos').select('*')
+    .eq('processo_id', processoId).neq('categoria', 'relatorio').order('created_at')
+  const baixaCats = new Set(categoriasBaixaDocs.map(c => c.key))
+  const baixaGrp = {}, arquivGrp = {}
+  ;(data || []).forEach(d => {
+    const obj = { id: d.id, nome: d.nome, tamanho: d.tamanho, tipo: d.tipo, r2_key: d.r2_key, created_at: d.created_at }
+    if (baixaCats.has(d.categoria)) {
+      if (!baixaGrp[d.categoria]) baixaGrp[d.categoria] = []
+      baixaGrp[d.categoria].push(obj)
+    } else {
+      if (!arquivGrp[d.categoria]) arquivGrp[d.categoria] = []
+      arquivGrp[d.categoria].push(obj)
+    }
+  })
+  docsAnexadosBaixa.value = baixaGrp
+  docsArquivamentoBaixa.value = arquivGrp
 }
 
 const emailsBaixa = [
@@ -3388,14 +3434,23 @@ function dataUrlParaBase64(dataUrl) {
   return String(dataUrl || '').split(',').pop()
 }
 
-function anexosParaEnvio() {
+async function anexosParaEnvio() {
   const lista = []
   if (ultimoRelatorio.value) {
     lista.push({ nome: ultimoRelatorio.value.nome, base64: ultimoRelatorio.value.base64 })
   }
-  todosAnexosBaixa.value.forEach(f => {
-    lista.push({ nome: f.nomeCustom || f.nome, base64: dataUrlParaBase64(f.data64) })
-  })
+  for (const f of todosAnexosBaixa.value) {
+    if (f.r2_key) {
+      try {
+        const url = await r2ViewUrl(f.r2_key)
+        const resp = await fetch(url)
+        const blob = await resp.blob()
+        lista.push({ nome: f.nome, base64: await blobParaBase64(blob) })
+      } catch { /* ignora arquivo que falhou */ }
+    } else if (f.data64) {
+      lista.push({ nome: f.nomeCustom || f.nome, base64: dataUrlParaBase64(f.data64) })
+    }
+  }
   return lista
 }
 
@@ -3493,7 +3548,7 @@ async function enviarRelatorioWhatsApp() {
 
     const ok = await enviarWhatsApp(msgTexto)
     if (!ok) throw new Error('Falha no envio da mensagem de texto')
-    for (const anexo of anexosParaEnvio()) {
+    for (const anexo of await anexosParaEnvio()) {
       await enviarWhatsAppDocumento(anexo.nome, anexo.base64)
     }
     statusWhats.value = 'ok'
@@ -3530,7 +3585,7 @@ async function enviarRelatorioEmail() {
     const r2Docs      = await baixarDocsR2ParaEnvio()
     const tipo        = processoBaixaEnvio.value || 'Processo'
     const empresa     = empresaBaixaEnvio.value  || ''
-    const todosAnexos = [...anexosParaEnvio(), ...r2Docs]
+    const todosAnexos = [...await anexosParaEnvio(), ...r2Docs]
     const res = await fetch('/api/enviar-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -3562,11 +3617,13 @@ watch(mostrarModalEnvio, (val) => {
   enviarRelatorioWhatsApp()
 })
 
-function baixarAnexoBaixa(file) {
-  const a = document.createElement('a')
-  a.href = file.data64
-  a.download = file.nomeCustom || file.nome
-  a.click()
+async function baixarAnexoBaixa(file) {
+  if (file.r2_key) {
+    const url = await r2DownloadUrl(file.r2_key, file.nome)
+    if (url) { const a = document.createElement('a'); a.href = url; a.download = file.nome; a.click() }
+  } else if (file.data64) {
+    const a = document.createElement('a'); a.href = file.data64; a.download = file.nomeCustom || file.nome; a.click()
+  }
 }
 
 const gerandoRelatorioBaixa = ref(false)
@@ -3700,12 +3757,14 @@ async function concluirBaixa() {
     await supabase.from('processos').update({ concluido: true }).eq('id', id)
     const idx = registros.value.findIndex(r => String(r.id) === String(id))
     if (idx !== -1) registros.value[idx] = { ...registros.value[idx], concluido: true }
-    _docsAnexadosSnap.value  = Object.values(docsAnexados.value).flat()
+    _docsAnexadosSnap.value  = []  // Baixa docs vão via anexosParaEnvio (R2)
     empresaBaixaEnvio.value  = empresa
     processoBaixaEnvio.value = processo
     mostrarModalEnvio.value  = true
     // Reseta a sessão de Baixa
     localStorage.removeItem('wms_baixa')
+    docsAnexadosBaixa.value    = {}
+    docsArquivamentoBaixa.value = {}
     regAbertoSessao2.value = null
     etapasBaixa.value = carregarEtapasBaixa()
     ctrlSessao1.value = null
@@ -3717,7 +3776,7 @@ async function concluirBaixa() {
 }
 
 // Arquivamento de Informações — upload por item
-const docsArquivamentoBaixa  = ref(JSON.parse(localStorage.getItem('wms_arq_baixa') || '{}'))
+const docsArquivamentoBaixa  = ref({})
 const catArquivAtiva         = ref('')
 const inputArquivRef         = ref(null)
 const arquivAberto           = ref({})
@@ -3732,29 +3791,50 @@ function abrirArquivamento(item) {
   const el = Array.isArray(inputArquivRef.value) ? inputArquivRef.value[0] : inputArquivRef.value
   el?.click()
 }
-function onArquivamentoSelecionado(e) {
+async function onArquivamentoSelecionado(e) {
   const files = Array.from(e.target.files)
+  if (!files.length) return
+  if (!regAbertoSessao2.value) {
+    const empAtual = etapasBaixa.value.find(x => x.key === 'empresa')?.valor || ''
+    const encontrado = empAtual ? registros.value.find(r => r.razaoSocial === empAtual) : null
+    if (encontrado) regAbertoSessao2.value = encontrado.id
+    else {
+      $q.notify({ icon: 'warning', color: 'warning', message: 'Salve o progresso antes de anexar documentos.', position: 'top', timeout: 4000 })
+      e.target.value = ''
+      return
+    }
+  }
   const isOutros = catArquivAtiva.value === 'OUTROS'
   const nomeCustom = isOutros ? outroNomeTemp.value.trim() : ''
-  files.forEach(file => {
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      if (!docsArquivamentoBaixa.value[catArquivAtiva.value]) docsArquivamentoBaixa.value[catArquivAtiva.value] = []
-      docsArquivamentoBaixa.value[catArquivAtiva.value].push({
-        id: Date.now() + Math.random(), nome: file.name,
-        nomeCustom: nomeCustom || '',
-        tipo: file.type, tamanho: file.size, data64: ev.target.result,
-      })
-      localStorage.setItem('wms_arq_baixa', JSON.stringify(docsArquivamentoBaixa.value))
+  const cat = catArquivAtiva.value
+  const empresa = etapasBaixa.value.find(x => x.key === 'empresa')?.valor || ''
+  for (const file of files) {
+    const nomeFinal = nomeCustom || file.name
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const key = `processos/${regAbertoSessao2.value}/arq/${cat}/${Date.now()}_${safeName}`
+    try {
+      await r2Upload(key, file)
+      const { data, error } = await supabase.from('documentos').insert({
+        processo_id: regAbertoSessao2.value, empresa,
+        categoria: cat, categoria_label: cat,
+        nome: nomeFinal, tamanho: file.size,
+        tipo: file.type || 'application/octet-stream', r2_key: key,
+      }).select().single()
+      if (error) throw error
+      if (!docsArquivamentoBaixa.value[cat]) docsArquivamentoBaixa.value[cat] = []
+      docsArquivamentoBaixa.value[cat].push({ id: data.id, nome: nomeFinal, tamanho: file.size, tipo: file.type, r2_key: key, created_at: data.created_at })
+    } catch (err) {
+      $q.notify({ icon: 'error', color: 'negative', message: `Erro ao enviar ${file.name}: ${err.message}`, position: 'top', timeout: 5000 })
     }
-    reader.readAsDataURL(file)
-  })
+  }
   if (isOutros) outroNomeTemp.value = ''
   e.target.value = ''
 }
-function removerArquivamento(item, id) {
+async function removerArquivamento(item, id) {
+  const arq = docsArquivamentoBaixa.value[item]?.find(a => a.id === id)
+  if (arq?.r2_key) await r2Delete(arq.r2_key)
+  await supabase.from('documentos').delete().eq('id', id)
   docsArquivamentoBaixa.value[item] = docsArquivamentoBaixa.value[item].filter(a => a.id !== id)
-  localStorage.setItem('wms_arq_baixa', JSON.stringify(docsArquivamentoBaixa.value))
 }
 
 const consultarBusca        = ref('')
@@ -4351,6 +4431,7 @@ async function continuarProcesso(p) {
       etapasBaixa.value = hidratarEtapasBaixa(reg.etapas)
       localStorage.setItem('wms_baixa', JSON.stringify(reg.etapas))
     }
+    carregarDocsBaixa(reg.id)
     ctrlSessao2.value = 'Baixa'
     return
   }
@@ -5180,9 +5261,17 @@ function agendarProximoAlerta() {
 function montarMensagemConsolidada(processos, hist = []) {
   const hoje = new Date()
   const hojeStr = hoje.toLocaleDateString('pt-BR')
-  const vencidos  = processos.filter(r => diasRestantes(r) < 0)
-  const urgentes  = processos.filter(r => { const d = diasRestantes(r); return d >= 0 && ((r.prazo || 'normal') === 'urgente' || d === 0) })
-  const priorizar = processos.filter(r => { const d = diasRestantes(r); return d > 0 && r.prazo !== 'urgente' && (r.prazo === 'priorizar' || d <= 3) })
+  // Cada empresa aparece apenas uma vez, na categoria mais crítica (vencido > urgente > priorizar)
+  const vistos = new Set()
+  const dedup = list => list.filter(r => {
+    const k = (r.razaoSocial || '').trim().toUpperCase()
+    if (vistos.has(k)) return false
+    vistos.add(k)
+    return true
+  })
+  const vencidos  = dedup(processos.filter(r => diasRestantes(r) < 0))
+  const urgentes  = dedup(processos.filter(r => { const d = diasRestantes(r); return d >= 0 && ((r.prazo || 'normal') === 'urgente' || d === 0) }))
+  const priorizar = dedup(processos.filter(r => { const d = diasRestantes(r); return d > 0 && r.prazo !== 'urgente' && (r.prazo === 'priorizar' || d <= 3) }))
 
   if (!vencidos.length && !urgentes.length && !priorizar.length) return null
 
@@ -5224,17 +5313,6 @@ function montarMensagemConsolidada(processos, hist = []) {
       msg += `• *${r.razaoSocial || 'Sem nome'}*`
       if (r.dataVencFormatada) msg += ` — vence em ${r.dataVencFormatada}`
       msg += ` (${d} dia${d !== 1 ? 's' : ''})\n`
-    })
-  }
-
-  if (recentes.length) {
-    msg += `\n✅ *CONCLUÍDOS RECENTES*\n`
-    recentes.forEach(h => {
-      msg += `• *${h.empresa || '—'}*`
-      if (h.protocolo && h.protocolo !== '—') msg += ` · Protocolo: ${h.protocolo}`
-      if (h.localizacao && h.localizacao !== '—') msg += ` · ${h.localizacao}`
-      if (h.pct != null) msg += ` (${h.pct}%)`
-      msg += ` — ${h.data}\n`
     })
   }
 
@@ -6404,6 +6482,8 @@ function abrirNovaConstituicao() {
 function abrirNovaBaixa() {
   localStorage.removeItem('wms_baixa')
   regAbertoSessao2.value = null
+  docsAnexadosBaixa.value    = {}
+  docsArquivamentoBaixa.value = {}
   ctrlSessao1.value = null
   ctrlSessao3.value = null
   etapasBaixa.value = carregarEtapasBaixa()
@@ -6529,6 +6609,7 @@ onMounted(async () => {
       etapasBaixa.value = hidratarEtapasBaixa(regBaixa.etapas)
       localStorage.setItem('wms_baixa', JSON.stringify(regBaixa.etapas))
     }
+    carregarDocsBaixa(regAbertoSessao2.value)
   }
 })
 
