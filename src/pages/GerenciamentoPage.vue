@@ -3312,6 +3312,83 @@ function _etapasBaixaData() {
   }))
 }
 
+function normEmpresa(s) {
+  return (s || '').trim().toLowerCase()
+}
+
+async function _ensureProcessoBaixa() {
+  const empAtual = etapasBaixa.value.find(x => x.key === 'empresa')?.valor?.trim() || ''
+  if (!empAtual) return null
+  const norm = normEmpresa(empAtual)
+
+  if (regAbertoSessao2.value) {
+    const reg = registros.value.find(r => r.id === regAbertoSessao2.value)
+    if (reg && normEmpresa(reg.razaoSocial) === norm) return regAbertoSessao2.value
+  }
+
+  const encontrado = registros.value.find(r => normEmpresa(r.razaoSocial) === norm)
+  if (encontrado) {
+    regAbertoSessao2.value = encontrado.id
+    return encontrado.id
+  }
+
+  return _criarProcessoBaixa()
+}
+
+async function _criarProcessoGuia() {
+  const agora = new Date()
+  const venc  = new Date(agora); venc.setDate(venc.getDate() + 10)
+  const razao = etapaValor('empresa')?.trim() || ''
+  const etapasData = etapas.value.map(e => ({
+    key: e.key, status: e.status, obs: e.obs, valor: e.valor, concluidaEm: e.concluidaEm || '',
+    statusItens: e.statusItens || {}, subStatus: e.subStatus || {},
+    saiItens: e.saiItens || [], entraItens: e.entraItens || [],
+  }))
+  const id  = Date.now()
+  const reg = {
+    id, prazo: 'normal',
+    razaoSocial:       razao,
+    dataISO:           agora.toISOString(),
+    dataVencimento:    venc.toISOString(),
+    dataFormatada:     new Intl.DateTimeFormat('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }).format(agora),
+    dataVencFormatada: new Intl.DateTimeFormat('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' }).format(venc),
+    empresa: [], socio: [], taxas: [], observacao: '', etapas: etapasData,
+  }
+  registros.value.unshift(reg)
+  regAberto.value = id
+  await supabase.from('processos').insert(processoToDb(reg))
+  return id
+}
+
+async function _ensureProcessoConst() {
+  const empAtual = etapaValor('empresa')?.trim() || ''
+  if (!empAtual) return null
+  const norm = normEmpresa(empAtual)
+
+  if (regAberto.value) {
+    const reg = registros.value.find(r => r.id === regAberto.value)
+    if (reg && normEmpresa(reg.razaoSocial) === norm) return regAberto.value
+  }
+
+  const encontrado = registros.value.find(r => normEmpresa(r.razaoSocial) === norm && r.prazo !== 'baixa')
+    || registros.value.find(r => normEmpresa(r.razaoSocial) === norm)
+  if (encontrado) {
+    regAberto.value = encontrado.id
+    return encontrado.id
+  }
+
+  return _criarProcessoGuia()
+}
+
+function resolverProcessoIdConsultar(p) {
+  if (p.processoId != null) return p.processoId
+  if (p._reg?.id != null) return p._reg.id
+  const norm = normEmpresa(p.empresa)
+  if (!norm || norm === '—') return null
+  const reg = registros.value.find(r => normEmpresa(r.razaoSocial) === norm)
+  return reg?.id ?? null
+}
+
 async function _criarProcessoBaixa() {
   const agora = new Date()
   const venc  = new Date(agora); venc.setDate(venc.getDate() + 10)
@@ -3349,8 +3426,9 @@ function salvarEtapasBaixa() {
     _syncEtapasBaixaTimer = null
     const bv = key => etapasBaixa.value.find(e => e.key === key)?.valor || ''
     const razao = bv('empresa').trim()
-    if (!regAbertoSessao2.value && !razao) return
-    const id = regAbertoSessao2.value || await _criarProcessoBaixa()
+    if (!razao) return
+    const id = await _ensureProcessoBaixa()
+    if (!id) return
     await persistirEtapas(id, data, true)
     if (razao) {
       const reg = registros.value.find(r => r.id === id)
@@ -3404,15 +3482,11 @@ function abrirAnexoBaixa(catKey) {
 async function onAnexoBaixaSelecionado(e) {
   const files = Array.from(e.target.files)
   if (!files.length) return
-  if (!regAbertoSessao2.value) {
-    const empAtual = etapasBaixa.value.find(x => x.key === 'empresa')?.valor || ''
-    const encontrado = empAtual ? registros.value.find(r => r.razaoSocial === empAtual) : null
-    if (encontrado) regAbertoSessao2.value = encontrado.id
-    else {
-      $q.notify({ icon: 'warning', color: 'warning', message: 'Salve o progresso antes de anexar documentos.', position: 'top', timeout: 4000 })
-      e.target.value = ''
-      return
-    }
+  const pid = await _ensureProcessoBaixa()
+  if (!pid) {
+    $q.notify({ icon: 'warning', color: 'warning', message: 'Preencha o nome da empresa antes de anexar documentos.', position: 'top', timeout: 4000 })
+    e.target.value = ''
+    return
   }
   uploadAndoBaixa.value = true
   const cat = catAnexoBaixaAtiva.value
@@ -3420,11 +3494,11 @@ async function onAnexoBaixaSelecionado(e) {
   const empresa = etapasBaixa.value.find(x => x.key === 'empresa')?.valor || ''
   for (const file of files) {
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-    const key = `processos/${regAbertoSessao2.value}/${cat}/${Date.now()}_${safeName}`
+    const key = `processos/${pid}/${cat}/${Date.now()}_${safeName}`
     try {
       await r2Upload(key, file)
       const { data, error } = await supabase.from('documentos').insert({
-        processo_id: regAbertoSessao2.value, empresa,
+        processo_id: pid, empresa,
         categoria: cat, categoria_label: catLabel,
         nome: file.name, tamanho: file.size,
         tipo: file.type || 'application/octet-stream', r2_key: key,
@@ -3819,7 +3893,8 @@ async function concluirBaixa() {
   gerandoRelatorioBaixa.value = true
   try {
     const { empresa, protocolo, localizacao, processo } = await _executarRelatorioBaixa()
-    const id = regAbertoSessao2.value || await _criarProcessoBaixa()
+    const id = await _ensureProcessoBaixa()
+    if (!id) throw new Error('Empresa não informada')
     await salvarHistorico(empresa, protocolo, localizacao, { processoId: id, pct: 100 })
     // Marca processo como concluído no banco
     await supabase.from('processos').update({ concluido: true }).eq('id', id)
@@ -3862,15 +3937,11 @@ function abrirArquivamento(item) {
 async function onArquivamentoSelecionado(e) {
   const files = Array.from(e.target.files)
   if (!files.length) return
-  if (!regAbertoSessao2.value) {
-    const empAtual = etapasBaixa.value.find(x => x.key === 'empresa')?.valor || ''
-    const encontrado = empAtual ? registros.value.find(r => r.razaoSocial === empAtual) : null
-    if (encontrado) regAbertoSessao2.value = encontrado.id
-    else {
-      $q.notify({ icon: 'warning', color: 'warning', message: 'Salve o progresso antes de anexar documentos.', position: 'top', timeout: 4000 })
-      e.target.value = ''
-      return
-    }
+  const pid = await _ensureProcessoBaixa()
+  if (!pid) {
+    $q.notify({ icon: 'warning', color: 'warning', message: 'Preencha o nome da empresa antes de anexar documentos.', position: 'top', timeout: 4000 })
+    e.target.value = ''
+    return
   }
   const isOutros = catArquivAtiva.value === 'OUTROS'
   const nomeCustom = isOutros ? outroNomeTemp.value.trim() : ''
@@ -3879,11 +3950,11 @@ async function onArquivamentoSelecionado(e) {
   for (const file of files) {
     const nomeFinal = nomeCustom || file.name
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-    const key = `processos/${regAbertoSessao2.value}/arq/${cat}/${Date.now()}_${safeName}`
+    const key = `processos/${pid}/arq/${cat}/${Date.now()}_${safeName}`
     try {
       await r2Upload(key, file)
       const { data, error } = await supabase.from('documentos').insert({
-        processo_id: regAbertoSessao2.value, empresa,
+        processo_id: pid, empresa,
         categoria: cat, categoria_label: cat,
         nome: nomeFinal, tamanho: file.size,
         tipo: file.type || 'application/octet-stream', r2_key: key,
@@ -4466,10 +4537,11 @@ const processosConsultar = computed(() => {
     .filter(h => Number(h.pct ?? 0) >= 100)
     .map(h => {
       const reg  = registros.value.find(r => String(r.id) === String(h.processoId))
+        || registros.value.find(r => normEmpresa(r.razaoSocial) === normEmpresa(h.empresa))
       const tipo = reg?.prazo === 'baixa' ? 'baixa' : 'constituicao'
       return {
         id:           h.id,
-        processoId:   h.processoId || null,
+        processoId:   h.processoId || reg?.id || null,
         empresa:      h.empresa || '—',
         protocolo:    h.protocolo || '—',
         localizacao:  h.localizacao || '—',
@@ -4603,19 +4675,11 @@ async function onAnexoSelecionado(e) {
   const files = Array.from(e.target.files)
   if (!files.length) return
 
-  // Se não houver processo aberto, tenta encontrar pelo nome da empresa
-  if (!regAberto.value) {
-    const empAtual = etapaValor('empresa')
-    const encontrado = empAtual
-      ? registros.value.find(r => r.razaoSocial === empAtual)
-      : null
-    if (encontrado) {
-      regAberto.value = encontrado.id
-    } else {
-      $q.notify({ icon: 'warning', color: 'warning', message: 'Crie o processo no Gestão de Prazos antes de anexar documentos.', position: 'top', timeout: 4000 })
-      e.target.value = ''
-      return
-    }
+  const pid = await _ensureProcessoConst()
+  if (!pid) {
+    $q.notify({ icon: 'warning', color: 'warning', message: 'Preencha o nome da empresa antes de anexar documentos.', position: 'top', timeout: 4000 })
+    e.target.value = ''
+    return
   }
 
   uploadAndo.value = true
@@ -4631,11 +4695,11 @@ async function onAnexoSelecionado(e) {
       nomeFinal = customBase.toLowerCase().endsWith(ext.toLowerCase()) ? customBase : customBase + ext
     }
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-    const key = `processos/${regAberto.value}/${cat}/${Date.now()}_${safeName}`
+    const key = `processos/${pid}/${cat}/${Date.now()}_${safeName}`
     try {
       await r2Upload(key, file)
       const { data, error } = await supabase.from('documentos').insert({
-        processo_id:     regAberto.value,
+        processo_id:     pid,
         empresa:         etapaValor('empresa') || '',
         categoria:       cat,
         categoria_label: catLabel,
@@ -6137,12 +6201,16 @@ const docsDialogTotal = computed(() => docsDialogDocs.value.length)
 async function abrirDialogDocs(p, e) {
   e?.stopPropagation()
   docsDialogEmpresa.value    = p.empresa
-  docsDialogProcessoId.value = p.processoId
+  const pid = resolverProcessoIdConsultar(p)
+  docsDialogProcessoId.value = pid
   docsDialogDocs.value       = []
   docsDialogLoading.value    = true
   dialogDocs.value           = true
-  if (p.processoId) {
-    const { data } = await supabase.from('documentos').select('*').eq('processo_id', p.processoId).order('created_at')
+  if (pid) {
+    const { data } = await supabase.from('documentos').select('*').eq('processo_id', pid).order('created_at')
+    docsDialogDocs.value = data || []
+  } else if (p.empresa && p.empresa !== '—') {
+    const { data } = await supabase.from('documentos').select('*').ilike('empresa', p.empresa).order('created_at')
     docsDialogDocs.value = data || []
   }
   docsDialogLoading.value = false
@@ -6634,6 +6702,7 @@ function abrirNovaConstituicao() {
 function abrirNovaBaixa() {
   localStorage.removeItem('wms_baixa')
   regAbertoSessao2.value = null
+  ultimoRelatorio.value  = null
   docsAnexadosBaixa.value    = {}
   docsArquivamentoBaixa.value = {}
   ctrlSessao1.value = null
@@ -6755,12 +6824,17 @@ onMounted(async () => {
   window.addEventListener('beforeunload', _flushEtapasBaixa)
 
   // Restaura etapas da Baixa do Supabase se houver sessão salva
-  if (regAbertoSessao2.value) {
-    const regBaixa = registros.value.find(r => String(r.id) === String(regAbertoSessao2.value))
-    if (regBaixa?.etapas?.some(e => e.status || e.valor || e.obs)) {
-      etapasBaixa.value = hidratarEtapasBaixa(regBaixa.etapas)
-      localStorage.setItem('wms_baixa', JSON.stringify(regBaixa.etapas))
+  if (ctrlSessao2.value === 'Baixa') {
+    const pid = await _ensureProcessoBaixa()
+    if (pid) {
+      const regBaixa = registros.value.find(r => String(r.id) === String(pid))
+      if (regBaixa?.etapas?.some(e => e.status || e.valor || e.obs)) {
+        etapasBaixa.value = hidratarEtapasBaixa(regBaixa.etapas)
+        localStorage.setItem('wms_baixa', JSON.stringify(regBaixa.etapas))
+      }
+      carregarDocsBaixa(pid)
     }
+  } else if (regAbertoSessao2.value) {
     carregarDocsBaixa(regAbertoSessao2.value)
   }
 })
