@@ -3372,11 +3372,8 @@ function toggleCheckItemBaixa(etapa, item) {
   salvarEtapasBaixa()
 }
 
-const etapasBaixaConcluidas = computed(() => etapasBaixa.value.filter(e => e.status === 'concluida').length)
-const progressoBaixa = computed(() => {
-  const total = etapasBaixa.value.length
-  return total ? Math.round((etapasBaixaConcluidas.value / total) * 100) : 0
-})
+const etapasBaixaConcluidas = computed(() => contarEtapasResolvidas(etapasBaixa.value))
+const progressoBaixa = computed(() => calcularProgressoEtapas(etapasBaixa.value))
 
 // Anexos da Baixa
 const docsAnexadosBaixa    = ref({})
@@ -4310,23 +4307,33 @@ function exportarExcel() {
   XLSX.writeFile(wb, `Relatorio_${mesLabel}_${rlAno.value}.xlsx`)
 }
 
+// Etapa tratada = concluída ou marcada como não concluída (não aplicável ao processo)
+function etapaResolvida(e) {
+  return e.status === 'concluida' || e.status === 'nao_concluida'
+}
+function contarEtapasResolvidas(lista) {
+  return lista.filter(etapaResolvida).length
+}
+function calcularProgressoEtapas(lista, totalOverride) {
+  const total = totalOverride ?? lista.length
+  if (!total) return 0
+  return Math.round((contarEtapasResolvidas(lista) / total) * 100)
+}
+
 // Progresso real do registro — mesma fonte/prioridade que continuarProcesso usa
 // (localStorage > reg.etapas). Garante que o badge na lista bata com a guia aberta,
 // em vez de depender do snapshot congelado do histórico (h.pct).
 function progressoDoRegistro(r) {
   // Processo aberto: usa o estado vivo das etapas em edição
   if (r.id === regAberto.value) {
-    const total = etapas.value.length
-    const ok    = etapas.value.filter(e => e.status === 'concluida').length
-    return total ? Math.round((ok / total) * 100) : 0
+    return calcularProgressoEtapas(etapas.value)
   }
   let ets = null
   const local = JSON.parse(localStorage.getItem(`wms_etapas_${r.id}`) || 'null')
   if (local && local.some(e => e.status || e.valor || e.obs)) ets = local
   else if (r.etapas && r.etapas.length) ets = r.etapas
   if (!ets) return null
-  const ok = ets.filter(e => e.status === 'concluida').length
-  return Math.round((ok / etapasPadrao.length) * 100)
+  return calcularProgressoEtapas(ets, etapasPadrao.length)
 }
 
 function historicoRecentePorProcessoId() {
@@ -4769,8 +4776,8 @@ function setStatusItemConst(etapa, item, status) {
   salvarEtapas()
 }
 
-const etapasConcluidas = computed(() => etapas.value.filter(e => e.status === 'concluida').length)
-const progressoEtapas  = computed(() => Math.round((etapasConcluidas.value / etapas.value.length) * 100))
+const etapasConcluidas = computed(() => contarEtapasResolvidas(etapas.value))
+const progressoEtapas  = computed(() => calcularProgressoEtapas(etapas.value))
 const dialogConfig = ref(false)
 const configAPI = ref({
   provider: 'zapi',
@@ -4895,9 +4902,7 @@ const dbProcessos = computed(() => {
       const h = latestByProcesso[r.id]
       let pct = h?.pct ?? 0
       if (!h && r.id === regAberto.value) {
-        const total = etapas.value.length
-        const ok    = etapas.value.filter(e => e.status === 'concluida').length
-        pct = total ? Math.round((ok / total) * 100) : 0
+        pct = calcularProgressoEtapas(etapas.value)
       }
       const nome = r.razaoSocial
         || r.empresa?.find?.(d => d.label === 'Razão social')?.valor
@@ -6237,7 +6242,7 @@ async function salvarHistorico(empresa, protocolo, localizacao, { processoId, pc
   }
 
   if (regAberto.value) {
-    const proxPasso = etapas.value.find(e => e.status !== 'concluida' && e.titulo)?.titulo || ''
+    const proxPasso = etapas.value.find(e => !etapaResolvida(e) && e.titulo)?.titulo || ''
     await supabase.from('processos').update({ proximo_passo: proxPasso }).eq('id', regAberto.value)
 
     // Se atingiu 100%, marca o processo como concluído no banco
