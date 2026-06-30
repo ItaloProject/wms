@@ -2526,7 +2526,19 @@
 
     <!-- Dialog: Documentos do processo -->
     <q-dialog v-model="dialogDocs">
-      <div class="docs-dialog">
+      <div
+        class="docs-dialog"
+        :class="{ 'docs-dialog--dragover': docsDialogDragOver }"
+        @dragover="onDialogDragOver"
+        @dragleave="onDialogDragLeave"
+        @drop="onDialogDrop"
+      >
+        <!-- Overlay de drag -->
+        <div v-if="docsDialogDragOver" class="docs-drop-overlay">
+          <q-icon name="cloud_upload" size="48px" />
+          <span>Solte para anexar</span>
+        </div>
+
         <div class="docs-dialog-header">
           <q-icon name="folder_open" size="22px" style="color:#5ab82e" />
           <div class="docs-dialog-titulo">
@@ -2536,8 +2548,28 @@
               <template v-else>{{ docsDialogTotal }} documento{{ docsDialogTotal !== 1 ? 's' : '' }} anexado{{ docsDialogTotal !== 1 ? 's' : '' }}</template>
             </div>
           </div>
-          <q-btn flat round dense icon="close" style="margin-left:auto;color:#aaa" @click="dialogDocs = false" />
+          <button
+            v-if="docsDialogProcessoId"
+            class="docs-btn-importar"
+            :disabled="docsDialogUploading"
+            @click="docsDialogInputRef?.click()"
+            title="Importar documentos"
+          >
+            <q-spinner v-if="docsDialogUploading" size="14px" />
+            <q-icon v-else name="upload_file" size="16px" />
+            {{ docsDialogUploading ? 'Enviando...' : 'Importar' }}
+          </button>
+          <q-btn flat round dense icon="close" style="color:#aaa" @click="dialogDocs = false" />
         </div>
+
+        <input
+          ref="docsDialogInputRef"
+          type="file"
+          multiple
+          accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,.xlsx"
+          style="display:none"
+          @change="importarNoDialog($event.target.files); $event.target.value = ''"
+        />
 
         <div v-if="docsDialogLoading" class="docs-empty">
           <q-spinner size="32px" color="green-4" />
@@ -2549,43 +2581,82 @@
           <p>Processo não vinculado a um registro de prazos.</p>
         </div>
 
-        <div v-else-if="docsDialogTotal === 0" class="docs-empty">
-          <q-icon name="folder_off" size="40px" style="color:rgba(255,255,255,0.15)" />
-          <p>Nenhum documento foi anexado a este processo.</p>
-        </div>
+        <template v-else>
+          <div v-if="docsDialogTotal === 0" class="docs-empty" style="padding: 24px 0 8px">
+            <q-icon name="folder_off" size="40px" style="color:rgba(255,255,255,0.15)" />
+            <p>Nenhum documento foi anexado a este processo.</p>
+          </div>
 
-        <div v-else class="docs-cats">
-          <template v-for="cat in categoriasDocs" :key="cat.key">
-            <div v-if="docsDialogLista[cat.key] && docsDialogLista[cat.key].length" class="docs-cat">
-              <div class="docs-cat-label">{{ cat.label }}</div>
-              <div class="docs-cat-files">
-                <div v-for="arq in docsDialogLista[cat.key]" :key="arq.id" class="docs-file">
-                  <q-icon :name="arq.tipo?.startsWith('image/') ? 'image' : arq.tipo === 'application/pdf' ? 'picture_as_pdf' : 'insert_drive_file'" size="20px" class="docs-file-icon" />
-                  <div class="docs-file-info">
-                    <div class="docs-file-nome">{{ arq.nome }}</div>
-                    <div class="docs-file-meta">
-                      <span>{{ formatarTamanho(arq.tamanho) }}</span>
-                      <span v-if="formatarDataUpload(arq.created_at)" class="docs-file-data">
-                        · Enviado em {{ formatarDataUpload(arq.created_at) }}
-                      </span>
+          <div v-else class="docs-cats">
+            <template v-for="cat in categoriasDocs" :key="cat.key">
+              <div v-if="docsDialogLista[cat.key] && docsDialogLista[cat.key].length" class="docs-cat">
+                <div class="docs-cat-label">{{ cat.label }}</div>
+                <div class="docs-cat-files">
+                  <div v-for="arq in docsDialogLista[cat.key]" :key="arq.id" class="docs-file">
+                    <q-icon :name="arq.tipo?.startsWith('image/') ? 'image' : arq.tipo === 'application/pdf' ? 'picture_as_pdf' : 'insert_drive_file'" size="20px" class="docs-file-icon" />
+                    <div class="docs-file-info">
+                      <div class="docs-file-nome">{{ arq.nome }}</div>
+                      <div class="docs-file-meta">
+                        <span>{{ formatarTamanho(arq.tamanho) }}</span>
+                        <span v-if="formatarDataUpload(arq.created_at)" class="docs-file-data">
+                          · Enviado em {{ formatarDataUpload(arq.created_at) }}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  <div class="docs-file-acoes">
-                    <button class="docs-btn-ver" @click="verDoc(arq)" title="Visualizar">
-                      <q-icon name="visibility" size="15px" />
-                    </button>
-                    <button class="docs-btn-baixar" @click="baixarDoc(arq)" title="Baixar">
-                      <q-icon name="download" size="15px" />
-                    </button>
-                    <button class="docs-btn-del" @click="removerDocDialog(arq)" title="Excluir">
-                      <q-icon name="delete_outline" size="15px" />
-                    </button>
+                    <div class="docs-file-acoes">
+                      <button class="docs-btn-ver" @click="verDoc(arq)" title="Visualizar">
+                        <q-icon name="visibility" size="15px" />
+                      </button>
+                      <button class="docs-btn-baixar" @click="baixarDoc(arq)" title="Baixar">
+                        <q-icon name="download" size="15px" />
+                      </button>
+                      <button class="docs-btn-del" @click="removerDocDialog(arq)" title="Excluir">
+                        <q-icon name="delete_outline" size="15px" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </template>
-        </div>
+            </template>
+            <!-- Categorias que não estão em categoriasDocs (Baixa, Arquivamento) -->
+            <template v-for="(arqs, cat) in docsDialogLista" :key="'extra_' + cat">
+              <div v-if="!categoriasDocs.find(c => c.key === cat) && arqs.length" class="docs-cat">
+                <div class="docs-cat-label">{{ cat }}</div>
+                <div class="docs-cat-files">
+                  <div v-for="arq in arqs" :key="arq.id" class="docs-file">
+                    <q-icon :name="arq.tipo?.startsWith('image/') ? 'image' : arq.tipo === 'application/pdf' ? 'picture_as_pdf' : 'insert_drive_file'" size="20px" class="docs-file-icon" />
+                    <div class="docs-file-info">
+                      <div class="docs-file-nome">{{ arq.nome }}</div>
+                      <div class="docs-file-meta">
+                        <span>{{ formatarTamanho(arq.tamanho) }}</span>
+                        <span v-if="formatarDataUpload(arq.created_at)" class="docs-file-data">
+                          · Enviado em {{ formatarDataUpload(arq.created_at) }}
+                        </span>
+                      </div>
+                    </div>
+                    <div class="docs-file-acoes">
+                      <button class="docs-btn-ver" @click="verDoc(arq)" title="Visualizar">
+                        <q-icon name="visibility" size="15px" />
+                      </button>
+                      <button class="docs-btn-baixar" @click="baixarDoc(arq)" title="Baixar">
+                        <q-icon name="download" size="15px" />
+                      </button>
+                      <button class="docs-btn-del" @click="removerDocDialog(arq)" title="Excluir">
+                        <q-icon name="delete_outline" size="15px" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <!-- Zona de drop permanente -->
+          <div class="docs-dropzone" @click="docsDialogInputRef?.click()">
+            <q-icon name="cloud_upload" size="20px" style="color:rgba(255,255,255,0.25)" />
+            <span>Arraste arquivos aqui ou <u>clique para selecionar</u></span>
+          </div>
+        </template>
       </div>
     </q-dialog>
 
@@ -6004,6 +6075,9 @@ function iniciarVerificadorEmails() {
 const docsDialogProcessoId = ref(null)
 const docsDialogDocs       = ref([])
 const docsDialogLoading    = ref(false)
+const docsDialogUploading  = ref(false)
+const docsDialogDragOver   = ref(false)
+const docsDialogInputRef   = ref(null)
 
 const docsDialogLista = computed(() => {
   const grouped = {}
@@ -6027,6 +6101,40 @@ async function abrirDialogDocs(p, e) {
     docsDialogDocs.value = data || []
   }
   docsDialogLoading.value = false
+}
+
+async function importarNoDialog(files) {
+  if (!docsDialogProcessoId.value || !files?.length) return
+  docsDialogUploading.value = true
+  for (const file of Array.from(files)) {
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const key = `processos/${docsDialogProcessoId.value}/outros/${Date.now()}_${safeName}`
+    try {
+      await r2Upload(key, file)
+      const { data, error } = await supabase.from('documentos').insert({
+        processo_id: docsDialogProcessoId.value,
+        empresa: docsDialogEmpresa.value || '',
+        categoria: 'outros', categoria_label: 'OUTROS',
+        nome: file.name, tamanho: file.size,
+        tipo: file.type || 'application/octet-stream', r2_key: key,
+      }).select().single()
+      if (error) throw error
+      docsDialogDocs.value.push(data)
+    } catch (err) {
+      $q.notify({ icon: 'error', color: 'negative', message: `Erro ao enviar ${file.name}: ${err.message}`, position: 'top', timeout: 5000 })
+    }
+  }
+  docsDialogUploading.value = false
+}
+
+function onDialogDrop(e) {
+  e.preventDefault()
+  docsDialogDragOver.value = false
+  importarNoDialog(e.dataTransfer?.files)
+}
+function onDialogDragOver(e) { e.preventDefault(); docsDialogDragOver.value = true }
+function onDialogDragLeave(e) {
+  if (!e.currentTarget.contains(e.relatedTarget)) docsDialogDragOver.value = false
 }
 
 async function removerDocDialog(arq) {
@@ -9321,6 +9429,32 @@ const alerts = [
 .docs-btn-ver:hover { background: rgba(99,179,237,0.15); border-color: rgba(99,179,237,0.3); color: #63b3ed; }
 .docs-btn-baixar:hover { background: rgba(90,184,46,0.15); border-color: rgba(90,184,46,0.3); color: #5ab82e; }
 .docs-btn-del:hover { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.3); color: #ef4444; }
+
+.docs-btn-importar {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: 8px; font-size: 0.78rem; font-weight: 600;
+  background: rgba(90,184,46,0.15); border: 1px solid rgba(90,184,46,0.3);
+  color: #5ab82e; cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.docs-btn-importar:hover:not(:disabled) { background: rgba(90,184,46,0.25); border-color: rgba(90,184,46,0.5); }
+.docs-btn-importar:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.docs-dialog { position: relative; }
+.docs-dialog--dragover { outline: 2px dashed rgba(90,184,46,0.6); outline-offset: -3px; }
+.docs-drop-overlay {
+  position: absolute; inset: 0; z-index: 10; border-radius: 16px;
+  background: rgba(90,184,46,0.1); backdrop-filter: blur(2px);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; color: #5ab82e; font-size: 1.1rem; font-weight: 700;
+  pointer-events: none;
+}
+.docs-dropzone {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  margin-top: 14px; padding: 12px; border-radius: 10px; cursor: pointer;
+  border: 1.5px dashed rgba(255,255,255,0.1); color: rgba(255,255,255,0.3);
+  font-size: 0.78rem; transition: all 0.15s;
+}
+.docs-dropzone:hover { border-color: rgba(90,184,46,0.4); color: rgba(90,184,46,0.7); background: rgba(90,184,46,0.05); }
 
 .cons-card-left { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
 .cons-status-dot {
