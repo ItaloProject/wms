@@ -4101,12 +4101,32 @@ const rlGrupos = computed(() => {
   // SUSPENSOS — placeholder (sem campo de status suspenso ainda)
   const suspensos = []
 
+  // Agrupa entradas com o mesmo nome de empresa dentro de cada categoria,
+  // concatenando os protocolos e usando a data mais recente.
+  const agruparPorEmpresa = (items) => {
+    const mapa = new Map()
+    for (const item of items) {
+      const chave = (item.empresa || '').trim().toUpperCase()
+      if (!mapa.has(chave)) {
+        mapa.set(chave, { ...item, _prots: [], _datas: [] })
+      }
+      const ex = mapa.get(chave)
+      if (item.protocolo && item.protocolo !== '—') ex._prots.push(item.protocolo)
+      if (item.dataStr) ex._datas.push(item.dataStr)
+    }
+    return Array.from(mapa.values()).map(({ _prots, _datas, ...item }) => ({
+      ...item,
+      protocolo: _prots.length ? _prots.join(' / ') : '—',
+      dataStr:   _datas.length ? _datas[_datas.length - 1] : item.dataStr,
+    }))
+  }
+
   return [
-    { key: 'conc', abbr: 'CONC', label: 'Concluídos',     cor: '#22c55e', corBg: 'rgba(34,197,94,0.12)',   items: conc },
-    { key: 'and',  abbr: 'AND',  label: 'Em Andamento',   cor: '#3b82f6', corBg: 'rgba(59,130,246,0.12)',  items: and  },
-    { key: 'pen',  abbr: 'PEN',  label: 'Pendentes',       cor: '#f59e0b', corBg: 'rgba(245,158,11,0.12)', items: pen  },
-    { key: 'nao',  abbr: 'N/I',  label: 'Não Iniciados',   cor: '#94a3b8', corBg: 'rgba(148,163,184,0.1)', items: naoIniciados },
-    { key: 'sus',  abbr: 'SUS',  label: 'Suspensos',       cor: '#ef4444', corBg: 'rgba(239,68,68,0.12)',  items: suspensos },
+    { key: 'conc', abbr: 'CONC', label: 'Concluídos',   cor: '#22c55e', corBg: 'rgba(34,197,94,0.12)',   items: agruparPorEmpresa(conc),         rawCount: conc.length },
+    { key: 'and',  abbr: 'AND',  label: 'Em Andamento', cor: '#3b82f6', corBg: 'rgba(59,130,246,0.12)',  items: agruparPorEmpresa(and),          rawCount: and.length  },
+    { key: 'pen',  abbr: 'PEN',  label: 'Pendentes',    cor: '#f59e0b', corBg: 'rgba(245,158,11,0.12)', items: agruparPorEmpresa(pen),          rawCount: pen.length  },
+    { key: 'nao',  abbr: 'N/I',  label: 'Não Iniciados',cor: '#94a3b8', corBg: 'rgba(148,163,184,0.1)', items: agruparPorEmpresa(naoIniciados), rawCount: naoIniciados.length },
+    { key: 'sus',  abbr: 'SUS',  label: 'Suspensos',    cor: '#ef4444', corBg: 'rgba(239,68,68,0.12)',  items: agruparPorEmpresa(suspensos),    rawCount: 0 },
   ]
 })
 
