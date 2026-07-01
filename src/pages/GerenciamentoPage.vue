@@ -5665,13 +5665,15 @@ function nomeProcesso(reg) {
 
 function nomeHistorico(h) {
   if (!h) return ''
-  const emp = (h.empresa || '').trim()
-  if (emp && emp !== '—') return emp
+  // Prefere o nome atual do processo (pode ter sido corrigido após o save)
   if (h.processoId != null) {
     const reg = registros.value.find(r => String(r.id) === String(h.processoId))
-    return nomeProcesso(reg)
+    const nomeAtual = nomeProcesso(reg)
+    if (nomeAtual) return nomeAtual
   }
-  return ''
+  // Fallback: nome gravado no histórico (processo pode ter sido excluído)
+  const emp = (h.empresa || '').trim()
+  return (emp && emp !== '—') ? emp : ''
 }
 
 function localizacaoHistorico(h) {
