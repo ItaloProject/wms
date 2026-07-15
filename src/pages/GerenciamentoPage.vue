@@ -2472,9 +2472,20 @@
           <div class="email-field">
             <label class="email-label">Para</label>
             <div class="email-destinatarios">
-              <span v-for="d in EMAIL_DESTINATARIOS" :key="d.email" class="email-dest-chip" :title="d.email">
-                {{ d.nome }}
+              <span v-for="(d, i) in emailDestinatarios" :key="d.email" class="email-dest-chip" :title="d.email">
+                {{ d.nome || d.email }}
+                <button class="email-dest-del" @click="removerDestinatario(i)" title="Remover">
+                  <q-icon name="close" size="11px" />
+                </button>
               </span>
+              <input
+                v-model="emailNovoDest"
+                class="email-dest-input"
+                type="email"
+                placeholder="Adicionar e-mail…"
+                @keyup.enter="adicionarDestinatario"
+                @blur="adicionarDestinatario"
+              />
             </div>
           </div>
           <div class="email-field">
@@ -5980,6 +5991,26 @@ const EMAIL_DESTINATARIOS = [
   { nome: 'WMS CONSULTORIA CONTABIL - CONTABIL',email: 'contabil@wmsconsultoria.com.br' },
   { nome: 'WMS CONSULTORIA CONTABIL - DP',      email: 'pessoal@wmsconsultoria.com.br'  },
 ]
+const emailDestinatarios = ref([])
+const emailNovoDest      = ref('')
+
+function adicionarDestinatario() {
+  const e = emailNovoDest.value.trim().replace(/[;,]+$/, '')
+  if (!e) return
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) {
+    $q.notify({ type: 'warning', message: 'E-mail inválido.', position: 'top', timeout: 2500 })
+    return
+  }
+  if (!emailDestinatarios.value.some(d => d.email.toLowerCase() === e.toLowerCase())) {
+    emailDestinatarios.value.push({ nome: '', email: e })
+  }
+  emailNovoDest.value = ''
+}
+
+function removerDestinatario(i) {
+  emailDestinatarios.value.splice(i, 1)
+}
+
 const dialogResumoProcesso = ref(false)
 const resumoProcessoReg    = ref(null)
 const editandoResumo       = ref(false)
@@ -6112,6 +6143,8 @@ function abrirDialogEmail(p) {
   emailDialogProcessoId.value = pid
   emailModo.value    = 'agora'
   emailPara.value    = ''
+  emailDestinatarios.value = EMAIL_DESTINATARIOS.map(d => ({ ...d }))
+  emailNovoDest.value = ''
   emailAssunto.value = [tipoProcesso, nomeEmpresa, cnpj].filter(Boolean).join(' - ')
   emailMensagem.value = ''
   emailData.value    = emailHoje.value
@@ -6147,7 +6180,11 @@ async function confirmarEmail() {
     return
   }
 
-  const toList = EMAIL_DESTINATARIOS.map(d => `"${d.nome}" <${d.email}>`)
+  if (!emailDestinatarios.value.length) {
+    $q.notify({ type: 'warning', message: 'Adicione ao menos um destinatário.', position: 'top' })
+    return
+  }
+  const toList = emailDestinatarios.value.map(d => d.nome ? `"${d.nome}" <${d.email}>` : d.email)
 
   if (emailModo.value === 'agora') {
     emailEnviando.value = true
@@ -9505,7 +9542,22 @@ const alerts = [
   background: rgba(96,165,250,0.1); border: 1px solid rgba(96,165,250,0.2);
   border-radius: 20px; padding: 2px 8px;
   white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 4px;
 }
+.email-dest-del {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: none; border: none; cursor: pointer; padding: 0;
+  color: rgba(255,255,255,0.45); border-radius: 50%;
+  transition: color 0.15s;
+}
+.email-dest-del:hover { color: #f87171; }
+.email-dest-input {
+  flex: 1; min-width: 140px;
+  background: none; border: none; outline: none;
+  color: #fff; font-size: 0.75rem; font-family: inherit;
+  padding: 2px 4px;
+}
+.email-dest-input::placeholder { color: rgba(255,255,255,0.3); }
 .email-input {
   background: rgba(255,255,255,0.05); border: 1.5px solid rgba(255,255,255,0.1);
   border-radius: 9px; padding: 9px 12px; color: #fff; font-size: 0.85rem;
