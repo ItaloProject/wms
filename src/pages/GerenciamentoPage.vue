@@ -6130,10 +6130,29 @@ async function confirmarEmail() {
   if (emailModo.value === 'agora') {
     emailEnviando.value = true
     try {
+      // Buscar documentos do processo e converter para base64
+      const attachments = []
+      if (emailDialogProcessoId.value) {
+        const { data: docs } = await supabase
+          .from('documentos')
+          .select('*')
+          .eq('processo_id', emailDialogProcessoId.value)
+          .neq('categoria', 'relatorio')
+          .order('created_at')
+        for (const doc of (docs || [])) {
+          if (!doc.r2_key) continue
+          try {
+            const url = await r2ViewUrl(doc.r2_key)
+            const blob = await fetch(url).then(r => r.blob())
+            const base64 = await blobParaBase64(blob)
+            attachments.push({ filename: doc.nome, content: base64 })
+          } catch {}
+        }
+      }
       const res = await fetch('/api/enviar-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: toList, subject: emailAssunto.value.trim(), text: emailMensagem.value.trim() }),
+        body: JSON.stringify({ to: toList, subject: emailAssunto.value.trim(), text: emailMensagem.value.trim(), attachments }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erro ao enviar')
