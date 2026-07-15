@@ -6134,7 +6134,7 @@ function temEmailAgendado(p) {
 }
 
 function abrirDialogEmail(p) {
-  const pid = p.processoId || p.id || null
+  const pid = resolverProcessoIdConsultar(p)
   const reg = pid ? registros.value.find(r => r.id === pid) : null
   const tipoProcesso = reg?.etapas?.find(e => e.key === 'processo')?.valor || ''
   const cnpj         = reg?.empresa?.find(e => e.label === 'CNPJ')?.valor || ''
@@ -6152,17 +6152,19 @@ function abrirDialogEmail(p) {
   dialogEmail.value  = true
 }
 
-// Busca os documentos do processo no Supabase/R2 e converte para base64 (formato da API de e-mail)
-async function anexosEmailDoProcesso(processoId) {
-  if (!processoId) return []
+// Busca os documentos do processo no Supabase/R2 e converte para base64 (formato da API de e-mail).
+// Mesma consulta do dialog Documentos: todos os docs do processo, com fallback por empresa.
+async function anexosEmailDoProcesso(processoId, empresa) {
+  let docs = []
+  if (processoId) {
+    const { data } = await supabase.from('documentos').select('*').eq('processo_id', processoId).order('created_at')
+    docs = data || []
+  } else if (empresa && empresa !== '—') {
+    const { data } = await supabase.from('documentos').select('*').ilike('empresa', empresa).order('created_at')
+    docs = data || []
+  }
   const attachments = []
-  const { data: docs } = await supabase
-    .from('documentos')
-    .select('*')
-    .eq('processo_id', processoId)
-    .neq('categoria', 'relatorio')
-    .order('created_at')
-  for (const doc of (docs || [])) {
+  for (const doc of docs) {
     if (!doc.r2_key) continue
     try {
       const url = await r2ViewUrl(doc.r2_key)
@@ -6189,7 +6191,7 @@ async function confirmarEmail() {
   if (emailModo.value === 'agora') {
     emailEnviando.value = true
     try {
-      const attachments = await anexosEmailDoProcesso(emailDialogProcessoId.value)
+      const attachments = await anexosEmailDoProcesso(emailDialogProcessoId.value, emailDialogEmpresa.value)
       const res = await fetch('/api/enviar-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -6217,6 +6219,7 @@ async function confirmarEmail() {
     const ag = {
       id: Date.now().toString(),
       processoId: emailDialogProcessoId.value,
+      empresa: emailDialogEmpresa.value,
       para: toList.join(', '),
       assunto: emailAssunto.value.trim(),
       mensagem: emailMensagem.value.trim(),
@@ -6244,7 +6247,7 @@ function iniciarVerificadorEmails() {
     if (!pendentes.length) return
     for (const ag of pendentes) {
       try {
-        const attachments = await anexosEmailDoProcesso(ag.processoId)
+        const attachments = await anexosEmailDoProcesso(ag.processoId, ag.empresa)
         await fetch('/api/enviar-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
