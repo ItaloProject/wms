@@ -830,7 +830,7 @@
                     <q-icon name="sticky_note_2" size="15px" style="color:#f59e0b" />
                     <span class="notas-fixas-titulo">Anotações</span>
                     <button
-                      v-if="notasExpandido && notasTexto"
+                      v-if="notasExpandido && notasTexto.trim()"
                       class="notas-fixas-btn notas-fixas-btn--lixo"
                       title="Apagar anotações"
                       @click.stop="confirmarApagarNotas"
@@ -840,10 +840,12 @@
                     <q-icon :name="notasExpandido ? 'expand_more' : 'expand_less'" size="15px" style="color:rgba(255,255,255,0.4);margin-left:2px" />
                   </div>
                   <div v-if="notasExpandido" class="notas-fixas-body">
+                    <pre class="notas-fixas-fixa">{{ NOTAS_FIXAS_TEXTO }}</pre>
+                    <div class="notas-fixas-separador" />
                     <textarea
                       v-model="notasTexto"
                       class="notas-fixas-textarea"
-                      placeholder="Digite suas anotações aqui..."
+                      placeholder="Anotações adicionais do processo..."
                       @input="salvarNotas"
                     />
                   </div>
@@ -3031,6 +3033,18 @@ const isAdmin          = computed(() => currentUser.value?.user_metadata?.admin 
 const copiado = ref('')
 
 // ── Painel de anotações fixo ─────────────────────────────────────────────────
+const NOTAS_FIXAS_TEXTO = `WMS CONSULTORIA CONTÁBIL LTDA
+CNPJ: 32197702000101
+CRC: MA-001359/O-7
+DATA DE EXPEDIÇÃO: 26/05/2023
+
+WERBTH MAYKON SALAZAR
+CPF: 00893621366
+CRC: 013726/O-3
+DATA DE EXPEDIÇÃO: 22/01/2016
+
+ENDEREÇO PF/PJ: Avenida Daniel de La Touche, Nº 987, Cond: Res. da Ilha, Torre Comercial: 02, Andar 7, Sala: 701, Bairro: Maranhão Novo, São Luís/MA, CEP: 65.061-021.`
+
 const notasTexto     = ref('')
 const notasExpandido = ref(false)
 const notasCopiado   = ref(false)
@@ -9116,6 +9130,25 @@ const alerts = [
 }
 .notas-fixas-textarea:focus { border-color: rgba(245,158,11,0.5); }
 .notas-fixas-textarea::placeholder { color: rgba(255,255,255,0.25); }
+.notas-fixas-fixa {
+  margin: 0 0 0 0;
+  padding: 8px 10px;
+  font-size: 0.78rem;
+  font-family: inherit;
+  line-height: 1.55;
+  color: #cbd5e1;
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+  pointer-events: none;
+  flex-shrink: 0;
+}
+.notas-fixas-separador {
+  height: 1px;
+  background: rgba(245,158,11,0.2);
+  margin: 0 10px 6px;
+  flex-shrink: 0;
+}
 .notas-fixas-btn {
   background: none; border: none; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
