@@ -3027,12 +3027,30 @@ const isAdmin          = computed(() => currentUser.value?.user_metadata?.admin 
 const copiado = ref('')
 
 // ── Painel de anotações fixo ─────────────────────────────────────────────────
-const notasTexto     = ref(localStorage.getItem('wms_notas_fixas') || '')
+const notasTexto     = ref('')
 const notasExpandido = ref(false)
 const notasCopiado   = ref(false)
+let   _notasTimer    = null
+
+async function carregarNotas(processoId) {
+  if (!processoId) { notasTexto.value = ''; return }
+  const { data } = await supabase
+    .from('notas')
+    .select('texto')
+    .eq('processo_id', processoId)
+    .single()
+  notasTexto.value = data?.texto || ''
+}
 
 function salvarNotas() {
-  localStorage.setItem('wms_notas_fixas', notasTexto.value)
+  clearTimeout(_notasTimer)
+  _notasTimer = setTimeout(async () => {
+    if (!regAberto.value) return
+    await supabase.from('notas').upsert(
+      { processo_id: regAberto.value, texto: notasTexto.value, updated_at: new Date().toISOString() },
+      { onConflict: 'processo_id' }
+    )
+  }, 800)
 }
 
 function copiarNotas() {
@@ -3042,6 +3060,8 @@ function copiarNotas() {
     setTimeout(() => { notasCopiado.value = false }, 2000)
   })
 }
+
+watch(regAberto, (id) => carregarNotas(id), { immediate: true })
 function copiarInfo(key) {
   const valor = etapaValor(key)
   if (!valor) return
