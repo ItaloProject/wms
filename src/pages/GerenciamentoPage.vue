@@ -2268,9 +2268,9 @@
             <input
               :value="campo.valor"
               class="compl-input"
-              style="text-transform:uppercase"
+              :style="!campo.label.toLowerCase().includes('senha') ? 'text-transform:uppercase' : ''"
               :placeholder="`Digite ${campo.label.toLowerCase()}…`"
-              @input="campo.valor = $event.target.value.toUpperCase(); $event.target.value = campo.valor"
+              @input="campo.valor = campo.label.toLowerCase().includes('senha') ? $event.target.value : $event.target.value.toUpperCase(); $event.target.value = campo.valor"
             />
           </div>
         </div>
@@ -2399,8 +2399,8 @@
                 <input
                   v-model="d.valor"
                   class="resumo-proc-edit-input"
-                  :style="!d.label.toLowerCase().includes('e-mail') ? 'text-transform:uppercase' : ''"
-                  @input="!d.label.toLowerCase().includes('e-mail') && (d.valor = $event.target.value.toUpperCase())"
+                  :style="!d.label.toLowerCase().includes('e-mail') && !d.label.toLowerCase().includes('senha') ? 'text-transform:uppercase' : ''"
+                  @input="!d.label.toLowerCase().includes('e-mail') && !d.label.toLowerCase().includes('senha') && (d.valor = $event.target.value.toUpperCase())"
                 />
               </div>
             </div>
@@ -2414,8 +2414,8 @@
                 <input
                   v-model="d.valor"
                   class="resumo-proc-edit-input"
-                  :style="!d.label.toLowerCase().includes('e-mail') ? 'text-transform:uppercase' : ''"
-                  @input="!d.label.toLowerCase().includes('e-mail') && (d.valor = $event.target.value.toUpperCase())"
+                  :style="!d.label.toLowerCase().includes('e-mail') && !d.label.toLowerCase().includes('senha') ? 'text-transform:uppercase' : ''"
+                  @input="!d.label.toLowerCase().includes('e-mail') && !d.label.toLowerCase().includes('senha') && (d.valor = $event.target.value.toUpperCase())"
                 />
               </div>
             </div>
@@ -5148,7 +5148,7 @@ function inputmodeCampo(doc) {
 }
 
 function onInputDoc(doc, event) {
-  const raw = doc.tipo !== 'email' ? event.target.value.toUpperCase() : event.target.value
+  const raw = (doc.tipo !== 'email' && doc.tipo !== 'senha') ? event.target.value.toUpperCase() : event.target.value
   const masked = doc.tipo === 'textarea' ? raw : mascarar(raw, doc.tipo)
   doc.valor = masked
   if (event.target.value !== masked) event.target.value = masked
@@ -8033,7 +8033,7 @@ const alerts = [
   min-width: 0;
 }
 .rp-field-input::placeholder { color: rgba(255,255,255,0.2); }
-.rp-field-input:not([type="email"]) { text-transform: uppercase; }
+.rp-field-input:not([type="email"]):not([type="password"]) { text-transform: uppercase; }
 
 .rp-field-ok  { color: #5ab82e; flex-shrink: 0; }
 .rp-field-err { color: #ef4444; flex-shrink: 0; }
