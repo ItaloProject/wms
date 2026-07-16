@@ -823,6 +823,30 @@
                 </div>
               </div>
 
+              <!-- Painel de anotações fixo -->
+              <Teleport to="body">
+                <div class="notas-fixas" :class="{ 'notas-fixas--expandido': notasExpandido }">
+                  <div class="notas-fixas-header" @click="notasExpandido = !notasExpandido">
+                    <q-icon name="sticky_note_2" size="15px" style="color:#f59e0b" />
+                    <span class="notas-fixas-titulo">Anotações</span>
+                    <div class="notas-fixas-actions" @click.stop>
+                      <button class="notas-fixas-btn" @click="copiarNotas" :title="notasCopiado ? 'Copiado!' : 'Copiar'">
+                        <q-icon :name="notasCopiado ? 'check' : 'content_copy'" size="13px" :style="{ color: notasCopiado ? '#5ab82e' : 'rgba(255,255,255,0.55)' }" />
+                      </button>
+                    </div>
+                    <q-icon :name="notasExpandido ? 'expand_more' : 'expand_less'" size="15px" style="color:rgba(255,255,255,0.4);margin-left:2px" />
+                  </div>
+                  <div v-if="notasExpandido" class="notas-fixas-body">
+                    <textarea
+                      v-model="notasTexto"
+                      class="notas-fixas-textarea"
+                      placeholder="Digite suas anotações aqui..."
+                      @input="salvarNotas"
+                    />
+                  </div>
+                </div>
+              </Teleport>
+
               <!-- Caixa fixa com empresa e protocolo -->
               <Teleport to="body">
                 <div
@@ -3001,6 +3025,23 @@ supabase.auth.onAuthStateChange((_event, session) => {
 const isAdmin          = computed(() => currentUser.value?.user_metadata?.admin === true)
 
 const copiado = ref('')
+
+// ── Painel de anotações fixo ─────────────────────────────────────────────────
+const notasTexto     = ref(localStorage.getItem('wms_notas_fixas') || '')
+const notasExpandido = ref(false)
+const notasCopiado   = ref(false)
+
+function salvarNotas() {
+  localStorage.setItem('wms_notas_fixas', notasTexto.value)
+}
+
+function copiarNotas() {
+  if (!notasTexto.value) return
+  navigator.clipboard.writeText(notasTexto.value).then(() => {
+    notasCopiado.value = true
+    setTimeout(() => { notasCopiado.value = false }, 2000)
+  })
+}
 function copiarInfo(key) {
   const valor = etapaValor(key)
   if (!valor) return
@@ -8949,6 +8990,55 @@ const alerts = [
 }
 
 /* Caixa fixa empresa + protocolo */
+/* ── Painel de anotações fixo ── */
+.notas-fixas {
+  position: fixed;
+  bottom: 130px;
+  right: 24px;
+  z-index: 9998;
+  background: rgba(13, 31, 60, 0.95);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  min-width: 220px;
+  max-width: 320px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+.notas-fixas-header {
+  display: flex; align-items: center; gap: 7px;
+  padding: 10px 14px;
+  cursor: pointer;
+  user-select: none;
+}
+.notas-fixas-titulo {
+  font-size: 0.75rem; font-weight: 700;
+  color: rgba(255,255,255,0.75);
+  flex: 1;
+}
+.notas-fixas-actions { display: flex; gap: 4px; }
+.notas-fixas-btn {
+  background: none; border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  padding: 3px; border-radius: 5px;
+  transition: background 0.15s;
+}
+.notas-fixas-btn:hover { background: rgba(255,255,255,0.08); }
+.notas-fixas-body { padding: 0 10px 10px; }
+.notas-fixas-textarea {
+  width: 100%; box-sizing: border-box;
+  min-height: 120px; max-height: 300px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  color: #e2e8f0; font-size: 0.82rem; font-family: inherit;
+  padding: 8px 10px; resize: vertical; outline: none;
+  line-height: 1.5;
+}
+.notas-fixas-textarea:focus { border-color: rgba(245,158,11,0.5); }
+.notas-fixas-textarea::placeholder { color: rgba(255,255,255,0.25); }
+
 .et-info-fixa {
   position: fixed;
   bottom: 24px;
