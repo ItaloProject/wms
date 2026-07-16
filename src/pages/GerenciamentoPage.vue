@@ -825,15 +825,18 @@
 
               <!-- Painel de anotações fixo -->
               <Teleport to="body">
-                <div class="notas-fixas" :class="{ 'notas-fixas--expandido': notasExpandido }">
-                  <div class="notas-fixas-header" @click="notasExpandido = !notasExpandido">
+                <div class="notas-fixas" :class="{ 'notas-fixas--expandido': notasExpandido }" ref="notasPainelRef">
+                  <div class="notas-fixas-header" @click="toggleNotas">
                     <q-icon name="sticky_note_2" size="15px" style="color:#f59e0b" />
                     <span class="notas-fixas-titulo">Anotações</span>
-                    <div class="notas-fixas-actions" @click.stop>
-                      <button class="notas-fixas-btn" @click="copiarNotas" :title="notasCopiado ? 'Copiado!' : 'Copiar'">
-                        <q-icon :name="notasCopiado ? 'check' : 'content_copy'" size="13px" :style="{ color: notasCopiado ? '#5ab82e' : 'rgba(255,255,255,0.55)' }" />
-                      </button>
-                    </div>
+                    <button
+                      v-if="notasExpandido && notasTexto"
+                      class="notas-fixas-btn notas-fixas-btn--lixo"
+                      title="Apagar anotações"
+                      @click.stop="confirmarApagarNotas"
+                    >
+                      <q-icon name="delete_outline" size="14px" />
+                    </button>
                     <q-icon :name="notasExpandido ? 'expand_more' : 'expand_less'" size="15px" style="color:rgba(255,255,255,0.4);margin-left:2px" />
                   </div>
                   <div v-if="notasExpandido" class="notas-fixas-body">
@@ -844,6 +847,7 @@
                       @input="salvarNotas"
                     />
                   </div>
+                  <div v-if="notasExpandido" class="notas-fixas-resize-handle" @mousedown.prevent="iniciarResizeNotas" />
                 </div>
               </Teleport>
 
@@ -3030,6 +3034,7 @@ const copiado = ref('')
 const notasTexto     = ref('')
 const notasExpandido = ref(false)
 const notasCopiado   = ref(false)
+const notasPainelRef = ref(null)
 let   _notasTimer    = null
 
 async function carregarNotas(processoId) {
@@ -3061,7 +3066,58 @@ function copiarNotas() {
   })
 }
 
-watch(regAberto, (id) => carregarNotas(id), { immediate: true })
+function toggleNotas() {
+  const el = notasPainelRef.value
+  notasExpandido.value = !notasExpandido.value
+  if (!notasExpandido.value && el) {
+    // Ao ocultar, limpa tamanho manual para o header voltar ao tamanho natural
+    el.style.width  = ''
+    el.style.height = ''
+  } else if (notasExpandido.value && el && !el.style.height) {
+    // Ao abrir pela primeira vez sem resize, define tamanho padrão
+    el.style.width  = '340px'
+    el.style.height = '340px'
+  }
+}
+
+function confirmarApagarNotas() {
+  $q.dialog({
+    title: 'Apagar anotações',
+    message: 'Tem certeza que deseja apagar todas as anotações deste processo?',
+    cancel: { label: 'Cancelar', flat: true },
+    ok: { label: 'Apagar', color: 'negative' },
+  }).onOk(async () => {
+    notasTexto.value = ''
+    if (!regAberto.value) return
+    await supabase.from('notas').upsert(
+      { processo_id: regAberto.value, texto: '', updated_at: new Date().toISOString() },
+      { onConflict: 'processo_id' }
+    )
+  })
+}
+
+function iniciarResizeNotas(e) {
+  const el = notasPainelRef.value
+  if (!el) return
+  const startX = e.clientX
+  const startY = e.clientY
+  const startW = el.offsetWidth
+  const startH = el.offsetHeight
+
+  function onMove(ev) {
+    const dx = startX - ev.clientX  // painel ancorado à direita: arrastar à esq. aumenta largura
+    const dy = startY - ev.clientY  // painel ancorado em baixo: arrastar p/ cima aumenta altura
+    el.style.width  = Math.max(220, startW + dx) + 'px'
+    el.style.height = Math.max(100, startH + dy) + 'px'
+  }
+  function onUp() {
+    document.removeEventListener('mousemove', onMove)
+    document.removeEventListener('mouseup', onUp)
+  }
+  document.addEventListener('mousemove', onMove)
+  document.addEventListener('mouseup', onUp)
+}
+
 function copiarInfo(key) {
   const valor = etapaValor(key)
   if (!valor) return
@@ -3157,6 +3213,7 @@ const uploadAndo         = ref(false)
 const docsAnexados       = ref({})
 const outroNomeConstTemp = ref('')   // nome personalizado para documentos da categoria OUTROS
 watch(regAberto, (id) => carregarDocsAnexados(id), { immediate: true })
+watch(regAberto, (id) => carregarNotas(id), { immediate: true })
 
 const totalAnexos = computed(() =>
   Object.values(docsAnexados.value).reduce((acc, arr) => acc + (arr?.length || 0), 0)
@@ -9022,42 +9079,68 @@ const alerts = [
   backdrop-filter: blur(10px);
   box-shadow: 0 8px 32px rgba(0,0,0,0.4);
   min-width: 220px;
-  max-width: 320px;
   overflow: hidden;
-  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .notas-fixas-header {
   display: flex; align-items: center; gap: 7px;
   padding: 10px 14px;
   cursor: pointer;
   user-select: none;
+  flex-shrink: 0;
 }
 .notas-fixas-titulo {
   font-size: 0.75rem; font-weight: 700;
   color: rgba(255,255,255,0.75);
   flex: 1;
 }
-.notas-fixas-actions { display: flex; gap: 4px; }
-.notas-fixas-btn {
-  background: none; border: none; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  padding: 3px; border-radius: 5px;
-  transition: background 0.15s;
+.notas-fixas-body {
+  padding: 0 10px 10px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
-.notas-fixas-btn:hover { background: rgba(255,255,255,0.08); }
-.notas-fixas-body { padding: 0 10px 10px; }
 .notas-fixas-textarea {
   width: 100%; box-sizing: border-box;
-  min-height: 120px; max-height: 300px;
+  flex: 1;
+  min-height: 120px;
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 8px;
   color: #e2e8f0; font-size: 0.82rem; font-family: inherit;
-  padding: 8px 10px; resize: vertical; outline: none;
+  padding: 8px 10px; resize: none; outline: none;
   line-height: 1.5;
 }
 .notas-fixas-textarea:focus { border-color: rgba(245,158,11,0.5); }
 .notas-fixas-textarea::placeholder { color: rgba(255,255,255,0.25); }
+.notas-fixas-btn {
+  background: none; border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  padding: 3px; border-radius: 5px;
+  transition: background 0.15s, color 0.15s;
+  color: rgba(255,255,255,0.4);
+}
+.notas-fixas-btn:hover { background: rgba(255,255,255,0.08); }
+.notas-fixas-btn--lixo:hover { color: #f87171; }
+.notas-fixas-resize-handle {
+  position: absolute;
+  left: 0; bottom: 0;
+  width: 20px; height: 20px;
+  cursor: sw-resize;
+  z-index: 1;
+}
+.notas-fixas-resize-handle::before {
+  content: '';
+  position: absolute;
+  left: 4px; bottom: 4px;
+  width: 10px; height: 10px;
+  border-left: 2px solid rgba(245,158,11,0.4);
+  border-bottom: 2px solid rgba(245,158,11,0.4);
+  border-radius: 0 0 0 3px;
+}
 
 .et-info-fixa {
   position: fixed;
