@@ -235,7 +235,8 @@
                       :value="doc.valor"
                       class="rp-field-input"
                       :placeholder="placeholderCampo(doc)"
-                      :type="doc.tipo === 'email' ? 'email' : doc.tipo === 'senha' ? 'password' : 'text'"
+                      :type="doc.tipo === 'email' ? 'email' : 'text'"
+                      :style="doc.tipo === 'senha' ? 'text-transform:none' : ''"
                       :inputmode="inputmodeCampo(doc)"
                       @input="onInputDoc(doc, $event)"
                     />
@@ -291,7 +292,8 @@
                         :value="doc.valor"
                         class="rp-field-input"
                         :placeholder="placeholderCampo(doc)"
-                        :type="doc.tipo === 'email' ? 'email' : doc.tipo === 'senha' ? 'password' : 'text'"
+                        :type="doc.tipo === 'email' ? 'email' : 'text'"
+                        :style="doc.tipo === 'senha' ? 'text-transform:none' : ''"
                         :inputmode="inputmodeCampo(doc)"
                         @input="onInputSocioCampo(doc, $event)"
                       />
@@ -2808,7 +2810,8 @@
                   :value="doc.valor"
                   class="edit-resumo-input"
                   :placeholder="placeholderCampo(doc)"
-                  :type="doc.tipo === 'email' ? 'email' : doc.tipo === 'senha' ? 'password' : 'text'"
+                  :type="doc.tipo === 'email' ? 'email' : 'text'"
+                  :style="doc.tipo === 'senha' ? 'text-transform:none' : ''"
                   :inputmode="inputmodeCampo(doc)"
                   @input="onInputDoc(doc, $event)"
                 />
@@ -2842,7 +2845,8 @@
                     :value="doc.valor"
                     class="edit-resumo-input"
                     :placeholder="placeholderCampo(doc)"
-                    :type="doc.tipo === 'email' ? 'email' : doc.tipo === 'senha' ? 'password' : 'text'"
+                    :type="doc.tipo === 'email' ? 'email' : 'text'"
+                    :style="doc.tipo === 'senha' ? 'text-transform:none' : ''"
                     :inputmode="inputmodeCampo(doc)"
                     @input="onInputSocioCampo(doc, $event)"
                   />
