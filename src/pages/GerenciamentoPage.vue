@@ -5194,7 +5194,7 @@ const SOCIO_CAMPOS_PADRAO = [
   { label: 'CPF',                         valor: '', tipo: 'cpf'    },
   { label: 'RG ou CNH',                   valor: '', tipo: 'rg'     },
   { label: 'Endereço pessoa física',      valor: '', tipo: 'texto'  },
-  { label: 'Senha do Gov.Br (Nível Ouro)', valor: '', tipo: 'texto'  },
+  { label: 'Senha do Gov.Br (Nível Ouro)', valor: '', tipo: 'senha'  },
   { label: 'Telefone',                    valor: '', tipo: 'telefone'},
   { label: 'E-Mail',                      valor: '', tipo: 'email'  },
 ]
