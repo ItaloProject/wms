@@ -5219,14 +5219,7 @@ const docsEmpresaOk  = computed(() => docsEmpresa.value.filter(d => d.valor).len
 function mascarar(v, tipo) {
   if (!v) return ''
   switch (tipo) {
-    case 'cnpj': {
-      const d = v.replace(/\D/g, '').slice(0, 14)
-      return d
-        .replace(/^(\d{2})(\d)/, '$1.$2')
-        .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
-        .replace(/\.(\d{3})(\d)/, '.$1/$2')
-        .replace(/(\d{4})(\d)/, '$1-$2')
-    }
+    case 'cnpj': return v
     case 'cpf': {
       const d = v.replace(/\D/g, '').slice(0, 11)
       return d
@@ -5259,7 +5252,7 @@ function campoValido(doc) {
   const v = doc.valor
   if (!v) return false
   switch (doc.tipo) {
-    case 'cnpj':     return v.replace(/\D/g, '').length === 14
+    case 'cnpj':     return v.trim().length > 0
     case 'cpf':      return v.replace(/\D/g, '').length === 11
     case 'telefone': return v.replace(/\D/g, '').length >= 10
     case 'email':    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
@@ -5280,7 +5273,7 @@ function placeholderCampo(doc) {
   return PLACEHOLDER_CAMPO[doc.tipo] || 'Digite aqui...'
 }
 function inputmodeCampo(doc) {
-  return ['cnpj','cpf','telefone','numero','moeda','rg'].includes(doc.tipo) ? 'numeric' : 'text'
+  return ['cpf','telefone','numero','moeda','rg'].includes(doc.tipo) ? 'numeric' : 'text'
 }
 
 function onInputDoc(doc, event) {
