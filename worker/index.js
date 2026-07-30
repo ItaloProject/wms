@@ -103,25 +103,33 @@ function montarMensagem(processos, historico, modoCompleto = true) {
     if (h.processo_id && !histMap[h.processo_id]) histMap[h.processo_id] = h
   }
 
+  // Processos aguardando informação do cliente ficam fora das urgências —
+  // não dependem da equipe, então não entram em VENCIDOS/URGENTE/PRIORIZAR.
+  const ativos           = processos.filter(r => !r.aguardando_cliente)
+  const aguardandoCliente = processos.filter(r => r.aguardando_cliente)
+
   // Urgência (presente nos dois turnos)
-  const vencidos  = processos.filter(r => diasRestantes(r) < 0)
-  const urgentes  = processos.filter(r => {
+  const vencidos  = ativos.filter(r => diasRestantes(r) < 0)
+  const urgentes  = ativos.filter(r => {
     const d = diasRestantes(r)
     return (r.prazo || 'normal') === 'urgente' || d === 0
   })
-  const priorizar = processos.filter(r => {
+  const priorizar = ativos.filter(r => {
     const d = diasRestantes(r)
     return d > 0 && d < 999 && (r.prazo || 'normal') !== 'urgente' && (r.prazo === 'priorizar' || d <= 3)
   })
 
   // Só no resumo completo da manhã
   const novosHoje = modoCompleto
-    ? processos.filter(r => r.created_at && new Date(r.created_at) >= hojeUTC)
+    ? ativos.filter(r => r.created_at && new Date(r.created_at) >= hojeUTC)
     : []
 
   const emAndamento = modoCompleto
-    ? processos.filter(r => { const h = histMap[r.id]; return h && h.pct > 0 && h.pct < 100 })
+    ? ativos.filter(r => { const h = histMap[r.id]; return h && h.pct > 0 && h.pct < 100 })
     : []
+
+  // Lista de "aguardando cliente" só no resumo completo da manhã (não é urgência)
+  const aguardandoClienteLista = modoCompleto ? aguardandoCliente : []
 
   const seteAtras = new Date(); seteAtras.setDate(seteAtras.getDate() - 7)
   const recentes = modoCompleto
@@ -133,7 +141,7 @@ function montarMensagem(processos, historico, modoCompleto = true) {
     : []
 
   const temConteudo = novosHoje.length || vencidos.length || urgentes.length ||
-                      priorizar.length || emAndamento.length
+                      priorizar.length || emAndamento.length || aguardandoClienteLista.length
   if (!temConteudo) return null
 
   const turno = modoCompleto ? '☀️ Resumo da manhã' : '🌆 Alerta da tarde'
@@ -176,6 +184,16 @@ function montarMensagem(processos, historico, modoCompleto = true) {
       msg += `• *${r.razao_social || 'Sem nome'}*`
       if (r.data_venc_formatada) msg += ` — vence em ${r.data_venc_formatada}`
       msg += ` (${d} dia${d !== 1 ? 's' : ''})\n`
+    })
+  }
+
+  if (aguardandoClienteLista.length) {
+    msg += `\n🕓 *AGUARDANDO CLIENTE (${aguardandoClienteLista.length})*\n`
+    aguardandoClienteLista.forEach(r => {
+      const d = diasRestantes(r)
+      msg += `• *${r.razao_social || 'Sem nome'}*`
+      if (r.data_venc_formatada) msg += d < 0 ? ` — prazo encerrou em ${r.data_venc_formatada}` : ` — vence em ${r.data_venc_formatada}`
+      msg += '\n'
     })
   }
 

@@ -587,6 +587,13 @@
                       :style="{ color: reg._dias < 0 ? '#fca5a5' : reg._dias <= 3 ? '#fca5a5' : '#fcd34d' }">
                       {{ reg._dias < 0 ? Math.abs(reg._dias) + 'd atraso' : reg._dias === 0 ? 'hoje!' : reg._dias + 'd restantes' }}
                     </div>
+                    <button
+                      class="db-critico-aguarda-btn"
+                      title="Aguardando informação do cliente"
+                      @click.stop="moverParaAguardandoCliente(reg)"
+                    >
+                      <q-icon name="hourglass_bottom" size="14px" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1729,10 +1736,15 @@
                       <q-icon name="folder_open" size="14px" />
                       Documentos
                     </button>
-                    <button class="cons-email-btn" :class="{ 'cons-email-btn--agendado': temEmailAgendado(p) }" @click.stop="abrirDialogEmail(p)" title="Enviar e-mail">
+                    <button
+                      class="cons-email-btn"
+                      :class="{ 'cons-email-btn--enviado': temEmailAgendado(p) || temEmailEnviado(p) }"
+                      @click.stop="abrirDialogEmail(p)"
+                      :title="temEmailEnviado(p) ? 'E-mail já enviado' : temEmailAgendado(p) ? 'E-mail agendado' : 'Enviar e-mail'"
+                    >
                       <q-icon name="email" size="14px" />
                       E-mail
-                      <span v-if="temEmailAgendado(p)" class="cons-email-badge"></span>
+                      <span v-if="temEmailAgendado(p) || temEmailEnviado(p)" class="cons-email-badge"></span>
                     </button>
                     <button
                       v-if="p.tipo === 'constituicao' && p._reg"
@@ -1787,6 +1799,10 @@
             <button :class="['pz-tab', abaPrazos === 'ativos' && 'pz-tab--active']" @click="abaPrazos = 'ativos'">
               <q-icon name="pending_actions" size="15px" /> Ativos
               <span class="pz-tab-count">{{ registrosAtivos.length }}</span>
+            </button>
+            <button :class="['pz-tab', abaPrazos === 'aguardando' && 'pz-tab--active']" @click="abaPrazos = 'aguardando'">
+              <q-icon name="hourglass_bottom" size="15px" /> Aguardando Cliente
+              <span class="pz-tab-count pz-tab-count--azul">{{ registrosAguardandoCliente.length }}</span>
             </button>
             <button :class="['pz-tab', abaPrazos === 'concluidos' && 'pz-tab--active']" @click="abaPrazos = 'concluidos'">
               <q-icon name="check_circle" size="15px" /> Concluídos
@@ -1889,6 +1905,9 @@
                   <button class="pd-btn pd-btn--priorizar" :class="{'pd-active': reg.prazo==='priorizar'}" @click.stop="alterarPrazo(reg.id,'priorizar')" title="Priorizar" />
                   <button class="pd-btn pd-btn--urgente"   :class="{'pd-active': reg.prazo==='urgente'}"   @click.stop="alterarPrazo(reg.id,'urgente')"   title="Urgente" />
                 </div>
+                <button class="prazo-aguarda-btn" title="Aguardando informação do cliente" @click.stop="moverParaAguardandoCliente(reg)">
+                  <q-icon name="hourglass_bottom" size="16px" />
+                </button>
                 <button class="prazo-concluir-btn" title="Marcar como concluído" @click.stop="marcarConcluido(reg)">
                   <q-icon name="check_circle_outline" size="16px" />
                 </button>
@@ -1899,6 +1918,48 @@
             </div>
           </div><!-- fim prazos-list ativos -->
           </template><!-- fim aba ativos -->
+
+          <!-- ABA: AGUARDANDO CLIENTE -->
+          <template v-if="abaPrazos === 'aguardando'">
+            <div v-if="registrosAguardandoCliente.length === 0" class="prazos-empty">
+              <q-icon name="hourglass_bottom" size="48px" style="color:rgba(255,255,255,0.12)" />
+              <p>Nenhum processo aguardando o cliente.</p>
+            </div>
+            <div v-else-if="registrosAguardandoClienteFiltrados.length === 0" class="prazos-empty">
+              <q-icon name="search_off" size="40px" style="color:rgba(255,255,255,0.12)" />
+              <p>Nenhum processo encontrado.</p>
+            </div>
+            <div v-else class="prazos-list">
+              <div
+                v-for="reg in registrosAguardandoClienteFiltrados"
+                :key="reg.id"
+                class="prazo-card prazo-card--clicavel"
+                @click="abrirResumoProcesso(reg)"
+              >
+                <div class="prazo-card-bar" style="background:#60a5fa" />
+                <div class="prazo-card-body">
+                  <div class="prazo-card-razao">{{ reg.razaoSocial || 'Sem razão social' }}</div>
+                  <div class="prazo-card-meta">
+                    Cadastrado {{ reg.dataFormatada }} · Vence {{ reg.dataVencFormatada || '—' }}
+                  </div>
+                </div>
+                <div class="prazo-dias" style="color:#93c5fd">
+                  <q-icon name="hourglass_bottom" size="28px" />
+                </div>
+                <div class="prazo-card-right">
+                  <div class="prazo-badge" style="background:rgba(96,165,250,0.15); color:#93c5fd">
+                    <q-icon name="hourglass_bottom" size="13px" /> Aguardando cliente
+                  </div>
+                  <button class="prazo-retomar-btn" title="Retomar como ativo" @click.stop="retomarProcessoAtivo(reg)">
+                    <q-icon name="undo" size="16px" /> Retomar
+                  </button>
+                  <button class="prazo-excluir-btn" title="Excluir processo" @click.stop="confirmarExcluir(reg)">
+                    <q-icon name="delete_outline" size="16px" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </template><!-- fim aba aguardando cliente -->
 
           <!-- ABA: CONCLUÍDOS -->
           <template v-if="abaPrazos === 'concluidos'">
@@ -5071,9 +5132,22 @@ const prazosBusca    = ref('')
 
 const ordemPrazo = { urgente: 0, priorizar: 1, normal: 2 }
 
-const registrosAtivos    = computed(() => registros.value.filter(r => !r.concluido))
+const registrosAtivos    = computed(() => registros.value.filter(r => !r.concluido && !r.aguardandoCliente))
 const registrosConcluidos = computed(() => registros.value.filter(r => r.concluido))
-const abaPrazos = ref('ativos') // 'ativos' | 'concluidos'
+const registrosAguardandoCliente = computed(() => registros.value.filter(r => !r.concluido && r.aguardandoCliente))
+const abaPrazos = ref('ativos') // 'ativos' | 'aguardando' | 'concluidos'
+
+async function moverParaAguardandoCliente(reg) {
+  reg.aguardandoCliente = true
+  await supabase.from('processos').update({ aguardando_cliente: true }).eq('id', reg.id)
+  $q.notify({ icon: 'hourglass_bottom', color: 'primary', message: `"${reg.razaoSocial || 'Processo'}" movido para Aguardando Cliente.`, position: 'top', timeout: 2500 })
+}
+
+async function retomarProcessoAtivo(reg) {
+  reg.aguardandoCliente = false
+  await supabase.from('processos').update({ aguardando_cliente: false }).eq('id', reg.id)
+  $q.notify({ icon: 'pending_actions', color: 'primary', message: `"${reg.razaoSocial || 'Processo'}" retomado como ativo.`, position: 'top', timeout: 2500 })
+}
 
 const registrosFiltrados = computed(() => {
   let lista = registrosAtivos.value.map(r => ({ ...r, _dias: diasRestantes(r) }))
@@ -5103,6 +5177,13 @@ const registrosFiltrados = computed(() => {
 
 const registrosConcluidosFiltrados = computed(() => {
   let lista = registrosConcluidos.value
+  if (prazosBusca.value.trim())
+    lista = lista.filter(r => processoMatchesBusca(r, prazosBusca.value))
+  return lista
+})
+
+const registrosAguardandoClienteFiltrados = computed(() => {
+  let lista = registrosAguardandoCliente.value.map(r => ({ ...r, _dias: diasRestantes(r) }))
   if (prazosBusca.value.trim())
     lista = lista.filter(r => processoMatchesBusca(r, prazosBusca.value))
   return lista
@@ -5606,7 +5687,7 @@ function agendarProximoAlerta() {
   }, menorDiff)
 }
 
-function montarMensagemConsolidada(processos, hist = []) {
+function montarMensagemConsolidada(processos, hist = [], aguardando = []) {
   const hoje = new Date()
   const hojeStr = hoje.toLocaleDateString('pt-BR')
   // Cada empresa aparece apenas uma vez, na categoria mais crítica (vencido > urgente > priorizar)
@@ -5617,11 +5698,12 @@ function montarMensagemConsolidada(processos, hist = []) {
     vistos.add(k)
     return true
   })
-  const vencidos  = dedup(processos.filter(r => diasRestantes(r) < 0))
-  const urgentes  = dedup(processos.filter(r => { const d = diasRestantes(r); return d >= 0 && ((r.prazo || 'normal') === 'urgente' || d === 0) }))
-  const priorizar = dedup(processos.filter(r => { const d = diasRestantes(r); return d > 0 && r.prazo !== 'urgente' && (r.prazo === 'priorizar' || d <= 3) }))
+  const vencidos    = dedup(processos.filter(r => diasRestantes(r) < 0))
+  const urgentes    = dedup(processos.filter(r => { const d = diasRestantes(r); return d >= 0 && ((r.prazo || 'normal') === 'urgente' || d === 0) }))
+  const priorizar   = dedup(processos.filter(r => { const d = diasRestantes(r); return d > 0 && r.prazo !== 'urgente' && (r.prazo === 'priorizar' || d <= 3) }))
+  const aguardandoDedup = dedup(aguardando)
 
-  if (!vencidos.length && !urgentes.length && !priorizar.length) return null
+  if (!vencidos.length && !urgentes.length && !priorizar.length && !aguardandoDedup.length) return null
 
   // Concluídos nos últimos 7 dias
   const seteAtras = new Date(hoje)
@@ -5664,6 +5746,16 @@ function montarMensagemConsolidada(processos, hist = []) {
     })
   }
 
+  if (aguardandoDedup.length) {
+    msg += `\n🕓 *AGUARDANDO CLIENTE (${aguardandoDedup.length})*\n`
+    aguardandoDedup.forEach(r => {
+      const d = diasRestantes(r)
+      msg += `• *${r.razaoSocial || 'Sem nome'}*`
+      if (r.dataVencFormatada) msg += d < 0 ? ` — prazo encerrou em ${r.dataVencFormatada}` : ` — vence em ${r.dataVencFormatada}`
+      msg += '\n'
+    })
+  }
+
   msg += `\n_WMS Consultoria Contábil_`
   return msg
 }
@@ -5692,7 +5784,7 @@ async function alertarPrazosWhatsApp(slot = HORARIOS_ALERTA[0]) {
 
   if (!novos.length) return
 
-  const msg = montarMensagemConsolidada(novos, historico.value)
+  const msg = montarMensagemConsolidada(novos, historico.value, registrosAguardandoCliente.value)
   if (!msg) return
 
   await Promise.all(NUMEROS_ALERTA.map(num => enviarWhatsAppPara(num, msg)))
@@ -5724,7 +5816,7 @@ async function testarAlertasAgora() {
   // Sincroniza dados com o servidor antes de testar
   await sincronizarServidor()
 
-  const msg = montarMensagemConsolidada(processos, historico.value)
+  const msg = montarMensagemConsolidada(processos, historico.value, registrosAguardandoCliente.value)
   if (!msg) {
     $q.notify({ icon: 'info', color: 'info', message: 'Nenhum processo urgente ou vencido encontrado.', position: 'top', timeout: 3500 })
     return
@@ -6252,6 +6344,7 @@ const emailData          = ref('')
 const emailHora          = ref('')
 const emailEnviando      = ref(false)
 const emailsAgendados    = ref(JSON.parse(localStorage.getItem('wms_emails_agendados') || '[]'))
+const emailsEnviadosProcessoIds = ref(new Set())
 const emailHoje          = computed(() => new Date().toISOString().slice(0, 10))
 
 const emailsAgendadosDoProcesso = computed(() =>
@@ -6272,6 +6365,17 @@ function copiarInfoProcesso(p) {
 function temEmailAgendado(p) {
   const pid = p.processoId || p.id || null
   return emailsAgendados.value.some(ag => ag.processoId === pid)
+}
+
+function temEmailEnviado(p) {
+  const pid = p.processoId || p.id || null
+  return pid != null && emailsEnviadosProcessoIds.value.has(String(pid))
+}
+
+async function registrarEmailEnviado(processoId, empresa, para, assunto) {
+  if (processoId == null) return
+  await supabase.from('emails_enviados').insert({ processo_id: processoId, empresa: empresa || '', para: para || '', assunto: assunto || '' })
+  emailsEnviadosProcessoIds.value.add(String(processoId))
 }
 
 function abrirDialogEmail(p) {
@@ -6340,6 +6444,7 @@ async function confirmarEmail() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erro ao enviar')
+      await registrarEmailEnviado(emailDialogProcessoId.value, emailDialogEmpresa.value, toList.join(', '), emailAssunto.value.trim())
       $q.notify({ icon: 'mark_email_read', color: 'positive', message: 'E-mail enviado com sucesso!', position: 'top', timeout: 3500 })
       dialogEmail.value = false
     } catch (err) {
@@ -6394,6 +6499,7 @@ function iniciarVerificadorEmails() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ to: ag.para, subject: ag.assunto, text: ag.mensagem, attachments }),
         })
+        await registrarEmailEnviado(ag.processoId, ag.empresa, ag.para, ag.assunto)
       } catch {}
     }
     const enviadosIds = new Set(pendentes.map(ag => ag.id))
@@ -6948,11 +7054,13 @@ onMounted(async () => {
   await registrarSW()
 
   // Carrega dados do Supabase
-  const [{ data: procs }, { data: hist }, { data: cfg }] = await Promise.all([
+  const [{ data: procs }, { data: hist }, { data: cfg }, { data: enviados }] = await Promise.all([
     supabase.from('processos').select('*').order('created_at', { ascending: false }),
     supabase.from('historico').select('*').order('id', { ascending: false }),
     supabase.from('configuracoes').select('*').eq('id', 1).single(),
+    supabase.from('emails_enviados').select('processo_id'),
   ])
+  if (enviados) emailsEnviadosProcessoIds.value = new Set(enviados.map(r => String(r.processo_id)))
 
   if (procs && procs.length > 0) {
     registros.value = procs.map(processoFromDb)
@@ -7767,6 +7875,14 @@ const alerts = [
 .db-cb--urgente  { background: rgba(239,68,68,0.15); color: #fca5a5; }
 .db-cb--priorizar{ background: rgba(245,158,11,0.15);color: #fcd34d; }
 .db-critico-dias { font-size: 0.72rem; font-weight: 700; flex-shrink: 0; min-width: 72px; text-align: right; }
+.db-critico-aguarda-btn {
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 7px; cursor: pointer; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; color: rgba(255,255,255,0.55);
+  transition: background 0.15s, color 0.15s;
+}
+.db-critico-aguarda-btn:hover { background: rgba(96,165,250,0.15); color: #93c5fd; border-color: rgba(96,165,250,0.3); }
 
 /* ── Timeline ── */
 .db-tl-list { display: flex; flex-direction: column; gap: 8px; }
@@ -8831,6 +8947,7 @@ const alerts = [
   background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.6);
 }
 .pz-tab-count--green { background: rgba(90,184,46,0.2); color: #5ab82e; }
+.pz-tab-count--azul  { background: rgba(96,165,250,0.2); color: #60a5fa; }
 .prazo-card--concluido-item { opacity: 0.85; }
 .prazo-badge--concluido-item { background: rgba(34,197,94,0.15); color: #86efac; display:flex; align-items:center; gap:4px; }
 
@@ -8897,6 +9014,29 @@ const alerts = [
   background: rgba(90,184,46,0.12);
   border-color: rgba(90,184,46,0.35);
   color: #5ab82e;
+}
+.prazo-aguarda-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 8px;
+  background: transparent; border: 1px solid transparent;
+  color: rgba(255,255,255,0.2); cursor: pointer;
+  transition: all 0.15s;
+}
+.prazo-aguarda-btn:hover {
+  background: rgba(96,165,250,0.12);
+  border-color: rgba(96,165,250,0.35);
+  color: #60a5fa;
+}
+.prazo-retomar-btn {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  padding: 0 10px; height: 28px; border-radius: 8px;
+  background: rgba(96,165,250,0.12); border: 1px solid rgba(96,165,250,0.3);
+  color: #93c5fd; cursor: pointer; font-size: 0.72rem; font-weight: 700;
+  transition: all 0.15s;
+}
+.prazo-retomar-btn:hover {
+  background: rgba(96,165,250,0.22);
+  border-color: rgba(96,165,250,0.5);
 }
 .prazo-excluir-btn {
   display: flex; align-items: center; justify-content: center;
@@ -9616,20 +9756,20 @@ const alerts = [
   background: rgba(96,165,250,0.2); border-color: rgba(96,165,250,0.45);
   color: #60a5fa;
 }
-.cons-email-btn--agendado {
-  background: rgba(245,158,11,0.12);
-  border-color: rgba(245,158,11,0.3);
-  color: #f59e0b;
+.cons-email-btn--enviado {
+  background: rgba(90,184,46,0.12);
+  border-color: rgba(90,184,46,0.3);
+  color: #5ab82e;
 }
-.cons-email-btn--agendado:hover {
-  background: rgba(245,158,11,0.2);
-  border-color: rgba(245,158,11,0.5);
-  color: #fbbf24;
+.cons-email-btn--enviado:hover {
+  background: rgba(90,184,46,0.22);
+  border-color: rgba(90,184,46,0.5);
+  color: #86efac;
 }
 .cons-email-badge {
   position: absolute; top: -4px; right: -4px;
   width: 8px; height: 8px; border-radius: 50%;
-  background: #f59e0b;
+  background: #5ab82e;
   border: 1.5px solid #0d1b3e;
 }
 .cons-tipo-badge {

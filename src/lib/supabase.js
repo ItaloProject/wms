@@ -63,6 +63,7 @@ export function processoToDb(r) {
     taxas:              r.taxas      || [],
     observacao:         r.observacao || '',
     concluido:          r.concluido  || false,
+    aguardando_cliente: r.aguardandoCliente || false,
     etapas:             r.etapas     || [],
   }
 }
@@ -83,6 +84,7 @@ export function processoFromDb(row) {
     taxas:              row.taxas      || [],
     observacao:         row.observacao || '',
     concluido:          row.concluido  || false,
+    aguardandoCliente:  row.aguardando_cliente || false,
     etapas:             row.etapas     || [],
   }
 }
