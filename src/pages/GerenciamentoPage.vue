@@ -4739,7 +4739,10 @@ const processosConsultar = computed(() => {
       const local = h?.localizacao
         || (r.id === regAberto.value ? etapaValor('localizacao') : '')
         || '—'
-      const data  = h ? `${h.data} ${h.hora}` : (r.dataFormatada ? `Aberto ${r.dataFormatada}` : '—')
+      const dataContrato = valorEtapaReg(r, 'contrato')
+      const data  = dataContrato
+        ? formatarDataEtapa(dataContrato)
+        : (h ? `${h.data} ${h.hora}` : (r.dataFormatada ? `Aberto ${r.dataFormatada}` : '—'))
       const tipo = r.prazo === 'baixa' ? 'baixa' : 'constituicao'
       return {
         id:          r.id,
@@ -4767,13 +4770,14 @@ const processosConsultar = computed(() => {
       const reg  = registros.value.find(r => String(r.id) === String(h.processoId))
         || registros.value.find(r => normEmpresa(r.razaoSocial) === normEmpresa(h.empresa))
       const tipo = reg?.prazo === 'baixa' ? 'baixa' : 'constituicao'
+      const dataContrato = valorEtapaReg(reg, 'contrato')
       return {
         id:           h.id,
         processoId:   h.processoId || reg?.id || null,
         empresa:      h.empresa || '—',
         protocolo:    h.protocolo || '—',
         localizacao:  h.localizacao || '—',
-        data:         h.data + ' ' + h.hora,
+        data:         dataContrato ? formatarDataEtapa(dataContrato) : (h.data + ' ' + h.hora),
         pct:          100,
         tipo,
         _reg:         reg || null,
@@ -5006,6 +5010,10 @@ function formatarTamanho(bytes) {
   if (bytes < 1024) return bytes + ' B'
   if (bytes < 1048576) return (bytes / 1024).toFixed(0) + ' KB'
   return (bytes / 1048576).toFixed(1) + ' MB'
+}
+function formatarDataEtapa(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '')
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : ''
 }
 function formatarDataUpload(iso) {
   if (!iso) return ''
