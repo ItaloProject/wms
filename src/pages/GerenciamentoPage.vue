@@ -1700,7 +1700,7 @@
                         <span class="cons-meta-item" v-if="p.localizacao !== '—'">
                           <q-icon name="place" size="12px" /> {{ p.localizacao }}
                         </span>
-                        <span class="cons-meta-item cons-data">
+                        <span v-if="p.data" class="cons-meta-item cons-data">
                           <q-icon name="schedule" size="12px" /> {{ p.data }}
                         </span>
                       </div>
@@ -1729,7 +1729,7 @@
                           <q-icon name="verified" size="11px" />
                           {{ p.concluidoPor }}
                         </div>
-                        <div class="cons-carimbo-data">{{ p.data }}</div>
+                        <div v-if="p.data" class="cons-carimbo-data">{{ p.data }}</div>
                       </div>
                     </div>
                     <button class="cons-docs-btn" @click.stop="abrirDialogDocs(p, $event)" title="Ver documentos anexados">
@@ -4740,9 +4740,7 @@ const processosConsultar = computed(() => {
         || (r.id === regAberto.value ? etapaValor('localizacao') : '')
         || '—'
       const dataContrato = valorEtapaReg(r, 'contrato')
-      const data  = dataContrato
-        ? formatarDataEtapa(dataContrato)
-        : (h ? `${h.data} ${h.hora}` : (r.dataFormatada ? `Aberto ${r.dataFormatada}` : '—'))
+      const data  = dataContrato ? formatarDataEtapa(dataContrato) : ''
       const tipo = r.prazo === 'baixa' ? 'baixa' : 'constituicao'
       return {
         id:          r.id,
@@ -4777,7 +4775,7 @@ const processosConsultar = computed(() => {
         empresa:      h.empresa || '—',
         protocolo:    h.protocolo || '—',
         localizacao:  h.localizacao || '—',
-        data:         dataContrato ? formatarDataEtapa(dataContrato) : (h.data + ' ' + h.hora),
+        data:         dataContrato ? formatarDataEtapa(dataContrato) : '',
         pct:          100,
         tipo,
         _reg:         reg || null,
