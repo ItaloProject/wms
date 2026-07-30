@@ -4695,7 +4695,11 @@ const processosConsultar = computed(() => {
     })
     .filter(p => p.pct < 100) // 100% já aparece em concluidos via historico
 
-  // Processos concluídos — do histórico (pct = 100)
+  // Processos concluídos — do histórico (pct = 100).
+  // Um processo pode gerar várias entradas de histórico (relatório reemitido,
+  // duplo clique, etc.) — mantém só a mais recente por processo (chave = processoId,
+  // ou nome normalizado da empresa quando não há processoId).
+  const vistosConc = new Set()
   const concluidos = historico.value
     .filter(h => Number(h.pct ?? 0) >= 100)
     .map(h => {
@@ -4715,6 +4719,14 @@ const processosConsultar = computed(() => {
         status:       'concluido',
         concluidoPor: h.concluidoPor || '',
       }
+    })
+    .filter(p => {
+      // historico.value já vem ordenado por id desc (mais recente primeiro),
+      // então a primeira ocorrência da chave é a que fica.
+      const chave = p.processoId != null ? `pid:${p.processoId}` : `nome:${normEmpresa(p.empresa)}`
+      if (vistosConc.has(chave)) return false
+      vistosConc.add(chave)
+      return true
     })
 
   const todos = [...ativos, ...concluidos]
@@ -6749,10 +6761,12 @@ async function gerarRelatorio() {
 
 async function concluirProcesso() {
   const { valores, nomeArquivo, razaoSocial, municipioEstado } = _coletarValoresRelatorio()
+  const idAoConcluir       = regAberto.value
+  const protocoloAoConcluir = etapaValor('protocolo')
   gerandoRelatorio.value = true
   try {
     await preencherRelatorioGeral(valores, nomeArquivo)
-    await salvarHistorico(razaoSocial, etapaValor('protocolo'), municipioEstado)
+    await salvarHistorico(razaoSocial, protocoloAoConcluir, municipioEstado, { processoId: idAoConcluir })
     _docsAnexadosSnap.value  = Object.values(docsAnexados.value).flat()
     docsAnexadosBaixa.value    = {}
     docsArquivamentoBaixa.value = {}
