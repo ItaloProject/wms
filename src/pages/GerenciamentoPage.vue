@@ -1771,46 +1771,64 @@
                 <span>Nenhum processo encontrado</span>
               </div>
 
-              <!-- Lixeira -->
+              <!-- Botão lixeira -->
               <div class="lixeira-section">
-                <button class="lixeira-toggle" @click="() => { lixeiraAberta = !lixeiraAberta; if (lixeiraAberta) carregarLixeira() }">
+                <button class="lixeira-toggle" @click="() => { lixeiraAberta = true; carregarLixeira() }">
                   <q-icon name="delete_outline" size="15px" />
                   Lixeira
                   <span v-if="lixeira.length" class="lixeira-count">{{ lixeira.length }}</span>
-                  <q-icon :name="lixeiraAberta ? 'expand_less' : 'expand_more'" size="15px" style="margin-left:auto" />
                 </button>
-                <div v-if="lixeiraAberta" class="lixeira-body">
-                  <div v-if="carregandoLixeira" class="lixeira-empty">
-                    <q-spinner size="20px" color="grey-5" />
-                  </div>
-                  <div v-else-if="!lixeira.length" class="lixeira-empty">
-                    <q-icon name="check_circle_outline" size="24px" style="color:rgba(255,255,255,0.2)" />
-                    <span>Lixeira vazia</span>
-                  </div>
-                  <template v-else>
-                    <div class="lixeira-toolbar">
-                      <span class="lixeira-info">{{ lixeira.length }} processo(s) na lixeira</span>
-                      <button class="lixeira-esvaziar-btn" @click="esvaziarLixeira">
-                        <q-icon name="delete_forever" size="13px" /> Esvaziar lixeira
-                      </button>
-                    </div>
-                    <div v-for="reg in lixeira" :key="reg.id" class="lixeira-row">
-                      <div class="lixeira-row-info">
-                        <span class="lixeira-nome">{{ reg.razaoSocial || '(sem nome)' }}</span>
-                        <span class="lixeira-data">excluído {{ new Date(reg.deletedAt).toLocaleDateString('pt-BR') }}</span>
-                      </div>
-                      <div class="lixeira-row-actions">
-                        <button class="lixeira-restaurar-btn" @click="restaurarProcesso(reg)" title="Restaurar processo">
-                          <q-icon name="restore" size="14px" /> Restaurar
-                        </button>
-                        <button class="lixeira-del-btn" @click="excluirDefinitivamente(reg)" title="Excluir permanentemente">
-                          <q-icon name="delete_forever" size="14px" />
-                        </button>
-                      </div>
-                    </div>
-                  </template>
-                </div>
               </div>
+
+              <!-- Modal lixeira -->
+              <Teleport to="body">
+                <transition name="lx-fade">
+                  <div v-if="lixeiraAberta" class="lixeira-overlay" @click.self="lixeiraAberta = false">
+                    <div class="lixeira-modal">
+                      <div class="lixeira-modal-header">
+                        <div class="lixeira-modal-title">
+                          <q-icon name="delete_outline" size="18px" style="color:rgba(239,68,68,0.7)" />
+                          Lixeira
+                          <span v-if="lixeira.length" class="lixeira-count">{{ lixeira.length }}</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px">
+                          <button v-if="lixeira.length" class="lixeira-esvaziar-btn" @click="esvaziarLixeira">
+                            <q-icon name="delete_forever" size="13px" /> Esvaziar lixeira
+                          </button>
+                          <button class="lixeira-fechar-btn" @click="lixeiraAberta = false" title="Fechar">
+                            <q-icon name="close" size="18px" />
+                          </button>
+                        </div>
+                      </div>
+                      <div class="lixeira-modal-body">
+                        <div v-if="carregandoLixeira" class="lixeira-empty">
+                          <q-spinner size="24px" color="grey-5" />
+                        </div>
+                        <div v-else-if="!lixeira.length" class="lixeira-empty">
+                          <q-icon name="check_circle_outline" size="36px" style="color:rgba(255,255,255,0.15)" />
+                          <span>Lixeira vazia</span>
+                        </div>
+                        <template v-else>
+                          <div v-for="reg in lixeira" :key="reg.id" class="lixeira-row">
+                            <div class="lixeira-row-info">
+                              <span class="lixeira-nome">{{ reg.razaoSocial || '(sem nome)' }}</span>
+                              <span class="lixeira-data">excluído {{ new Date(reg.deletedAt).toLocaleDateString('pt-BR') }}</span>
+                            </div>
+                            <div class="lixeira-row-actions">
+                              <button class="lixeira-restaurar-btn" @click="restaurarProcesso(reg)" title="Restaurar processo">
+                                <q-icon name="restore" size="14px" /> Restaurar
+                              </button>
+                              <button class="lixeira-del-btn" @click="excluirDefinitivamente(reg)" title="Excluir permanentemente">
+                                <q-icon name="delete_forever" size="14px" />
+                              </button>
+                            </div>
+                          </div>
+                        </template>
+                      </div>
+                    </div>
+                  </div>
+                </transition>
+              </Teleport>
 
             </div>
           </transition>
@@ -10233,63 +10251,94 @@ const alerts = [
 
 /* ══ LIXEIRA ══ */
 .lixeira-section {
-  margin-top: 24px;
+  margin-top: 20px;
   border-top: 1px solid rgba(255,255,255,0.06);
   padding-top: 8px;
 }
 .lixeira-toggle {
-  display: flex; align-items: center; gap: 7px; width: 100%;
-  background: transparent; border: none; cursor: pointer;
-  color: rgba(255,255,255,0.35); font-size: 0.82rem; padding: 8px 4px;
-  transition: color 0.15s;
+  display: inline-flex; align-items: center; gap: 7px;
+  background: transparent; border: 1px solid rgba(239,68,68,0.18);
+  border-radius: 8px; cursor: pointer;
+  color: rgba(255,255,255,0.35); font-size: 0.82rem; padding: 6px 14px;
+  transition: all 0.15s;
 }
-.lixeira-toggle:hover { color: rgba(239,68,68,0.7); }
+.lixeira-toggle:hover { color: rgba(239,68,68,0.8); border-color: rgba(239,68,68,0.35); background: rgba(239,68,68,0.06); }
 .lixeira-count {
   display: inline-flex; align-items: center; justify-content: center;
   background: rgba(239,68,68,0.15); color: rgba(239,68,68,0.8);
   border-radius: 10px; min-width: 18px; height: 18px; padding: 0 5px;
   font-size: 0.75rem; font-weight: 600;
 }
-.lixeira-body { margin-top: 6px; }
-.lixeira-empty {
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
-  padding: 24px 0; color: rgba(255,255,255,0.2); font-size: 0.82rem;
+/* Modal overlay */
+.lixeira-overlay {
+  position: fixed; inset: 0; z-index: 9100;
+  background: rgba(0,0,0,0.55); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
 }
-.lixeira-toolbar {
+.lixeira-modal {
+  background: #0f1b35; border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px; width: 100%; max-width: 620px;
+  max-height: 80vh; display: flex; flex-direction: column;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+}
+.lixeira-modal-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 4px 8px 10px; font-size: 0.78rem; color: rgba(255,255,255,0.3);
+  padding: 18px 20px 14px; border-bottom: 1px solid rgba(255,255,255,0.07);
+  flex-shrink: 0;
+}
+.lixeira-modal-title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 1rem; font-weight: 600; color: rgba(255,255,255,0.85);
+}
+.lixeira-fechar-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 8px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.4); cursor: pointer; transition: all 0.15s;
+}
+.lixeira-fechar-btn:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); }
+.lixeira-modal-body {
+  overflow-y: auto; padding: 16px 20px; flex: 1;
+}
+.lixeira-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 40px 0; color: rgba(255,255,255,0.2); font-size: 0.88rem;
 }
 .lixeira-esvaziar-btn {
   display: flex; align-items: center; gap: 4px;
   background: transparent; border: 1px solid rgba(239,68,68,0.25);
-  color: rgba(239,68,68,0.55); border-radius: 6px;
-  padding: 3px 10px; font-size: 0.78rem; cursor: pointer; transition: all 0.15s;
+  color: rgba(239,68,68,0.6); border-radius: 7px;
+  padding: 5px 12px; font-size: 0.78rem; cursor: pointer; transition: all 0.15s;
 }
-.lixeira-esvaziar-btn:hover { background: rgba(239,68,68,0.08); color: rgba(239,68,68,0.85); }
+.lixeira-esvaziar-btn:hover { background: rgba(239,68,68,0.1); color: rgba(239,68,68,0.9); }
 .lixeira-row {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 9px 10px; border-radius: 8px; margin-bottom: 4px;
-  background: rgba(239,68,68,0.04); border: 1px solid rgba(239,68,68,0.08);
+  padding: 11px 12px; border-radius: 10px; margin-bottom: 6px;
+  background: rgba(239,68,68,0.04); border: 1px solid rgba(239,68,68,0.09);
   gap: 12px;
 }
-.lixeira-row-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.lixeira-nome { font-size: 0.85rem; color: rgba(255,255,255,0.55); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lixeira-row-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.lixeira-nome { font-size: 0.88rem; color: rgba(255,255,255,0.65); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lixeira-data { font-size: 0.74rem; color: rgba(255,255,255,0.25); }
 .lixeira-row-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .lixeira-restaurar-btn {
   display: flex; align-items: center; gap: 5px;
   background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2);
-  color: rgba(34,197,94,0.75); border-radius: 7px;
-  padding: 5px 12px; font-size: 0.8rem; cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  color: rgba(34,197,94,0.8); border-radius: 8px;
+  padding: 6px 14px; font-size: 0.8rem; cursor: pointer; transition: all 0.15s; white-space: nowrap;
 }
 .lixeira-restaurar-btn:hover { background: rgba(34,197,94,0.15); color: #86efac; }
 .lixeira-del-btn {
   display: flex; align-items: center; justify-content: center;
-  width: 30px; height: 30px; border-radius: 7px;
+  width: 32px; height: 32px; border-radius: 8px;
   background: transparent; border: 1px solid rgba(239,68,68,0.2);
   color: rgba(239,68,68,0.45); cursor: pointer; transition: all 0.15s; flex-shrink: 0;
 }
 .lixeira-del-btn:hover { background: rgba(239,68,68,0.12); color: #f87171; border-color: rgba(239,68,68,0.4); }
+/* Transição do modal */
+.lx-fade-enter-active, .lx-fade-leave-active { transition: opacity 0.2s, transform 0.2s; }
+.lx-fade-enter-from, .lx-fade-leave-to { opacity: 0; }
+.lx-fade-enter-from .lixeira-modal, .lx-fade-leave-to .lixeira-modal { transform: scale(0.95); }
 
 /* ══ HISTÓRICO DE CONCLUSÕES ══ */
 .hist-wrap {
