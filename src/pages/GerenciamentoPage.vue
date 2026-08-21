@@ -4733,12 +4733,8 @@ const processosConsultar = computed(() => {
       const nome = r.razaoSocial
         || r.empresa?.find?.(d => d.label === 'Razão social')?.valor
         || '—'
-      const proto = h?.protocolo
-        || (r.id === regAberto.value ? etapaValor('protocolo') : '')
-        || '—'
-      const local = h?.localizacao
-        || (r.id === regAberto.value ? etapaValor('localizacao') : '')
-        || '—'
+      const proto = h?.protocolo || valorEtapaReg(r, 'protocolo') || '—'
+      const local = h?.localizacao || valorEtapaReg(r, 'localizacao') || '—'
       const dataContrato = valorEtapaReg(r, 'contrato')
       const data  = dataContrato ? formatarDataEtapa(dataContrato) : ''
       const tipo = r.prazo === 'baixa' ? 'baixa' : 'constituicao'
