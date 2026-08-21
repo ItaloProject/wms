@@ -1771,6 +1771,47 @@
                 <span>Nenhum processo encontrado</span>
               </div>
 
+              <!-- Lixeira -->
+              <div class="lixeira-section">
+                <button class="lixeira-toggle" @click="() => { lixeiraAberta = !lixeiraAberta; if (lixeiraAberta) carregarLixeira() }">
+                  <q-icon name="delete_outline" size="15px" />
+                  Lixeira
+                  <span v-if="lixeira.length" class="lixeira-count">{{ lixeira.length }}</span>
+                  <q-icon :name="lixeiraAberta ? 'expand_less' : 'expand_more'" size="15px" style="margin-left:auto" />
+                </button>
+                <div v-if="lixeiraAberta" class="lixeira-body">
+                  <div v-if="carregandoLixeira" class="lixeira-empty">
+                    <q-spinner size="20px" color="grey-5" />
+                  </div>
+                  <div v-else-if="!lixeira.length" class="lixeira-empty">
+                    <q-icon name="check_circle_outline" size="24px" style="color:rgba(255,255,255,0.2)" />
+                    <span>Lixeira vazia</span>
+                  </div>
+                  <template v-else>
+                    <div class="lixeira-toolbar">
+                      <span class="lixeira-info">{{ lixeira.length }} processo(s) na lixeira</span>
+                      <button class="lixeira-esvaziar-btn" @click="esvaziarLixeira">
+                        <q-icon name="delete_forever" size="13px" /> Esvaziar lixeira
+                      </button>
+                    </div>
+                    <div v-for="reg in lixeira" :key="reg.id" class="lixeira-row">
+                      <div class="lixeira-row-info">
+                        <span class="lixeira-nome">{{ reg.razaoSocial || '(sem nome)' }}</span>
+                        <span class="lixeira-data">excluído {{ new Date(reg.deletedAt).toLocaleDateString('pt-BR') }}</span>
+                      </div>
+                      <div class="lixeira-row-actions">
+                        <button class="lixeira-restaurar-btn" @click="restaurarProcesso(reg)" title="Restaurar processo">
+                          <q-icon name="restore" size="14px" /> Restaurar
+                        </button>
+                        <button class="lixeira-del-btn" @click="excluirDefinitivamente(reg)" title="Excluir permanentemente">
+                          <q-icon name="delete_forever" size="14px" />
+                        </button>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
             </div>
           </transition>
 
@@ -4182,13 +4223,16 @@ async function removerArquivamento(item, id) {
 
 const consultarBusca        = ref('')
 const atualizandoConsultar  = ref(false)
+const lixeira               = ref([])
+const lixeiraAberta         = ref(false)
+const carregandoLixeira     = ref(false)
 
 async function atualizarConsultar() {
   if (atualizandoConsultar.value) return
   atualizandoConsultar.value = true
   try {
     const [{ data: procs }, { data: hist }] = await Promise.all([
-      supabase.from('processos').select('*').order('created_at', { ascending: false }),
+      supabase.from('processos').select('*').is('deleted_at', null).order('created_at', { ascending: false }),
       supabase.from('historico').select('*').order('id', { ascending: false }),
     ])
     if (procs) registros.value = procs.map(processoFromDb)
@@ -4808,30 +4852,21 @@ async function _excluirDocumentosDoProcesso(pid) {
 
 function excluirProcessoConsultar(p) {
   $q.dialog({
-    title: 'Excluir processo?',
-    message: `"${p.empresa || 'Sem nome'}" será removido permanentemente.`,
+    title: 'Mover para a lixeira?',
+    message: `"${p.empresa || 'Sem nome'}" será movido para a lixeira. Você pode restaurá-lo depois.`,
     cancel: { label: 'Cancelar', flat: true, color: 'white' },
-    ok:     { label: 'Excluir',  flat: true, color: 'negative' },
+    ok:     { label: 'Mover para lixeira', flat: true, color: 'negative' },
     persistent: true,
     dark: true,
   }).onOk(async () => {
     const pid = p.processoId ?? p.id
     const pidStr = String(pid)
-
-    await _excluirDocumentosDoProcesso(pid)
-
-    if (p.processoId != null) {
-      historico.value = historico.value.filter(h => String(h.processoId) !== pidStr)
-      await supabase.from('historico').delete().eq('processo_id', pid)
-    } else {
-      historico.value = historico.value.filter(h => String(h.id) !== pidStr)
-      await supabase.from('historico').delete().eq('id', pid)
-    }
-
+    const agora = new Date().toISOString()
+    await supabase.from('processos').update({ deleted_at: agora }).eq('id', pid)
     registros.value = registros.value.filter(r => String(r.id) !== pidStr)
-    await supabase.from('processos').delete().eq('id', pid)
     if (String(regAberto.value) === pidStr) regAberto.value = null
-    $q.notify({ icon: 'delete', color: 'negative', message: 'Processo excluído.', position: 'top', timeout: 2500 })
+    if (lixeiraAberta.value) carregarLixeira()
+    $q.notify({ icon: 'delete_outline', color: 'grey-7', message: 'Processo movido para a lixeira.', actions: [{ label: 'Abrir lixeira', color: 'white', handler: () => { lixeiraAberta.value = true; carregarLixeira() } }], position: 'top', timeout: 4000 })
   })
 }
 
@@ -7057,7 +7092,7 @@ onMounted(async () => {
 
   // Carrega dados do Supabase
   const [{ data: procs }, { data: hist }, { data: cfg }, { data: enviados }] = await Promise.all([
-    supabase.from('processos').select('*').order('created_at', { ascending: false }),
+    supabase.from('processos').select('*').is('deleted_at', null).order('created_at', { ascending: false }),
     supabase.from('historico').select('*').order('id', { ascending: false }),
     supabase.from('configuracoes').select('*').eq('id', 1).single(),
     supabase.from('emails_enviados').select('processo_id'),
@@ -7258,10 +7293,11 @@ function reeniviarWhatsApp(reg) {
 }
 
 async function excluirRegistro(id) {
-  await _excluirDocumentosDoProcesso(id)
+  const agora = new Date().toISOString()
+  await supabase.from('processos').update({ deleted_at: agora }).eq('id', id)
   registros.value = registros.value.filter(r => r.id !== id)
-  await supabase.from('processos').delete().eq('id', id)
   if (regAberto.value === id) regAberto.value = null
+  if (lixeiraAberta.value) carregarLixeira()
 }
 
 function marcarConcluido(reg) {
@@ -7286,13 +7322,72 @@ function marcarConcluido(reg) {
 
 function confirmarExcluir(reg) {
   $q.dialog({
-    title: 'Excluir processo?',
-    message: `"${reg.razaoSocial || 'Sem nome'}" será removido permanentemente.`,
+    title: 'Mover para a lixeira?',
+    message: `"${reg.razaoSocial || 'Sem nome'}" será movido para a lixeira. Você pode restaurá-lo depois.`,
     cancel: { label: 'Cancelar', flat: true, color: 'white' },
-    ok:     { label: 'Excluir',  flat: true, color: 'negative' },
+    ok:     { label: 'Mover para lixeira', flat: true, color: 'negative' },
     persistent: true,
     dark: true,
-  }).onOk(() => excluirRegistro(reg.id))
+  }).onOk(async () => {
+    await excluirRegistro(reg.id)
+    $q.notify({ icon: 'delete_outline', color: 'grey-7', message: 'Processo movido para a lixeira.', actions: [{ label: 'Abrir lixeira', color: 'white', handler: () => { lixeiraAberta.value = true; carregarLixeira() } }], position: 'top', timeout: 4000 })
+  })
+}
+
+async function carregarLixeira() {
+  carregandoLixeira.value = true
+  const { data } = await supabase.from('processos').select('*').not('deleted_at', 'is', null).order('deleted_at', { ascending: false })
+  lixeira.value = (data || []).map(processoFromDb)
+  carregandoLixeira.value = false
+}
+
+async function restaurarProcesso(reg) {
+  await supabase.from('processos').update({ deleted_at: null }).eq('id', reg.id)
+  lixeira.value = lixeira.value.filter(r => r.id !== reg.id)
+  const { data } = await supabase.from('processos').select('*').eq('id', reg.id).single()
+  if (data) registros.value.unshift(processoFromDb(data))
+  $q.notify({ icon: 'restore', color: 'positive', message: `"${reg.razaoSocial || 'Sem nome'}" restaurado.`, position: 'top', timeout: 2500 })
+}
+
+function excluirDefinitivamente(reg) {
+  $q.dialog({
+    title: 'Excluir permanentemente?',
+    message: `"${reg.razaoSocial || 'Sem nome'}" será removido para sempre, incluindo todos os documentos. Esta ação não pode ser desfeita.`,
+    cancel: { label: 'Cancelar', flat: true, color: 'white' },
+    ok:     { label: 'Excluir para sempre', flat: true, color: 'negative' },
+    persistent: true,
+    dark: true,
+  }).onOk(async () => {
+    await _excluirDocumentosDoProcesso(reg.id)
+    await supabase.from('historico').delete().eq('processo_id', reg.id)
+    await supabase.from('notas').delete().eq('processo_id', reg.id)
+    await supabase.from('emails_enviados').delete().eq('processo_id', reg.id)
+    await supabase.from('processos').delete().eq('id', reg.id)
+    lixeira.value = lixeira.value.filter(r => r.id !== reg.id)
+    $q.notify({ icon: 'delete_forever', color: 'negative', message: 'Excluído permanentemente.', position: 'top', timeout: 2500 })
+  })
+}
+
+function esvaziarLixeira() {
+  if (!lixeira.value.length) return
+  $q.dialog({
+    title: 'Esvaziar lixeira?',
+    message: `Todos os ${lixeira.value.length} processo(s) na lixeira serão removidos permanentemente. Esta ação não pode ser desfeita.`,
+    cancel: { label: 'Cancelar', flat: true, color: 'white' },
+    ok:     { label: 'Esvaziar', flat: true, color: 'negative' },
+    persistent: true,
+    dark: true,
+  }).onOk(async () => {
+    for (const reg of lixeira.value) {
+      await _excluirDocumentosDoProcesso(reg.id)
+      await supabase.from('historico').delete().eq('processo_id', reg.id)
+      await supabase.from('notas').delete().eq('processo_id', reg.id)
+      await supabase.from('emails_enviados').delete().eq('processo_id', reg.id)
+      await supabase.from('processos').delete().eq('id', reg.id)
+    }
+    lixeira.value = []
+    $q.notify({ icon: 'delete_forever', color: 'negative', message: 'Lixeira esvaziada.', position: 'top', timeout: 2500 })
+  })
 }
 
 function limparHistorico() {
@@ -10135,6 +10230,66 @@ const alerts = [
   gap: 12px; padding: 60px 0;
   color: rgba(255,255,255,0.25); font-size: 0.88rem;
 }
+
+/* ══ LIXEIRA ══ */
+.lixeira-section {
+  margin-top: 24px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  padding-top: 8px;
+}
+.lixeira-toggle {
+  display: flex; align-items: center; gap: 7px; width: 100%;
+  background: transparent; border: none; cursor: pointer;
+  color: rgba(255,255,255,0.35); font-size: 0.82rem; padding: 8px 4px;
+  transition: color 0.15s;
+}
+.lixeira-toggle:hover { color: rgba(239,68,68,0.7); }
+.lixeira-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(239,68,68,0.15); color: rgba(239,68,68,0.8);
+  border-radius: 10px; min-width: 18px; height: 18px; padding: 0 5px;
+  font-size: 0.75rem; font-weight: 600;
+}
+.lixeira-body { margin-top: 6px; }
+.lixeira-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 24px 0; color: rgba(255,255,255,0.2); font-size: 0.82rem;
+}
+.lixeira-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 8px 10px; font-size: 0.78rem; color: rgba(255,255,255,0.3);
+}
+.lixeira-esvaziar-btn {
+  display: flex; align-items: center; gap: 4px;
+  background: transparent; border: 1px solid rgba(239,68,68,0.25);
+  color: rgba(239,68,68,0.55); border-radius: 6px;
+  padding: 3px 10px; font-size: 0.78rem; cursor: pointer; transition: all 0.15s;
+}
+.lixeira-esvaziar-btn:hover { background: rgba(239,68,68,0.08); color: rgba(239,68,68,0.85); }
+.lixeira-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 10px; border-radius: 8px; margin-bottom: 4px;
+  background: rgba(239,68,68,0.04); border: 1px solid rgba(239,68,68,0.08);
+  gap: 12px;
+}
+.lixeira-row-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.lixeira-nome { font-size: 0.85rem; color: rgba(255,255,255,0.55); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lixeira-data { font-size: 0.74rem; color: rgba(255,255,255,0.25); }
+.lixeira-row-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.lixeira-restaurar-btn {
+  display: flex; align-items: center; gap: 5px;
+  background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2);
+  color: rgba(34,197,94,0.75); border-radius: 7px;
+  padding: 5px 12px; font-size: 0.8rem; cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.lixeira-restaurar-btn:hover { background: rgba(34,197,94,0.15); color: #86efac; }
+.lixeira-del-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: 7px;
+  background: transparent; border: 1px solid rgba(239,68,68,0.2);
+  color: rgba(239,68,68,0.45); cursor: pointer; transition: all 0.15s; flex-shrink: 0;
+}
+.lixeira-del-btn:hover { background: rgba(239,68,68,0.12); color: #f87171; border-color: rgba(239,68,68,0.4); }
 
 /* ══ HISTÓRICO DE CONCLUSÕES ══ */
 .hist-wrap {

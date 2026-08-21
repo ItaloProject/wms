@@ -65,6 +65,7 @@ export function processoToDb(r) {
     concluido:          r.concluido  || false,
     aguardando_cliente: r.aguardandoCliente || false,
     etapas:             r.etapas     || [],
+    deleted_at:         r.deletedAt  || null,
   }
 }
 
@@ -86,6 +87,7 @@ export function processoFromDb(row) {
     concluido:          row.concluido  || false,
     aguardandoCliente:  row.aguardando_cliente || false,
     etapas:             row.etapas     || [],
+    deletedAt:          row.deleted_at || null,
   }
 }
 
