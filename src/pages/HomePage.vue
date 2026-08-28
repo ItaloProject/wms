@@ -1,6 +1,6 @@
 <template>
   <div class="home-page">
-        <!-- Fundo: vídeo com fallback em imagem -->
+        <!-- Fundo: vídeo (quando existir) com fallback em slideshow de fotos -->
         <video
           class="home-bg-video"
           autoplay loop muted playsinline
@@ -10,7 +10,15 @@
         >
           <source src="/bg-home.mp4" type="video/mp4" />
         </video>
-        <div class="home-bg-img" v-if="bgVideoError" />
+        <template v-if="bgVideoError">
+          <div
+            v-for="(img, i) in bgImages"
+            :key="img"
+            class="home-bg-img"
+            :class="{ 'home-bg-img--active': i === activeBgIndex }"
+            :style="{ backgroundImage: `url(${img})`, animationDelay: `${i * -9}s` }"
+          />
+        </template>
         <div class="home-bg-overlay" />
 
         <header class="home-header">
@@ -131,6 +139,10 @@ const $q = useQuasar()
 const logoExists   = ref(true)
 const bgVideoError = ref(false)
 
+const bgImages     = ['/bg-home.jpg', '/bg-home-2.jpg', '/bg-home-3.jpg']
+const activeBgIndex = ref(0)
+let bgSlideTimer = null
+
 const today = new Intl.DateTimeFormat('pt-BR', {
   weekday: 'long',
   day: '2-digit',
@@ -170,6 +182,21 @@ async function fetchWeather() {
   }
 }
 
+// Confirma que /bg-home.mp4 é mesmo um vídeo antes de tentar tocá-lo.
+// Necessário porque o fallback de SPA (Vite dev e alguns hosts) responde 200
+// com HTML no lugar de um arquivo inexistente, e o <video> nem sempre dispara
+// o evento "error" nesse caso — então o HEAD manual evita ficar preso a um
+// vídeo "fantasma" que nunca chega a carregar.
+async function checkBgVideo() {
+  try {
+    const res = await fetch('/bg-home.mp4', { method: 'HEAD' })
+    const ct = res.headers.get('content-type') || ''
+    if (!res.ok || !ct.startsWith('video')) bgVideoError.value = true
+  } catch {
+    bgVideoError.value = true
+  }
+}
+
 let ticker = null
 onMounted(() => {
   updateTime()
@@ -177,8 +204,18 @@ onMounted(() => {
   fetchWeather()
   // atualiza temperatura a cada 10 min
   setInterval(fetchWeather, 600_000)
+
+  checkBgVideo()
+
+  // Slideshow do fundo: alterna a cada 8s (crossfade via CSS)
+  bgSlideTimer = setInterval(() => {
+    activeBgIndex.value = (activeBgIndex.value + 1) % bgImages.length
+  }, 8000)
 })
-onUnmounted(() => clearInterval(ticker))
+onUnmounted(() => {
+  clearInterval(ticker)
+  clearInterval(bgSlideTimer)
+})
 
 function handleCard(sector) {
   if (sector.locked) {
@@ -209,9 +246,8 @@ function handleCard(sector) {
   background: #091644;
 }
 
-/* ── Vídeo / imagem de fundo ── */
-.home-bg-video,
-.home-bg-img {
+/* ── Vídeo de fundo ── */
+.home-bg-video {
   position: fixed;
   inset: -20px;
   width: calc(100% + 40px);
@@ -223,8 +259,25 @@ function handleCard(sector) {
   animation: bg-kenburns 26s ease-in-out infinite alternate, bg-reveal 1.4s ease both;
   will-change: transform;
 }
+
+/* ── Slideshow de fotos (fallback quando não há vídeo) ── */
 .home-bg-img {
-  background: url('/bg-home.jpg') center center / cover no-repeat;
+  position: fixed;
+  inset: -20px;
+  width: calc(100% + 40px);
+  height: calc(100% + 40px);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: 0;
+  opacity: 0;
+  pointer-events: none;
+  animation: bg-kenburns 32s ease-in-out infinite alternate;
+  transition: opacity 2s ease;
+  will-change: transform, opacity;
+}
+.home-bg-img--active {
+  opacity: 1;
 }
 
 /* Zoom/pan lento e contínuo — efeito "Ken Burns" cinematográfico */
