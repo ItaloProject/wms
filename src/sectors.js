@@ -3,32 +3,32 @@ export const sectors = [
     slug: 'gerenciamento',
     label: 'Gerenciamento',
     description: 'Indicadores, relatórios e visão geral da operação',
-    icon: 'insights',
-    color: '#1a3fa0',
+    icon: 'trending_up',
+    color: 'oklch(0.52 0.16 258)',
     locked: false
   },
   {
     slug: 'pessoal',
     label: 'Pessoal',
-    description: 'Colaboradores, ponto e gestão de equipes',
+    description: 'Folha de ponto, admissões, rescisões e férias',
     icon: 'groups',
-    color: '#0d9488',
+    color: 'oklch(0.6 0.11 185)',
     locked: false
   },
   {
     slug: 'financeiro',
     label: 'Financeiro',
     description: 'Contas, pagamentos e fluxo de caixa',
-    icon: 'payments',
-    color: '#5ab82e',
+    icon: 'account_balance_wallet',
+    color: 'oklch(0.64 0.19 143)',
     locked: true
   },
   {
     slug: 'administrativo',
     label: 'Administrativo',
     description: 'Documentos, contratos e processos internos',
-    icon: 'business_center',
-    color: '#7c3aed',
+    icon: 'work',
+    color: 'oklch(0.56 0.21 300)',
     locked: true
   }
 ]

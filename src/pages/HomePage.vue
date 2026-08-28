@@ -60,7 +60,7 @@
             <div class="info-sep" />
 
             <div class="info-segment info-segment--weather">
-              <div class="info-label">São Luís · MA</div>
+              <div class="info-label"><q-icon name="place" size="10px" class="q-mr-xs" />São Luís · MA</div>
               <div class="info-value">
                 <q-icon :name="weatherIcon" size="15px" class="q-mr-xs info-icon--weather" />
                 <span class="info-temp" v-if="temp !== null">{{ temp }}°C</span>
@@ -72,7 +72,8 @@
         </header>
 
         <div class="home-content">
-          <div class="text-center q-mb-xl">
+          <div class="text-center home-hero-head">
+            <p class="home-eyebrow">Portal interno</p>
             <h1 class="home-title">Bem-vindo ao <span class="highlight">WMS</span></h1>
             <p class="home-caption">Selecione o setor para acessar o sistema</p>
           </div>
@@ -109,7 +110,7 @@
 
               <q-card-section class="card-footer row items-center q-pt-none">
                 <template v-if="sector.locked">
-                  <q-icon name="construction" size="15px" class="q-mr-xs" />
+                  <q-icon name="build" size="15px" class="q-mr-xs" />
                   <span>Em andamento</span>
                 </template>
                 <template v-else>
@@ -121,8 +122,9 @@
           </div>
         </div>
 
-        <footer class="home-footer text-center q-py-md">
-          © {{ new Date().getFullYear() }} WMS Consultoria
+        <footer class="home-footer row items-center justify-between q-py-md">
+          <span>© {{ new Date().getFullYear() }} WMS Consultoria · Todos os direitos reservados</span>
+          <span>Acesso restrito a colaboradores</span>
         </footer>
   </div>
 </template>
@@ -238,12 +240,15 @@ function handleCard(sector) {
 
 <style scoped>
 .home-page {
-  min-height: 100vh;
+  --lime: oklch(0.83 0.23 128);
+  height: 100vh;
+  height: 100dvh;
   position: relative;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   background: #091644;
+  font-family: 'Epilogue', ui-sans-serif, system-ui, sans-serif;
 }
 
 /* ── Vídeo de fundo ── */
@@ -331,18 +336,19 @@ function handleCard(sector) {
   display: flex;
   flex-direction: row;
   align-items: center;
-  padding: 12px 24px;
+  padding: clamp(8px, 1.5vh, 14px) clamp(16px, 3vw, 24px);
+  flex-shrink: 0;
 }
 .brand {
   cursor: default;
 }
 .brand-badge {
-  width: 80px;
-  height: 80px;
+  width: clamp(44px, 6vh, 64px);
+  height: clamp(44px, 6vh, 64px);
 }
 .brand-logo {
-  width: 80px;
-  height: 80px;
+  width: clamp(44px, 6vh, 64px);
+  height: clamp(44px, 6vh, 64px);
   object-fit: contain;
   filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.4));
   transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.4s ease;
@@ -350,19 +356,20 @@ function handleCard(sector) {
 }
 .brand:hover .brand-logo {
   transform: rotate(15deg) scale(1.12);
-  filter: drop-shadow(0 4px 18px rgba(90, 184, 46, 0.6));
+  filter: drop-shadow(0 4px 18px color-mix(in oklab, var(--lime) 60%, transparent));
 }
 
 .brand-title {
   color: white;
-  font-weight: 900;
+  font-family: 'Urbanist', ui-sans-serif, system-ui, sans-serif;
+  font-weight: 800;
   font-size: 1.5rem;
   line-height: 1.1;
   letter-spacing: 0.15em;
   display: flex;
 }
 .brand-subtitle {
-  color: #5ab82e;
+  color: var(--lime);
   font-size: 0.9rem;
   font-weight: 700;
   letter-spacing: 0.18em;
@@ -378,8 +385,8 @@ function handleCard(sector) {
 }
 .brand:hover .brand-char {
   transform: translateY(-5px) scale(1.1);
-  color: #a3e635;
-  text-shadow: 0 0 14px rgba(163, 230, 53, 0.8);
+  color: var(--lime);
+  text-shadow: 0 0 14px color-mix(in oklab, var(--lime) 80%, transparent);
   transition-delay: calc(var(--i) * 60ms);
 }
 
@@ -396,8 +403,8 @@ function handleCard(sector) {
 }
 
 @keyframes pulse-glow {
-  0%, 100% { filter: drop-shadow(0 4px 18px rgba(90, 184, 46, 0.5)); }
-  50%       { filter: drop-shadow(0 4px 28px rgba(90, 184, 46, 0.9)); }
+  0%, 100% { filter: drop-shadow(0 4px 18px color-mix(in oklab, var(--lime) 50%, transparent)); }
+  50%       { filter: drop-shadow(0 4px 28px color-mix(in oklab, var(--lime) 90%, transparent)); }
 }
 .brand:hover .brand-logo {
   animation: pulse-glow 1.4s ease-in-out infinite;
@@ -424,20 +431,22 @@ function handleCard(sector) {
 }
 
 .info-segment--weather {
-  background: rgba(90, 184, 46, 0.1);
-  border-left: 1px solid rgba(90, 184, 46, 0.2);
+  background: color-mix(in oklab, var(--lime) 10%, transparent);
+  border-left: 1px solid color-mix(in oklab, var(--lime) 20%, transparent);
 }
 .info-segment--weather:hover {
-  background: rgba(90, 184, 46, 0.17);
+  background: color-mix(in oklab, var(--lime) 17%, transparent);
 }
 
 .info-label {
   font-size: 0.62rem;
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.4);
   line-height: 1;
+  display: flex;
+  align-items: center;
 }
 
 .info-value {
@@ -459,7 +468,7 @@ function handleCard(sector) {
 }
 
 .info-icon--weather {
-  color: #a3e635;
+  color: var(--lime);
   margin-right: 4px;
   flex-shrink: 0;
 }
@@ -472,7 +481,7 @@ function handleCard(sector) {
 .info-temp {
   font-size: 0.95rem;
   font-weight: 700;
-  color: #a3e635;
+  color: var(--lime);
 }
 
 .info-sep {
@@ -485,31 +494,46 @@ function handleCard(sector) {
 /* Hero */
 .home-content {
   flex: 1;
+  min-height: 0;
   position: relative;
   z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 0 16px;
+  padding: clamp(4px, 1vh, 16px) 16px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+}
+.home-content::-webkit-scrollbar { display: none; }
+.home-hero-head {
+  margin: 0 0 clamp(10px, 2.5vh, 26px);
+  flex-shrink: 0;
+}
+.home-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  margin: 0 0 clamp(4px, 1vh, 12px);
 }
 .home-title {
   color: white;
-  font-size: clamp(1.8rem, 4vw, 2.8rem);
-  font-weight: 900;
+  font-family: 'Urbanist', ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(1.5rem, 4vmin, 2.6rem);
+  font-weight: 800;
   margin: 0 0 6px;
   line-height: 1.15;
   text-shadow: 0 2px 16px rgba(0,0,0,0.55), 0 1px 3px rgba(0,0,0,0.4);
 }
 .highlight {
-  background: linear-gradient(90deg, #5ab82e, #a3e635);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--lime);
 }
 .home-caption {
   color: rgba(255, 255, 255, 0.75);
-  font-size: 1.05rem;
+  font-size: clamp(0.85rem, 1.8vmin, 1.05rem);
   margin: 0;
   text-shadow: 0 1px 8px rgba(0,0,0,0.5);
 }
@@ -517,14 +541,16 @@ function handleCard(sector) {
 /* Cards */
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(260px, 340px));
-  gap: 28px;
+  grid-template-columns: repeat(2, minmax(230px, 340px));
+  gap: clamp(12px, 2.2vh, 24px);
   width: 100%;
   max-width: 760px;
   justify-content: center;
+  flex-shrink: 1;
+  min-height: 0;
 }
 @media (max-width: 680px) {
-  .cards-grid { grid-template-columns: minmax(260px, 380px); }
+  .cards-grid { grid-template-columns: minmax(230px, 380px); }
 }
 
 .sector-card {
@@ -541,6 +567,9 @@ function handleCard(sector) {
   animation-delay: var(--delay);
   outline: none;
 }
+.sector-card :deep(.q-card__section) {
+  padding: clamp(12px, 2vh, 20px) clamp(14px, 2vw, 22px);
+}
 @keyframes card-in {
   from { opacity: 0; transform: translateY(24px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -548,42 +577,45 @@ function handleCard(sector) {
 .sector-card:hover,
 .sector-card:focus-visible {
   transform: translateY(-6px);
-  border-color: rgba(255, 255, 255, 0.4);
+  border-color: color-mix(in oklab, var(--lime) 40%, rgba(255, 255, 255, 0.3));
   box-shadow: 0 20px 44px rgba(0, 0, 0, 0.35);
 }
 .card-glow {
   position: absolute;
   inset: 0;
-  background: radial-gradient(340px 200px at 15% 0%, color-mix(in srgb, var(--card-color) 40%, transparent), transparent 70%);
+  background: radial-gradient(340px 200px at 15% 0%, color-mix(in oklab, var(--lime) 35%, transparent), transparent 70%);
   opacity: 0;
   transition: opacity 0.3s ease;
   pointer-events: none;
 }
 .sector-card:hover .card-glow,
 .sector-card:focus-visible .card-glow { opacity: 1; }
+.sector-card--locked:hover .card-glow,
+.sector-card--locked:focus-visible .card-glow { opacity: 0; }
 
 .sector-icon {
-  width: 58px;
-  height: 58px;
-  border-radius: 16px;
+  width: clamp(42px, 6vh, 58px);
+  height: clamp(42px, 6vh, 58px);
+  border-radius: clamp(12px, 1.6vh, 16px);
   background: color-mix(in srgb, var(--card-color) 75%, transparent 0%);
   box-shadow: 0 8px 20px color-mix(in srgb, var(--card-color) 40%, transparent);
 }
 .sector-label {
-  font-size: 1.2rem;
-  font-weight: 800;
+  font-family: 'Urbanist', ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(1rem, 2.1vh, 1.2rem);
+  font-weight: 700;
   letter-spacing: 0.02em;
 }
 .sector-description {
   color: rgba(255, 255, 255, 0.6);
-  font-size: 0.85rem;
+  font-size: clamp(0.76rem, 1.5vh, 0.85rem);
   line-height: 1.4;
-  min-height: 2.4em;
+  min-height: 2.2em;
 }
 .card-footer {
-  color: #a3e635;
+  color: var(--lime);
   font-weight: 700;
-  font-size: 0.82rem;
+  font-size: clamp(0.74rem, 1.4vh, 0.82rem);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -607,18 +639,24 @@ function handleCard(sector) {
   position: absolute;
   top: 12px;
   right: 12px;
-  width: 26px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 /* Footer */
 .home-footer {
   position: relative;
   z-index: 2;
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 0.78rem;
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.76rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin: 0 24px;
+  padding: clamp(8px, 1.5vh, 14px) 0 !important;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 </style>
