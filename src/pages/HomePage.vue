@@ -1,8 +1,17 @@
 <template>
   <div class="home-page">
-        <div class="blob blob-1" />
-        <div class="blob blob-2" />
-        <div class="blob blob-3" />
+        <!-- Fundo: vídeo com fallback em imagem -->
+        <video
+          class="home-bg-video"
+          autoplay loop muted playsinline
+          poster="/bg-home.jpg"
+          @error="bgVideoError = true"
+          v-show="!bgVideoError"
+        >
+          <source src="/bg-home.mp4" type="video/mp4" />
+        </video>
+        <div class="home-bg-img" v-if="bgVideoError" />
+        <div class="home-bg-overlay" />
 
         <header class="home-header">
           <div class="brand row items-center no-wrap">
@@ -119,7 +128,8 @@ import { sectors } from '../sectors'
 const router = useRouter()
 const $q = useQuasar()
 
-const logoExists = ref(true)
+const logoExists   = ref(true)
+const bgVideoError = ref(false)
 
 const today = new Intl.DateTimeFormat('pt-BR', {
   weekday: 'long',
@@ -196,44 +206,42 @@ function handleCard(sector) {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background:
-    radial-gradient(900px 500px at 90% -5%, rgba(90, 184, 46, 0.18), transparent 55%),
-    radial-gradient(700px 500px at -5% 105%, rgba(26, 63, 160, 0.5), transparent 55%),
-    linear-gradient(150deg, #091644 0%, #0d1f5c 40%, #1a3fa0 100%);
+  background: #091644;
 }
 
-.blob {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(90px);
-  opacity: 0.28;
+/* ── Vídeo / imagem de fundo ── */
+.home-bg-video {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  z-index: 0;
   pointer-events: none;
 }
-.blob-1 {
-  width: 500px;
-  height: 500px;
-  background: #1a3fa0;
-  top: -200px;
-  right: -150px;
-  animation: float 13s ease-in-out infinite;
+.home-bg-img {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: url('/bg-home.jpg') center center / cover no-repeat;
+  pointer-events: none;
 }
-.blob-2 {
-  width: 380px;
-  height: 380px;
-  background: #5ab82e;
-  bottom: -150px;
-  left: -110px;
-  animation: float 15s ease-in-out infinite reverse;
+.home-bg-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(to bottom, rgba(6,15,30,0.72) 0%, rgba(6,15,30,0.55) 50%, rgba(6,15,30,0.75) 100%);
+  pointer-events: none;
 }
-.blob-3 {
-  width: 280px;
-  height: 280px;
-  background: #2563eb;
-  top: 40%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  animation: float 10s ease-in-out infinite 2s;
+
+/* garante que o conteúdo fique acima do overlay */
+.home-page > *:not(.home-bg-video):not(.home-bg-img):not(.home-bg-overlay) {
+  position: relative;
+  z-index: 2;
 }
+
 @keyframes float {
   0%, 100% { transform: translateY(0) scale(1); }
   50% { transform: translateY(28px) scale(1.05); }
