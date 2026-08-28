@@ -201,7 +201,7 @@ async function onSubmit() {
       password: password.value,
     })
     if (error) throw error
-    window.location.replace('/gerenciamento')
+    window.location.replace('/' + route.params.sector)
   } catch (err) {
     $q.notify({
       type:     'negative',

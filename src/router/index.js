@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import HomePage from '../pages/HomePage.vue'
 import LoginPage from '../pages/LoginPage.vue'
 import GerenciamentoPage from '../pages/GerenciamentoPage.vue'
+import PessoalPage from '../pages/PessoalPage.vue'
 import ResetSenhaPage from '../pages/ResetSenhaPage.vue'
 import { findSector } from '../sectors'
 import { supabase } from '../lib/supabase'
@@ -24,6 +25,12 @@ const router = createRouter({
       path: '/gerenciamento',
       name: 'gerenciamento',
       component: GerenciamentoPage,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/pessoal',
+      name: 'pessoal',
+      component: PessoalPage,
       meta: { requiresAuth: true }
     },
     { path: '/reset-senha', name: 'reset-senha', component: ResetSenhaPage },

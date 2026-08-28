@@ -13,7 +13,7 @@ export const sectors = [
     description: 'Colaboradores, ponto e gestão de equipes',
     icon: 'groups',
     color: '#0d9488',
-    locked: true
+    locked: false
   },
   {
     slug: 'financeiro',
