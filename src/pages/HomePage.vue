@@ -210,30 +210,54 @@ function handleCard(sector) {
 }
 
 /* ── Vídeo / imagem de fundo ── */
-.home-bg-video {
+.home-bg-video,
+.home-bg-img {
   position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  inset: -20px;
+  width: calc(100% + 40px);
+  height: calc(100% + 40px);
   object-fit: cover;
   object-position: center;
   z-index: 0;
   pointer-events: none;
+  animation: bg-kenburns 26s ease-in-out infinite alternate, bg-reveal 1.4s ease both;
+  will-change: transform;
 }
 .home-bg-img {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
   background: url('/bg-home.jpg') center center / cover no-repeat;
-  pointer-events: none;
 }
+
+/* Zoom/pan lento e contínuo — efeito "Ken Burns" cinematográfico */
+@keyframes bg-kenburns {
+  0%   { transform: scale(1.04) translate(0, 0); }
+  50%  { transform: scale(1.12) translate(-1.2%, -0.8%); }
+  100% { transform: scale(1.07) translate(1%, 0.4%); }
+}
+@keyframes bg-reveal {
+  from { opacity: 0; filter: saturate(0.85) brightness(0.9); }
+  to   { opacity: 1; filter: saturate(1) brightness(1); }
+}
+
+/* Overlay em múltiplas camadas: contraste nas bordas, veste a foto na paleta da marca */
 .home-bg-overlay {
   position: fixed;
   inset: 0;
   z-index: 1;
-  background:
-    linear-gradient(to bottom, rgba(6,15,30,0.72) 0%, rgba(6,15,30,0.55) 50%, rgba(6,15,30,0.75) 100%);
   pointer-events: none;
+  background:
+    radial-gradient(120% 90% at 50% 8%, rgba(9,22,68,0.05), transparent 55%),
+    linear-gradient(120deg, rgba(6,12,26,0.88) 0%, rgba(6,12,26,0.32) 32%, rgba(6,12,26,0.28) 62%, rgba(6,12,26,0.9) 100%),
+    linear-gradient(to bottom, rgba(6,12,26,0.62) 0%, rgba(6,12,26,0.12) 26%, rgba(6,12,26,0.22) 68%, rgba(6,12,26,0.85) 100%),
+    linear-gradient(160deg, rgba(26,63,160,0.12), rgba(90,184,46,0.06) 60%, transparent 100%);
+}
+/* Vinheta sutil para foco central e granulado leve (textura "cinema") */
+.home-bg-overlay::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(140% 100% at 50% 50%, transparent 55%, rgba(0,0,0,0.35) 100%);
+  mix-blend-mode: multiply;
 }
 
 /* garante que o conteúdo fique acima do overlay */
@@ -422,6 +446,7 @@ function handleCard(sector) {
   font-weight: 900;
   margin: 0 0 6px;
   line-height: 1.15;
+  text-shadow: 0 2px 16px rgba(0,0,0,0.55), 0 1px 3px rgba(0,0,0,0.4);
 }
 .highlight {
   background: linear-gradient(90deg, #5ab82e, #a3e635);
@@ -430,9 +455,10 @@ function handleCard(sector) {
   color: transparent;
 }
 .home-caption {
-  color: rgba(255, 255, 255, 0.65);
+  color: rgba(255, 255, 255, 0.75);
   font-size: 1.05rem;
   margin: 0;
+  text-shadow: 0 1px 8px rgba(0,0,0,0.5);
 }
 
 /* Cards */
@@ -451,9 +477,10 @@ function handleCard(sector) {
 .sector-card {
   position: relative;
   border-radius: 22px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(14px);
+  background: rgba(10, 16, 32, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(18px) saturate(1.2);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
   color: white;
   overflow: hidden;
   transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
