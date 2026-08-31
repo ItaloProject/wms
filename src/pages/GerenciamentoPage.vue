@@ -5745,20 +5745,29 @@ function agendarProximoAlerta() {
 function montarMensagemConsolidada(processos, hist = [], aguardando = []) {
   const hoje = new Date()
   const hojeStr = hoje.toLocaleDateString('pt-BR')
-  // Cada empresa aparece apenas uma vez, na categoria mais crítica (vencido > urgente > priorizar)
-  const vistos = new Set()
-  const dedup = list => list.filter(r => {
-    const k = (r.razaoSocial || '').trim().toUpperCase()
-    if (vistos.has(k)) return false
-    vistos.add(k)
-    return true
-  })
-  const vencidos    = dedup(processos.filter(r => diasRestantes(r) < 0))
-  const urgentes    = dedup(processos.filter(r => { const d = diasRestantes(r); return d >= 0 && ((r.prazo || 'normal') === 'urgente' || d === 0) }))
-  const priorizar   = dedup(processos.filter(r => { const d = diasRestantes(r); return d > 0 && r.prazo !== 'urgente' && (r.prazo === 'priorizar' || d <= 3) }))
-  const aguardandoDedup = dedup(aguardando)
 
-  if (!vencidos.length && !urgentes.length && !priorizar.length && !aguardandoDedup.length) return null
+  // Dedup independente por seção — empresas podem aparecer em ativos E aguardando
+  const makeDedupFn = () => {
+    const vistos = new Set()
+    return list => list.filter(r => {
+      const k = (r.razaoSocial || '').trim().toUpperCase()
+      if (vistos.has(k)) return false
+      vistos.add(k)
+      return true
+    })
+  }
+
+  const dedupAtivos  = makeDedupFn()
+  const dedupAguard  = makeDedupFn()
+
+  const vencidos    = dedupAtivos(processos.filter(r => diasRestantes(r) < 0))
+  const urgentes    = dedupAtivos(processos.filter(r => { const d = diasRestantes(r); return d >= 0 && ((r.prazo || 'normal') === 'urgente' || d === 0) }))
+  const priorizar   = dedupAtivos(processos.filter(r => { const d = diasRestantes(r); return d > 0 && r.prazo !== 'urgente' && (r.prazo === 'priorizar' || d <= 3) }))
+
+  // Aguardando cliente: apenas os VENCIDOS, seção separada com próprio dedup
+  const aguardandoVencidos = dedupAguard(aguardando.filter(r => diasRestantes(r) < 0))
+
+  if (!vencidos.length && !urgentes.length && !priorizar.length && !aguardandoVencidos.length) return null
 
   // Concluídos nos últimos 7 dias
   const seteAtras = new Date(hoje)
@@ -5801,13 +5810,14 @@ function montarMensagemConsolidada(processos, hist = [], aguardando = []) {
     })
   }
 
-  if (aguardandoDedup.length) {
-    msg += `\n🕓 *AGUARDANDO CLIENTE (${aguardandoDedup.length})*\n`
-    aguardandoDedup.forEach(r => {
-      const d = diasRestantes(r)
+  if (aguardandoVencidos.length) {
+    msg += `\n🕓 *AGUARDANDO CLIENTE — VENCIDOS (${aguardandoVencidos.length})*\n`
+    msg += `_Processos com prazo encerrado aguardando retorno do cliente_\n`
+    aguardandoVencidos.forEach(r => {
+      const d = Math.abs(diasRestantes(r))
       msg += `• *${r.razaoSocial || 'Sem nome'}*`
-      if (r.dataVencFormatada) msg += d < 0 ? ` — prazo encerrou em ${r.dataVencFormatada}` : ` — vence em ${r.dataVencFormatada}`
-      msg += '\n'
+      if (r.dataVencFormatada) msg += ` — prazo encerrou em ${r.dataVencFormatada}`
+      msg += ` (${d} dia${d !== 1 ? 's' : ''} atrás)\n`
     })
   }
 
@@ -5837,13 +5847,19 @@ async function alertarPrazosWhatsApp(slot = HORARIOS_ALERTA[0]) {
     return d < 0 || d <= 3 || (r.prazo || 'normal') === 'urgente'
   })
 
-  if (!novos.length) return
+  const novosAguardando = registrosAguardandoCliente.value.filter(r => {
+    if (jaAlertados.has(`ag_${r.id}`)) return false
+    return diasRestantes(r) < 0
+  })
 
-  const msg = montarMensagemConsolidada(novos, historico.value, registrosAguardandoCliente.value)
+  if (!novos.length && !novosAguardando.length) return
+
+  const msg = montarMensagemConsolidada(novos, historico.value, novosAguardando)
   if (!msg) return
 
   await Promise.all(NUMEROS_ALERTA.map(num => enviarWhatsAppPara(num, msg)))
   novos.forEach(r => jaAlertados.add(String(r.id)))
+  novosAguardando.forEach(r => jaAlertados.add(`ag_${r.id}`))
   localStorage.setItem(chave, JSON.stringify([...jaAlertados]))
 }
 
@@ -5861,7 +5877,9 @@ async function testarAlertasAgora() {
     return d < 0 || d <= 3 || (r.prazo || 'normal') === 'urgente'
   })
 
-  if (!processos.length) {
+  const aguardandoVencidos = registrosAguardandoCliente.value.filter(r => diasRestantes(r) < 0)
+
+  if (!processos.length && !aguardandoVencidos.length) {
     $q.notify({ icon: 'info', color: 'info', message: 'Nenhum processo urgente ou vencido encontrado.', position: 'top', timeout: 3500 })
     return
   }
@@ -5871,7 +5889,7 @@ async function testarAlertasAgora() {
   // Sincroniza dados com o servidor antes de testar
   await sincronizarServidor()
 
-  const msg = montarMensagemConsolidada(processos, historico.value, registrosAguardandoCliente.value)
+  const msg = montarMensagemConsolidada(processos, historico.value, aguardandoVencidos)
   if (!msg) {
     $q.notify({ icon: 'info', color: 'info', message: 'Nenhum processo urgente ou vencido encontrado.', position: 'top', timeout: 3500 })
     return
