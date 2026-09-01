@@ -5833,10 +5833,16 @@ async function alertarPrazosWhatsApp(slot = HORARIOS_ALERTA[0]) {
   const hoje  = new Date().toDateString()
   const slotId = `${String(slot.h).padStart(2,'0')}h${String(slot.m).padStart(2,'0')}`
 
-  // Lock por slot/dia — impede envio duplicado de múltiplas abas ou retries
-  const lockKey = `wms_alerta_lock_${hoje}_${slotId}`
-  if (localStorage.getItem(lockKey)) return
-  localStorage.setItem(lockKey, '1')
+  // Lock atômico por slot/dia — padrão write-then-verify para múltiplas abas
+  // Cada aba grava sua própria claim ID e relê para ver se "ganhou" a disputa
+  const lockKey   = `wms_alerta_lock_${hoje}_${slotId}`
+  const minhaClaim = `${Date.now()}_${Math.random().toString(36).slice(2)}`
+
+  if (localStorage.getItem(lockKey)) return          // já enviado por outra aba
+
+  localStorage.setItem(lockKey, minhaClaim)          // reivindica o lock
+  await new Promise(r => setTimeout(r, 80 + Math.random() * 120))  // aguarda ~80-200ms
+  if (localStorage.getItem(lockKey) !== minhaClaim) return  // outra aba ganhou a disputa
 
   const chave = `wms_alertas_${hoje}_${slotId}`
   const jaAlertados = new Set(JSON.parse(localStorage.getItem(chave) || '[]'))
