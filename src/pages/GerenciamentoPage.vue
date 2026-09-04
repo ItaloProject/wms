@@ -5847,6 +5847,13 @@ async function alertarPrazosWhatsApp(slot = HORARIOS_ALERTA[0]) {
   const chave = `wms_alertas_${hoje}_${slotId}`
   const jaAlertados = new Set(JSON.parse(localStorage.getItem(chave) || '[]'))
 
+  // Busca dados frescos do banco para evitar estado stale de outra aba/sessão
+  try {
+    const { data: procsFresc } = await supabase
+      .from('processos').select('*').is('deleted_at', null).order('created_at', { ascending: false })
+    if (procsFresc?.length) registros.value = procsFresc.map(processoFromDb)
+  } catch { /* silencioso — usa dados em memória se falhar */ }
+
   const novos = registrosAtivos.value.filter(r => {
     if (jaAlertados.has(String(r.id))) return false
     const d = diasRestantes(r)
