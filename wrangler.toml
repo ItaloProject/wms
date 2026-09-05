@@ -10,5 +10,5 @@ crons = ["50 10 * * 1-5", "0 18 * * 1-5"]
 
 [vars]
 SUPABASE_URL    = "https://uysamynplejghdmxlrfk.supabase.co"
-NUMEROS_ALERTA  = "5599984491810"
+NUMEROS_ALERTA  = "5599984491810,559882624491,559888435550,559885928114"
 GOTENBERG_URL   = "https://gotenberg-production-931d.up.railway.app"
