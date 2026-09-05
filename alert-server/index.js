@@ -26,13 +26,30 @@ function diasRestantes(r) {
   return Math.ceil((venc - hoje) / 86400000)
 }
 
-function montarMensagem(processos) {
-  const hoje = new Date().toLocaleDateString('pt-BR')
-  const vencidos  = processos.filter(r => diasRestantes(r) < 0)
-  const urgentes  = processos.filter(r => { const d = diasRestantes(r); return d >= 0 && ((r.prazo || 'normal') === 'urgente' || d === 0) })
-  const priorizar = processos.filter(r => { const d = diasRestantes(r); return d > 0 && r.prazo !== 'urgente' && (r.prazo === 'priorizar' || d <= 3) })
+// Dedup independente por seção — a mesma empresa pode ter processo ativo E aguardando
+function makeDedupFn() {
+  const vistos = new Set()
+  return list => list.filter(r => {
+    const k = (r.razaoSocial || '').trim().toUpperCase()
+    if (vistos.has(k)) return false
+    vistos.add(k)
+    return true
+  })
+}
 
-  if (!vencidos.length && !urgentes.length && !priorizar.length) return null
+function montarMensagem(processos, aguardando = []) {
+  const hoje = new Date().toLocaleDateString('pt-BR')
+  const dedupAtivos = makeDedupFn()
+  const dedupAguard = makeDedupFn()
+
+  const vencidos  = dedupAtivos(processos.filter(r => diasRestantes(r) < 0))
+  const urgentes  = dedupAtivos(processos.filter(r => { const d = diasRestantes(r); return d >= 0 && ((r.prazo || 'normal') === 'urgente' || d === 0) }))
+  const priorizar = dedupAtivos(processos.filter(r => { const d = diasRestantes(r); return d > 0 && r.prazo !== 'urgente' && (r.prazo === 'priorizar' || d <= 3) }))
+
+  // Aguardando cliente: só os já vencidos, em seção própria
+  const aguardandoVencidos = dedupAguard(aguardando.filter(r => diasRestantes(r) < 0))
+
+  if (!vencidos.length && !urgentes.length && !priorizar.length && !aguardandoVencidos.length) return null
 
   let msg = `⚠️ *WMS Consultoria — Resumo de Prazos*\n📅 ${hoje}\n`
   if (vencidos.length) {
@@ -46,6 +63,11 @@ function montarMensagem(processos) {
   if (priorizar.length) {
     msg += `\n🟡 *PRIORIZAR (${priorizar.length})*\n`
     priorizar.forEach(r => { const d = diasRestantes(r); msg += `• ${r.razaoSocial || 'Sem nome'} — vence em ${d} dia${d !== 1 ? 's' : ''}\n` })
+  }
+  if (aguardandoVencidos.length) {
+    msg += `\n🕓 *AGUARDANDO CLIENTE — VENCIDOS (${aguardandoVencidos.length})*\n`
+    msg += `_Processos com prazo encerrado aguardando retorno do cliente_\n`
+    aguardandoVencidos.forEach(r => { const d = Math.abs(diasRestantes(r)); msg += `• ${r.razaoSocial || 'Sem nome'} — vencido há ${d} dia${d !== 1 ? 's' : ''}\n` })
   }
   msg += `\n_WMS Consultoria Contábil_`
   return msg
@@ -79,16 +101,23 @@ async function dispararAlertas() {
     return
   }
   const { registros = [] } = loadData()
-  const ativos = registros.filter(r => !r.concluido)
+  const naoConcluidos = registros.filter(r => !r.concluido)
+
+  // Aguardando cliente não depende da equipe — sai das urgências e vai para seção própria
+  const ativos     = naoConcluidos.filter(r => !(r.aguardandoCliente || r.aguardando_cliente))
+  const aguardando = naoConcluidos.filter(r =>   r.aguardandoCliente || r.aguardando_cliente)
+
   const processos = ativos.filter(r => {
     const d = diasRestantes(r)
     return d < 0 || d <= 3 || (r.prazo || 'normal') === 'urgente'
   })
-  if (!processos.length) {
+  const aguardandoVencidos = aguardando.filter(r => diasRestantes(r) < 0)
+
+  if (!processos.length && !aguardandoVencidos.length) {
     console.log('[WMS] Nenhum processo urgente/vencido encontrado.')
     return
   }
-  const msg = montarMensagem(processos)
+  const msg = montarMensagem(processos, aguardandoVencidos)
   if (!msg) {
     console.log('[WMS] Nenhum alerta a enviar.')
     return

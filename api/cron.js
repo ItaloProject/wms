@@ -17,13 +17,31 @@ function diasRestantes(r) {
   return Math.ceil((venc - hoje) / 86400000)
 }
 
-function montarMensagem(processos) {
-  const hoje = new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
-  const vencidos  = processos.filter(r => diasRestantes(r) < 0)
-  const urgentes  = processos.filter(r => { const d = diasRestantes(r); return d >= 0 && ((r.prazo || 'normal') === 'urgente' || d === 0) })
-  const priorizar = processos.filter(r => { const d = diasRestantes(r); return d > 0 && r.prazo !== 'urgente' && (r.prazo === 'priorizar' || d <= 3) })
+// Dedup independente por seção — a mesma empresa pode ter processo ativo E aguardando
+function makeDedupFn() {
+  const vistos = new Set()
+  return list => list.filter(r => {
+    const k = (r.razao_social || '').trim().toUpperCase()
+    if (vistos.has(k)) return false
+    vistos.add(k)
+    return true
+  })
+}
 
-  if (!vencidos.length && !urgentes.length && !priorizar.length) return null
+function montarMensagem(processos, aguardando = []) {
+  const hoje = new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+
+  const dedupAtivos = makeDedupFn()
+  const dedupAguard = makeDedupFn()
+
+  const vencidos  = dedupAtivos(processos.filter(r => diasRestantes(r) < 0))
+  const urgentes  = dedupAtivos(processos.filter(r => { const d = diasRestantes(r); return d >= 0 && ((r.prazo || 'normal') === 'urgente' || d === 0) }))
+  const priorizar = dedupAtivos(processos.filter(r => { const d = diasRestantes(r); return d > 0 && r.prazo !== 'urgente' && (r.prazo === 'priorizar' || d <= 3) }))
+
+  // Aguardando cliente: só os já vencidos, em seção própria
+  const aguardandoVencidos = dedupAguard(aguardando.filter(r => diasRestantes(r) < 0))
+
+  if (!vencidos.length && !urgentes.length && !priorizar.length && !aguardandoVencidos.length) return null
 
   let msg = `⚠️ *WMS Consultoria — Resumo de Prazos*\n📅 ${hoje}\n`
 
@@ -46,6 +64,14 @@ function montarMensagem(processos) {
     priorizar.forEach(r => {
       const d = diasRestantes(r)
       msg += `• ${r.razao_social || 'Sem nome'} — vence em ${d} dia${d !== 1 ? 's' : ''}\n`
+    })
+  }
+  if (aguardandoVencidos.length) {
+    msg += `\n🕓 *AGUARDANDO CLIENTE — VENCIDOS (${aguardandoVencidos.length})*\n`
+    msg += `_Processos com prazo encerrado aguardando retorno do cliente_\n`
+    aguardandoVencidos.forEach(r => {
+      const d = Math.abs(diasRestantes(r))
+      msg += `• ${r.razao_social || 'Sem nome'} — vencido há ${d} dia${d !== 1 ? 's' : ''}\n`
     })
   }
 
@@ -87,7 +113,7 @@ export default async function handler(req, res) {
 
   try {
     const [{ data: processos }, { data: cfg }] = await Promise.all([
-      supabase.from('processos').select('*'),
+      supabase.from('processos').select('*').is('deleted_at', null),
       supabase.from('configuracoes').select('*').eq('id', 1).single(),
     ])
 
@@ -100,18 +126,24 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: false, motivo: 'API não configurada', provider })
     }
 
-    const ativos = (processos || []).filter(r => !r.concluido)
+    const naoConcluidos = (processos || []).filter(r => !r.concluido)
+
+    // Aguardando cliente não depende da equipe — sai das urgências e vai para seção própria
+    const ativos     = naoConcluidos.filter(r => !r.aguardando_cliente)
+    const aguardando = naoConcluidos.filter(r => r.aguardando_cliente)
+
     const alertaveis = ativos.filter(r => {
       const d = diasRestantes(r)
       return d < 0 || d <= 3 || (r.prazo || 'normal') === 'urgente'
     })
+    const aguardandoVencidos = aguardando.filter(r => diasRestantes(r) < 0)
 
-    if (!alertaveis.length) {
+    if (!alertaveis.length && !aguardandoVencidos.length) {
       console.log('[cron] Nenhum processo urgente/vencido')
       return res.status(200).json({ ok: true, enviados: 0 })
     }
 
-    const msg = montarMensagem(alertaveis)
+    const msg = montarMensagem(alertaveis, aguardandoVencidos)
     if (!msg) {
       console.log('[cron] Nenhum alerta a enviar')
       return res.status(200).json({ ok: true, enviados: 0 })

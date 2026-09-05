@@ -108,16 +108,29 @@ function montarMensagem(processos, historico, modoCompleto = true) {
   const ativos           = processos.filter(r => !r.aguardando_cliente)
   const aguardandoCliente = processos.filter(r => r.aguardando_cliente)
 
+  // Dedup independente por seção — a mesma empresa pode ter vários processos
+  const makeDedupFn = () => {
+    const vistos = new Set()
+    return list => list.filter(r => {
+      const k = (r.razao_social || '').trim().toUpperCase()
+      if (vistos.has(k)) return false
+      vistos.add(k)
+      return true
+    })
+  }
+  const dedupAtivos = makeDedupFn()
+  const dedupAguard = makeDedupFn()
+
   // Urgência (presente nos dois turnos)
-  const vencidos  = ativos.filter(r => diasRestantes(r) < 0)
-  const urgentes  = ativos.filter(r => {
+  const vencidos  = dedupAtivos(ativos.filter(r => diasRestantes(r) < 0))
+  const urgentes  = dedupAtivos(ativos.filter(r => {
     const d = diasRestantes(r)
     return (r.prazo || 'normal') === 'urgente' || d === 0
-  })
-  const priorizar = ativos.filter(r => {
+  }))
+  const priorizar = dedupAtivos(ativos.filter(r => {
     const d = diasRestantes(r)
     return d > 0 && d < 999 && (r.prazo || 'normal') !== 'urgente' && (r.prazo === 'priorizar' || d <= 3)
-  })
+  }))
 
   // Só no resumo completo da manhã
   const novosHoje = modoCompleto
@@ -129,7 +142,7 @@ function montarMensagem(processos, historico, modoCompleto = true) {
     : []
 
   // Lista de "aguardando cliente" só no resumo completo da manhã (não é urgência)
-  const aguardandoClienteLista = modoCompleto ? aguardandoCliente : []
+  const aguardandoClienteLista = modoCompleto ? dedupAguard(aguardandoCliente) : []
 
   const seteAtras = new Date(); seteAtras.setDate(seteAtras.getDate() - 7)
   const recentes = modoCompleto
