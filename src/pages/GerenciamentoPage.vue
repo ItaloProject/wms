@@ -5019,10 +5019,10 @@ const processosConsultar = computed(() => {
   const mesOk = (p) => {
     if (fm === 0) return true
     if (p.status === 'concluido') {
-      // Prioridade: data do contrato autenticado (igual ao contratoNoMes do Relatório)
-      if (p._contratoData) return matchMesAno(p._contratoData)
-      // Sem contrato: usa data do historico
-      if (p._histData)    return matchMesAno(p._histData)
+      // Usa p.data (contrato formatado dd/mm/yyyy — exatamente o que o carimbo exibe)
+      if (p.data)      return matchMesAno(p.data)
+      // Sem data de contrato: usa data do histórico (também dd/mm/yyyy)
+      if (p._histData) return matchMesAno(p._histData)
       return true   // sem nenhuma data → não bloqueia
     }
     // Ativos: usa dataISO do registro (igual ao regMes do Relatório)
