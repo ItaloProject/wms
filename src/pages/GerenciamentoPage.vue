@@ -1758,7 +1758,7 @@
                           <q-icon name="verified" size="11px" />
                           {{ p.concluidoPor }}
                         </div>
-                        <div v-if="p.data" class="cons-carimbo-data">{{ p.data }}</div>
+                        <div v-if="p.dataConcluidaEm" class="cons-carimbo-data">{{ p.dataConcluidaEm }}</div>
                       </div>
                     </div>
                     <button class="cons-docs-btn" @click.stop="abrirDialogDocs(p, $event)" title="Ver documentos anexados">
@@ -4991,7 +4991,8 @@ const processosConsultar = computed(() => {
         empresa:      h.empresa || '—',
         protocolo:    h.protocolo || '—',
         localizacao:  h.localizacao || '—',
-        data:         ultimaConcluidaEm || (dataContrato ? formatarDataEtapa(dataContrato) : ''),
+        data:             dataContrato ? formatarDataEtapa(dataContrato) : '',
+        dataConcluidaEm:  ultimaConcluidaEm || '',
         pct:          100,
         tipo,
         _reg:         reg || null,
