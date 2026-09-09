@@ -5023,10 +5023,10 @@ const processosConsultar = computed(() => {
   const mesOk = (p) => {
     if (fm === 0) return true
     if (p.status === 'concluido') {
-      // Usa p.data (contrato formatado dd/mm/yyyy — exatamente o que o carimbo exibe)
-      if (p.data)      return matchMesAno(p.data)
-      // Sem data de contrato: usa data do histórico (também dd/mm/yyyy)
+      // Mesma lógica do Relatório: âncora = data do histórico de conclusão (dd/mm/yyyy)
       if (p._histData) return matchMesAno(p._histData)
+      // Sem histórico: usa data do contrato formatada
+      if (p.data)      return matchMesAno(p.data)
       return true   // sem nenhuma data → não bloqueia
     }
     // Ativos: usa dataISO do registro (igual ao regMes do Relatório)
