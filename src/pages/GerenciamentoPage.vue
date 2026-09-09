@@ -4977,18 +4977,26 @@ const processosConsultar = computed(() => {
         || registros.value.find(r => normEmpresa(r.razaoSocial) === normEmpresa(h.empresa))
       const tipo = reg?.prazo === 'baixa' ? 'baixa' : 'constituicao'
       const dataContrato = valorEtapaReg(reg, 'contrato')
+      // Data da última etapa concluída (concluidaEm = "dd/mm/yyyy, HH:MM")
+      const concluidas = (reg?.etapas || []).filter(e => e.concluidaEm)
+      const ultimaConcluidaEm = concluidas.length
+        ? concluidas.reduce((a, b) => {
+            const parse = (s) => { const [dp, tp] = (s || '').split(', '); const [d, m, y] = (dp || '').split('/').map(Number); const [hh, mm] = (tp || '0:0').split(':').map(Number); return new Date(y, m - 1, d, hh, mm).getTime() }
+            return parse(b.concluidaEm) > parse(a.concluidaEm) ? b : a
+          }).concluidaEm
+        : ''
       return {
         id:           h.id,
         processoId:   h.processoId || reg?.id || null,
         empresa:      h.empresa || '—',
         protocolo:    h.protocolo || '—',
         localizacao:  h.localizacao || '—',
-        data:         dataContrato ? formatarDataEtapa(dataContrato) : '',
+        data:         ultimaConcluidaEm || (dataContrato ? formatarDataEtapa(dataContrato) : ''),
         pct:          100,
         tipo,
         _reg:         reg || null,
         _histData:    h.data || '',
-        _contratoData: valorEtapaReg(reg, 'contrato') || '',   // dd/mm/yyyy — mesmo campo do Relatório
+        _contratoData: valorEtapaReg(reg, 'contrato') || '',
         status:       'concluido',
         concluidoPor: h.concluidoPor || '',
       }
