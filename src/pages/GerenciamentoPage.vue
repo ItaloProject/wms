@@ -4983,7 +4983,8 @@ const processosConsultar = computed(() => {
         pct:          100,
         tipo,
         _reg:         reg || null,
-        _histData:    h.data || '',   // dd/mm/yyyy — usado para filtro por mês
+        _histData:    h.data || '',
+        _contratoData: valorEtapaReg(reg, 'contrato') || '',   // dd/mm/yyyy — mesmo campo do Relatório
         status:       'concluido',
         concluidoPor: h.concluidoPor || '',
       }
@@ -5007,17 +5008,24 @@ const processosConsultar = computed(() => {
     return p.status === fs
   }
 
-  // Filtro de mês (alinhado com a lógica do Relatório)
+  // Filtro de mês — mesma lógica do Relatório
   const fm = consultarFiltroMes.value
   const fa = consultarFiltroAno.value
+  const matchMesAno = (ddmmyyyy) => {
+    if (!ddmmyyyy) return false
+    const pts = ddmmyyyy.split('/')
+    return pts.length >= 3 && parseInt(pts[1]) === fm && parseInt(pts[2]) === fa
+  }
   const mesOk = (p) => {
     if (fm === 0) return true
-    // Concluídos: usa data do historico (dd/mm/yyyy) — igual ao histMes do Relatório
-    if (p.status === 'concluido' && p._histData) {
-      const pts = p._histData.split('/')
-      if (pts.length >= 3) return parseInt(pts[1]) === fm && parseInt(pts[2]) === fa
+    if (p.status === 'concluido') {
+      // Prioridade: data do contrato autenticado (igual ao contratoNoMes do Relatório)
+      if (p._contratoData) return matchMesAno(p._contratoData)
+      // Sem contrato: usa data do historico
+      if (p._histData)    return matchMesAno(p._histData)
+      return true   // sem nenhuma data → não bloqueia
     }
-    // Demais: usa dataISO do registro — igual ao regMes do Relatório
+    // Ativos: usa dataISO do registro (igual ao regMes do Relatório)
     if (p._reg?.dataISO) {
       const d = new Date(p._reg.dataISO)
       return d.getMonth() + 1 === fm && d.getFullYear() === fa
