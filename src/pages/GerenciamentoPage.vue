@@ -1652,7 +1652,8 @@
                 </div>
               </div>
 
-              <div class="cons-search-row q-mb-lg">
+              <!-- barra de busca -->
+              <div class="cons-search-row q-mb-md">
                 <div class="cons-search-wrap">
                   <q-icon name="search" size="18px" class="cons-search-icon" />
                   <input
@@ -1667,6 +1668,34 @@
                 <button class="cons-refresh-btn" :class="{ 'cons-refresh-btn--loading': atualizandoConsultar }" @click="atualizarConsultar" :disabled="atualizandoConsultar" title="Atualizar lista">
                   <q-icon name="refresh" size="18px" :class="{ 'cons-refresh-spin': atualizandoConsultar }" />
                 </button>
+              </div>
+
+              <!-- filtros de status + mês -->
+              <div class="cons-filtros q-mb-lg">
+                <div class="cons-filtros-status">
+                  <button
+                    v-for="f in [
+                      { key: 'todos',       label: 'Todos' },
+                      { key: 'andamento',   label: 'Em andamento' },
+                      { key: 'nao_iniciado',label: 'Não iniciado' },
+                      { key: 'concluido',   label: 'Concluído' },
+                      { key: 'aguardando',  label: 'Aguardando' },
+                    ]"
+                    :key="f.key"
+                    class="cons-filtro-chip"
+                    :class="{ 'cons-filtro-chip--ativo': consultarFiltroStatus === f.key }"
+                    @click="consultarFiltroStatus = f.key"
+                  >{{ f.label }}</button>
+                </div>
+                <div class="cons-filtros-mes">
+                  <select v-model="consultarFiltroMes" class="cons-filtro-select">
+                    <option :value="0">Todos os meses</option>
+                    <option v-for="(m, i) in rlMeses" :key="i" :value="i + 1">{{ m }}</option>
+                  </select>
+                  <select v-model="consultarFiltroAno" class="cons-filtro-select">
+                    <option v-for="a in rlAnos" :key="a" :value="a">{{ a }}</option>
+                  </select>
+                </div>
               </div>
 
               <div v-if="processosConsultar.length" class="cons-list">
@@ -4279,6 +4308,9 @@ async function removerArquivamento(item, id) {
 }
 
 const consultarBusca        = ref('')
+const consultarFiltroStatus = ref('todos')   // 'todos'|'andamento'|'nao_iniciado'|'concluido'|'aguardando'
+const consultarFiltroMes    = ref(0)         // 0 = todos os meses, 1-12 = mês específico
+const consultarFiltroAno    = ref(new Date().getFullYear())
 const atualizandoConsultar  = ref(false)
 const lixeira               = ref([])
 const lixeiraAberta         = ref(false)
@@ -4731,29 +4763,27 @@ async function exportarPDF() {
     const [r, g, b] = corMap[grupo.abbr] || [100,100,100]
     autoTable(doc, {
       startY: y,
-      head: [[`${grupo.abbr} — ${grupo.label}`, 'Tipo', 'Localização', 'Protocolo', 'Inserção', 'Contrato', 'Conclusão']],
+      head: [[`${grupo.abbr} — ${grupo.label}`, 'Tipo', 'Protocolo', 'Inserção', 'Contrato', 'Conclusão']],
       body: grupo.items.length
         ? grupo.items.map(p => [
             p.empresa || p.razaoSocial || '—',
             p.tipoProcesso && p.tipoProcesso !== '—' ? p.tipoProcesso : '',
-            p.localizacao  && p.localizacao  !== '—' ? p.localizacao  : '',
             p.protocolo    && p.protocolo    !== '—' ? p.protocolo    : '',
             p.dataInsercao || '—',
             p.dataStr      || '—',
             p.dataConc     && p.dataConc     !== '—' ? p.dataConc     : '',
           ])
-        : [['Nenhum processo nesta categoria', '', '', '', '', '', '']],
+        : [['Nenhum processo nesta categoria', '', '', '', '', '']],
       headStyles: { fillColor: [r, g, b], textColor: 255, fontSize: 8, fontStyle: 'bold' },
-      bodyStyles: { fontSize: 7, textColor: [30, 40, 60] },
+      bodyStyles: { fontSize: 7.5, textColor: [30, 40, 60] },
       alternateRowStyles: { fillColor: [245, 247, 252] },
       columnStyles: {
         0: { cellWidth: 'auto' },
-        1: { cellWidth: 22 },
-        2: { cellWidth: 22 },
-        3: { cellWidth: 22 },
-        4: { cellWidth: 18 },
-        5: { cellWidth: 18 },
-        6: { cellWidth: 18 },
+        1: { cellWidth: 26 },
+        2: { cellWidth: 28 },
+        3: { cellWidth: 20 },
+        4: { cellWidth: 20 },
+        5: { cellWidth: 20 },
       },
       margin: { left: 10, right: 10 },
       tableLineColor: [220, 225, 235],
@@ -4795,7 +4825,7 @@ function exportarExcel() {
     ['WMS CONSULTORIA CONTÁBIL'],
     [`Relatório Detalhado — ${mesLabel}`],
     [],
-    ['Status', 'Empresa / Razão Social', 'Tipo de Processo', 'Localização', 'Protocolo', 'Assinatura', 'Inserção no Sistema', 'Data do Contrato', 'Data de Conclusão'],
+    ['Status', 'Empresa / Razão Social', 'Tipo de Processo', 'Protocolo', 'Assinatura', 'Inserção no Sistema', 'Data do Contrato', 'Data de Conclusão'],
   ]
   for (const grupo of rlGrupos.value) {
     if (grupo.items.length === 0) continue
@@ -4804,7 +4834,6 @@ function exportarExcel() {
         grupo.abbr,
         p.empresa || p.razaoSocial || '—',
         p.tipoProcesso && p.tipoProcesso !== '—' ? p.tipoProcesso : '',
-        p.localizacao  && p.localizacao  !== '—' ? p.localizacao  : '',
         p.protocolo    && p.protocolo    !== '—' ? p.protocolo    : '',
         p.assinatura   && p.assinatura   !== '—' ? p.assinatura   : '',
         p.dataInsercao || '—',
@@ -4814,7 +4843,7 @@ function exportarExcel() {
     }
   }
   const wsDetalhe = XLSX.utils.aoa_to_sheet(detalheRows)
-  wsDetalhe['!cols'] = [{ wch: 8 }, { wch: 36 }, { wch: 18 }, { wch: 20 }, { wch: 16 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 18 }]
+  wsDetalhe['!cols'] = [{ wch: 8 }, { wch: 36 }, { wch: 18 }, { wch: 20 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 18 }]
   XLSX.utils.book_append_sheet(wb, wsDetalhe, 'Detalhado')
 
   const slug = mesLabel.replace(/\s/g, '_').replace(/\//g, '-').replace(/—/g, 'a')
@@ -4954,6 +4983,7 @@ const processosConsultar = computed(() => {
         pct:          100,
         tipo,
         _reg:         reg || null,
+        _histData:    h.data || '',   // dd/mm/yyyy — usado para filtro por mês
         status:       'concluido',
         concluidoPor: h.concluidoPor || '',
       }
@@ -4968,9 +4998,38 @@ const processosConsultar = computed(() => {
     })
 
   const todos = [...ativos, ...concluidos]
+
+  // Filtro de status
+  const fs = consultarFiltroStatus.value
+  const statusOk = (p) => {
+    if (fs === 'todos')      return true
+    if (fs === 'aguardando') return !!p._reg?.aguardandoCliente
+    return p.status === fs
+  }
+
+  // Filtro de mês (alinhado com a lógica do Relatório)
+  const fm = consultarFiltroMes.value
+  const fa = consultarFiltroAno.value
+  const mesOk = (p) => {
+    if (fm === 0) return true
+    // Concluídos: usa data do historico (dd/mm/yyyy) — igual ao histMes do Relatório
+    if (p.status === 'concluido' && p._histData) {
+      const pts = p._histData.split('/')
+      if (pts.length >= 3) return parseInt(pts[1]) === fm && parseInt(pts[2]) === fa
+    }
+    // Demais: usa dataISO do registro — igual ao regMes do Relatório
+    if (p._reg?.dataISO) {
+      const d = new Date(p._reg.dataISO)
+      return d.getMonth() + 1 === fm && d.getFullYear() === fa
+    }
+    return false
+  }
+
+  const filtrados = todos.filter(p => statusOk(p) && mesOk(p))
+
   const q = consultarBusca.value
-  if (!q.trim()) return todos
-  return todos.filter(p => processoMatchesBusca(p._reg, q, {
+  if (!q.trim()) return filtrados
+  return filtrados.filter(p => processoMatchesBusca(p._reg, q, {
     empresa: p.empresa,
     protocolo: p.protocolo,
     localizacao: p.localizacao,
@@ -9939,6 +9998,29 @@ const alerts = [
 .cons-search-row {
   display: flex; align-items: center; gap: 10px;
 }
+
+/* Filtros de status + mês */
+.cons-filtros {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px; justify-content: space-between;
+}
+.cons-filtros-status { display: flex; flex-wrap: wrap; gap: 6px; }
+.cons-filtro-chip {
+  padding: 5px 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.5);
+  font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.15s;
+}
+.cons-filtro-chip:hover { background: rgba(255,255,255,0.09); color: rgba(255,255,255,0.75); }
+.cons-filtro-chip--ativo {
+  background: rgba(90,184,46,0.15); border-color: rgba(90,184,46,0.4);
+  color: #5ab82e;
+}
+.cons-filtros-mes { display: flex; gap: 8px; align-items: center; }
+.cons-filtro-select {
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px; padding: 5px 12px; color: rgba(255,255,255,0.75);
+  font-size: 0.75rem; cursor: pointer; outline: none;
+}
+.cons-filtro-select option { background: #0d1f5c; color: white; }
 .cons-search-wrap {
   flex: 1;
   display: flex; align-items: center; gap: 10px;
@@ -11685,6 +11767,14 @@ const alerts = [
 }
 
 /* ── Light mode: Consultar ── */
+.wms-app--light .cons-filtro-chip {
+  background: rgba(15,23,42,0.05) !important; border-color: rgba(15,23,42,0.14) !important;
+  color: rgba(15,23,42,0.5) !important;
+}
+.wms-app--light .cons-filtro-chip:hover { background: rgba(15,23,42,0.09) !important; color: rgba(15,23,42,0.75) !important; }
+.wms-app--light .cons-filtro-chip--ativo { background: rgba(40,120,10,0.1) !important; border-color: rgba(40,120,10,0.35) !important; color: #2d8010 !important; }
+.wms-app--light .cons-filtro-select { background: rgba(255,255,255,0.85) !important; border-color: rgba(15,23,42,0.15) !important; color: #0f172a !important; }
+.wms-app--light .cons-filtro-select option { background: #fff !important; color: #0f172a !important; }
 .wms-app--light .cons-search-wrap {
   background: rgba(255,255,255,0.85) !important;
   border-color: rgba(15,23,42,0.14) !important;
