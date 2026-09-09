@@ -5032,11 +5032,11 @@ const processosConsultar = computed(() => {
   const mesOk = (p) => {
     if (fm === 0) return true
     if (p.status === 'concluido') {
-      // Mesma lógica do Relatório: âncora = data do histórico de conclusão (dd/mm/yyyy)
-      if (p._histData) return matchMesAno(p._histData)
-      // Sem histórico: usa data do contrato formatada
-      if (p.data)      return matchMesAno(p.data)
-      return true   // sem nenhuma data → não bloqueia
+      // Âncora = data exibida no carimbo (última etapa concluída)
+      if (p.dataConcluidaEm) return matchMesAno(p.dataConcluidaEm.split(', ')[0])
+      // Fallback: data do histórico
+      if (p._histData)       return matchMesAno(p._histData)
+      return true
     }
     // Ativos: usa dataISO do registro (igual ao regMes do Relatório)
     if (p._reg?.dataISO) {
