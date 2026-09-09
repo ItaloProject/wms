@@ -4376,6 +4376,10 @@ const rlGrupos = computed(() => {
 
   const matchDMY = (str) => {
     if (!str) return false
+    // ISO yyyy-mm-dd (armazenado pelo <input type="date">)
+    const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(str)
+    if (iso) return inRange(parseInt(iso[2]), parseInt(iso[1]))
+    // Legado dd/mm/yyyy (digitado manualmente)
     const p = str.split('/')
     if (p.length < 3) return false
     return inRange(parseInt(p[1]), parseInt(p[2]))
