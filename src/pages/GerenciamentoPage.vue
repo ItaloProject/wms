@@ -4398,11 +4398,27 @@ const rlGrupos = computed(() => {
   }
   const pctHistorico = (h) => Number(h?.pct ?? 0)
 
-  const histMes = historico.value.filter(h => matchDMY(h.data))
   const regMes  = registros.value.filter(r => matchISO(r.dataISO))
 
-  // Mapa rápido id → registro para buscar dataFormatada (data de inserção)
+  // Mapa rápido id → registro (deve ficar antes de histMes para usar no filtro)
   const regMap = new Map(registros.value.map(r => [String(r.id), r]))
+
+  // Retorna a data dd/mm/yyyy da última etapa marcada como concluída no registro
+  const ultimaConcluidaEmDMY = (reg) => {
+    if (!reg?.etapas) return ''
+    const concluidas = reg.etapas.filter(e => e.concluidaEm)
+    if (!concluidas.length) return ''
+    const parse = (s) => { const [dp, tp] = (s || '').split(', '); const [d, m, y] = (dp || '').split('/').map(Number); const [hh, mm] = (tp || '0:0').split(':').map(Number); return new Date(y, m - 1, d, hh, mm).getTime() }
+    const last = concluidas.reduce((a, b) => parse(b.concluidaEm) > parse(a.concluidaEm) ? b : a)
+    return last.concluidaEm.split(', ')[0] || ''
+  }
+
+  // Filtra historico pelo mês: âncora = última etapa concluída do registro, fallback = h.data
+  const histMes = historico.value.filter(h => {
+    const reg = regMap.get(String(h.processoId))
+    const cem = ultimaConcluidaEmDMY(reg)
+    return cem ? matchDMY(cem) : matchDMY(h.data)
+  })
 
   // Maior pct do mês por processo (evita AND quando houve save posterior com pct menor)
   const aggMes = new Map()
@@ -4424,7 +4440,7 @@ const rlGrupos = computed(() => {
     empresa:       extra.empresa ?? (h ? nomeHistorico(h) : ''),
     dataInsercao:  reg?.dataFormatada || '—',
     dataStr:       dataContrato(reg),
-    dataConc:      h?.data || '—',
+    dataConc:      ultimaConcluidaEmDMY(reg) || h?.data || '—',
     tipoProcesso:  etapaVal(reg, 'processo') || '—',
     localizacao:   etapaVal(reg, 'localizacao') || h?.localizacao || '—',
     protocolo:     etapaVal(reg, 'protocolo') || h?.protocolo || '—',
@@ -4454,8 +4470,9 @@ const rlGrupos = computed(() => {
   // Processos marcados concluídos no banco → CONC (ex.: Baixa finalizada)
   for (const r of registros.value) {
     if (!r.concluido) continue
-    // Filtra pelo mês da data do contrato autenticado para ancorá-lo no período certo
-    if (!contratoNoMes(r)) continue
+    // Âncora = última etapa concluída; fallback para contrato autenticado
+    const cemR = ultimaConcluidaEmDMY(r)
+    if (cemR ? !matchDMY(cemR) : !contratoNoMes(r)) continue
     const pid = String(r.id)
     if (conc.some(c => String(c.processoId) === pid)) continue
     const andIdx = and.findIndex(c => String(c.processoId) === pid)
