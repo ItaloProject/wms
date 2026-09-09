@@ -4308,12 +4308,15 @@ const rlGrupos = computed(() => {
     if (!prev || pct > prev.maxPct) aggMes.set(key, { maxPct: pct, h })
   }
 
+  // Busca o valor da etapa "Data do Contrato Autenticado" dentro de um registro
+  const dataContrato = (r) => r?.etapas?.find(e => e.key === 'contrato')?.valor || '—'
+
   const conc = [], and = [], naoIniciados = []
   for (const [, { maxPct, h }] of aggMes) {
     const nome = nomeHistorico(h)
     if (!nome) continue
     const reg = regMap.get(String(h.processoId))
-    const item = { id: h.id, processoId: h.processoId, empresa: nome, dataInsercao: reg?.dataFormatada || '—', dataStr: h.data }
+    const item = { id: h.id, processoId: h.processoId, empresa: nome, dataInsercao: reg?.dataFormatada || '—', dataStr: dataContrato(reg) }
     if (maxPct >= 100)           conc.push(item)
     else if (maxPct > 0)         and.push(item)
     else                         naoIniciados.push(item)
@@ -4338,7 +4341,7 @@ const rlGrupos = computed(() => {
       processoId: r.id,
       empresa: nome,
       dataInsercao: r.dataFormatada || '—',
-      dataStr: hMes.data,
+      dataStr: dataContrato(r),
     })
   }
 
