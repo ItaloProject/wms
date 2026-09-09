@@ -4311,11 +4311,20 @@ const rlGrupos = computed(() => {
   // Busca o valor da etapa "Data do Contrato Autenticado" dentro de um registro
   const dataContrato = (r) => r?.etapas?.find(e => e.key === 'contrato')?.valor || '—'
 
+  // Retorna true se a data do contrato cai no mês/ano selecionado (ou se não há data preenchida)
+  const contratoNoMes = (r) => {
+    const val = r?.etapas?.find(e => e.key === 'contrato')?.valor
+    if (!val) return true        // sem data preenchida → não bloqueia
+    return matchDMY(val)         // bloqueia se a data é de outro mês
+  }
+
   const conc = [], and = [], naoIniciados = []
   for (const [, { maxPct, h }] of aggMes) {
     const nome = nomeHistorico(h)
     if (!nome) continue
     const reg = regMap.get(String(h.processoId))
+    // CONC só entra se a data do contrato for deste mês (or sem data)
+    if (maxPct >= 100 && !contratoNoMes(reg)) continue
     const item = { id: h.id, processoId: h.processoId, empresa: nome, dataInsercao: reg?.dataFormatada || '—', dataStr: dataContrato(reg) }
     if (maxPct >= 100)           conc.push(item)
     else if (maxPct > 0)         and.push(item)
@@ -4325,6 +4334,8 @@ const rlGrupos = computed(() => {
   // Processos marcados concluídos no banco → CONC (ex.: Baixa finalizada)
   for (const r of registros.value) {
     if (!r.concluido) continue
+    // Filtra pelo mês da data do contrato autenticado
+    if (!contratoNoMes(r)) continue
     const pid = String(r.id)
     if (conc.some(c => String(c.processoId) === pid)) continue
     const andIdx = and.findIndex(c => String(c.processoId) === pid)
