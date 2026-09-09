@@ -2122,10 +2122,9 @@
                 <div class="rl-row-left">
                   <div class="rl-row-nome">{{ p.empresa || p.razaoSocial || '—' }}</div>
                   <div class="rl-row-meta">
-                    <span v-if="p.protocolo && p.protocolo !== '—'" class="rl-row-proto">
-                      <q-icon name="tag" size="11px" /> {{ p.protocolo }}
+                    <span class="rl-row-proto">
+                      <q-icon name="calendar_today" size="11px" /> {{ p.dataInsercao || '—' }}
                     </span>
-                    <span v-else class="rl-row-sem-proto">sem protocolo</span>
                     <span class="rl-row-data">{{ p.dataStr }}</span>
                   </div>
                 </div>
@@ -4297,6 +4296,9 @@ const rlGrupos = computed(() => {
   const histMes = historico.value.filter(h => matchDMY(h.data))
   const regMes  = registros.value.filter(r => matchISO(r.dataISO))
 
+  // Mapa rápido id → registro para buscar dataFormatada (data de inserção)
+  const regMap = new Map(registros.value.map(r => [String(r.id), r]))
+
   // Maior pct do mês por processo (evita AND quando houve save posterior com pct menor)
   const aggMes = new Map()
   for (const h of histMes) {
@@ -4310,7 +4312,8 @@ const rlGrupos = computed(() => {
   for (const [, { maxPct, h }] of aggMes) {
     const nome = nomeHistorico(h)
     if (!nome) continue
-    const item = { id: h.id, processoId: h.processoId, empresa: nome, protocolo: h.protocolo || '—', dataStr: h.data }
+    const reg = regMap.get(String(h.processoId))
+    const item = { id: h.id, processoId: h.processoId, empresa: nome, dataInsercao: reg?.dataFormatada || '—', dataStr: h.data }
     if (maxPct >= 100)           conc.push(item)
     else if (maxPct > 0)         and.push(item)
     else                         naoIniciados.push(item)
@@ -4334,7 +4337,7 @@ const rlGrupos = computed(() => {
       id: hMes.id,
       processoId: r.id,
       empresa: nome,
-      protocolo: hMes.protocolo || '—',
+      dataInsercao: r.dataFormatada || '—',
       dataStr: hMes.data,
     })
   }
@@ -4356,7 +4359,7 @@ const rlGrupos = computed(() => {
       if (!nomeProcesso(r)) return false
       return r.prazo === 'urgente' || r.prazo === 'priorizar' || diasRestantes(r) < 0
     })
-    .map(r => { classIds.add(String(r.id)); return { id: r.id, processoId: r.id, empresa: nomeProcesso(r), protocolo: '—', dataStr: r.dataFormatada } })
+    .map(r => { classIds.add(String(r.id)); return { id: r.id, processoId: r.id, empresa: nomeProcesso(r), dataInsercao: r.dataFormatada || '—', dataStr: r.dataFormatada } })
 
   // N/I — processos do mês não cobertos pelo histórico nem por PEN
   const niExtra = regMes
@@ -4364,7 +4367,7 @@ const rlGrupos = computed(() => {
       const pid = String(r.id)
       return !classIds.has(pid) && !classIds.has(`pid:${pid}`) && nomeProcesso(r)
     })
-    .map(r => ({ id: r.id, processoId: r.id, empresa: nomeProcesso(r), protocolo: '—', dataStr: r.dataFormatada }))
+    .map(r => ({ id: r.id, processoId: r.id, empresa: nomeProcesso(r), dataInsercao: r.dataFormatada || '—', dataStr: r.dataFormatada }))
 
   naoIniciados.push(...niExtra)
 
@@ -4372,22 +4375,22 @@ const rlGrupos = computed(() => {
   const suspensos = []
 
   // Agrupa entradas com o mesmo nome de empresa dentro de cada categoria,
-  // concatenando os protocolos e usando a data mais recente.
+  // mantendo a data de inserção mais antiga e a data de contrato mais recente.
   const agruparPorEmpresa = (items) => {
     const mapa = new Map()
     for (const item of items) {
       const chave = (item.empresa || '').trim().toUpperCase()
       if (!mapa.has(chave)) {
-        mapa.set(chave, { ...item, _prots: [], _datas: [] })
+        mapa.set(chave, { ...item, _insercoes: [], _datas: [] })
       }
       const ex = mapa.get(chave)
-      if (item.protocolo && item.protocolo !== '—') ex._prots.push(item.protocolo)
+      if (item.dataInsercao && item.dataInsercao !== '—') ex._insercoes.push(item.dataInsercao)
       if (item.dataStr) ex._datas.push(item.dataStr)
     }
-    return Array.from(mapa.values()).map(({ _prots, _datas, ...item }) => ({
+    return Array.from(mapa.values()).map(({ _insercoes, _datas, ...item }) => ({
       ...item,
-      protocolo: _prots.length ? _prots.join(' / ') : '—',
-      dataStr:   _datas.length ? _datas[_datas.length - 1] : item.dataStr,
+      dataInsercao: _insercoes.length ? _insercoes[0] : '—',
+      dataStr:      _datas.length ? _datas[_datas.length - 1] : item.dataStr,
     }))
   }
 
@@ -4633,11 +4636,11 @@ async function exportarPDF() {
     const [r, g, b] = corMap[grupo.abbr] || [100,100,100]
     autoTable(doc, {
       startY: y,
-      head: [[`${grupo.abbr} — ${grupo.label}`, 'Protocolo', 'Data']],
+      head: [[`${grupo.abbr} — ${grupo.label}`, 'Inserção no Sistema', 'Data do Contrato']],
       body: grupo.items.length
         ? grupo.items.map(p => [
             p.empresa || p.razaoSocial || '—',
-            p.protocolo && p.protocolo !== '—' ? p.protocolo : 'Sem protocolo',
+            p.dataInsercao || '—',
             p.dataStr || '—'
           ])
         : [['Nenhum processo nesta categoria', '', '']],
@@ -4684,7 +4687,7 @@ function exportarExcel() {
     ['WMS CONSULTORIA CONTÁBIL'],
     [`Relatório Detalhado — ${mesLabel}/${rlAno.value}`],
     [],
-    ['Status', 'Empresa / Razão Social', 'Protocolo', 'Data'],
+    ['Status', 'Empresa / Razão Social', 'Inserção no Sistema', 'Data do Contrato'],
   ]
   for (const grupo of rlGrupos.value) {
     if (grupo.items.length === 0) continue
@@ -4692,7 +4695,7 @@ function exportarExcel() {
       detalheRows.push([
         grupo.abbr,
         p.empresa || p.razaoSocial || '—',
-        p.protocolo && p.protocolo !== '—' ? p.protocolo : 'Sem protocolo',
+        p.dataInsercao || '—',
         p.dataStr || '—',
       ])
     }
