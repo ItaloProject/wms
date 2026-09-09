@@ -2121,11 +2121,32 @@
               <div class="rl-row" v-for="p in grupo.items" :key="p.id">
                 <div class="rl-row-left">
                   <div class="rl-row-nome">{{ p.empresa || p.razaoSocial || '—' }}</div>
+                  <!-- linha de tipo + localização -->
                   <div class="rl-row-meta">
-                    <span class="rl-row-proto">
-                      <q-icon name="calendar_today" size="11px" /> {{ p.dataInsercao || '—' }}
+                    <span v-if="p.tipoProcesso && p.tipoProcesso !== '—'" class="rl-row-tipo">
+                      <q-icon name="work_outline" size="11px" /> {{ p.tipoProcesso }}
                     </span>
-                    <span class="rl-row-data">{{ p.dataStr }}</span>
+                    <span v-if="p.localizacao && p.localizacao !== '—'" class="rl-row-loc">
+                      <q-icon name="place" size="11px" /> {{ p.localizacao }}
+                    </span>
+                    <span v-if="p.protocolo && p.protocolo !== '—'" class="rl-row-proto">
+                      <q-icon name="tag" size="11px" /> {{ p.protocolo }}
+                    </span>
+                    <span v-if="p.assinatura && p.assinatura !== '—'" class="rl-row-assin">
+                      <q-icon name="verified_user" size="11px" /> {{ p.assinatura }}
+                    </span>
+                  </div>
+                  <!-- linha de datas -->
+                  <div class="rl-row-datas">
+                    <span class="rl-row-data-item" title="Data de inserção no sistema">
+                      <q-icon name="add_circle_outline" size="10px" /> {{ p.dataInsercao || '—' }}
+                    </span>
+                    <span v-if="p.dataStr && p.dataStr !== '—'" class="rl-row-data-item rl-row-data-contrato" title="Data do Contrato Autenticado">
+                      <q-icon name="verified" size="10px" /> {{ p.dataStr }}
+                    </span>
+                    <span v-if="p.dataConc && p.dataConc !== '—'" class="rl-row-data-item rl-row-data-conc" title="Data de conclusão no sistema">
+                      <q-icon name="check_circle_outline" size="10px" /> {{ p.dataConc }}
+                    </span>
                   </div>
                 </div>
                 <div class="rl-row-right">
@@ -4308,8 +4329,23 @@ const rlGrupos = computed(() => {
     if (!prev || pct > prev.maxPct) aggMes.set(key, { maxPct: pct, h })
   }
 
-  // Busca o valor da etapa "Data do Contrato Autenticado" dentro de um registro
+  // Helpers para etapas do registro
   const dataContrato = (r) => r?.etapas?.find(e => e.key === 'contrato')?.valor || '—'
+  const etapaVal     = (r, key) => r?.etapas?.find(e => e.key === key)?.valor || ''
+
+  // Monta objeto de item enriquecido com todos os campos do relatório
+  const mkItem = (h, reg, extra = {}) => ({
+    id:            h?.id,
+    processoId:    h?.processoId ?? extra.processoId,
+    empresa:       extra.empresa ?? (h ? nomeHistorico(h) : ''),
+    dataInsercao:  reg?.dataFormatada || '—',
+    dataStr:       dataContrato(reg),
+    dataConc:      h?.data || '—',
+    tipoProcesso:  etapaVal(reg, 'processo') || '—',
+    localizacao:   etapaVal(reg, 'localizacao') || h?.localizacao || '—',
+    protocolo:     etapaVal(reg, 'protocolo') || h?.protocolo || '—',
+    assinatura:    etapaVal(reg, 'assinatura') || '—',
+  })
 
   // Retorna true se a data do contrato cai no mês/ano selecionado (ou se não há data preenchida)
   const contratoNoMes = (r) => {
@@ -4325,7 +4361,7 @@ const rlGrupos = computed(() => {
     const reg = regMap.get(String(h.processoId))
     // CONC só entra se a data do contrato for deste mês (or sem data)
     if (maxPct >= 100 && !contratoNoMes(reg)) continue
-    const item = { id: h.id, processoId: h.processoId, empresa: nome, dataInsercao: reg?.dataFormatada || '—', dataStr: dataContrato(reg) }
+    const item = mkItem(h, reg, { empresa: nome })
     if (maxPct >= 100)           conc.push(item)
     else if (maxPct > 0)         and.push(item)
     else                         naoIniciados.push(item)
@@ -4347,13 +4383,7 @@ const rlGrupos = computed(() => {
     if (!hMes) continue
     const nome = nomeProcesso(r) || nomeHistorico(hMes)
     if (!nome) continue
-    conc.push({
-      id: hMes.id,
-      processoId: r.id,
-      empresa: nome,
-      dataInsercao: r.dataFormatada || '—',
-      dataStr: dataContrato(r),
-    })
+    conc.push(mkItem(hMes, r, { empresa: nome, processoId: r.id }))
   }
 
   const classIds = new Set()
@@ -4373,7 +4403,7 @@ const rlGrupos = computed(() => {
       if (!nomeProcesso(r)) return false
       return r.prazo === 'urgente' || r.prazo === 'priorizar' || diasRestantes(r) < 0
     })
-    .map(r => { classIds.add(String(r.id)); return { id: r.id, processoId: r.id, empresa: nomeProcesso(r), dataInsercao: r.dataFormatada || '—', dataStr: r.dataFormatada } })
+    .map(r => { classIds.add(String(r.id)); return mkItem(null, r, { empresa: nomeProcesso(r), processoId: r.id }) })
 
   // N/I — processos do mês não cobertos pelo histórico nem por PEN
   const niExtra = regMes
@@ -4381,7 +4411,7 @@ const rlGrupos = computed(() => {
       const pid = String(r.id)
       return !classIds.has(pid) && !classIds.has(`pid:${pid}`) && nomeProcesso(r)
     })
-    .map(r => ({ id: r.id, processoId: r.id, empresa: nomeProcesso(r), dataInsercao: r.dataFormatada || '—', dataStr: r.dataFormatada }))
+    .map(r => mkItem(null, r, { empresa: nomeProcesso(r), processoId: r.id }))
 
   naoIniciados.push(...niExtra)
 
@@ -4395,16 +4425,18 @@ const rlGrupos = computed(() => {
     for (const item of items) {
       const chave = (item.empresa || '').trim().toUpperCase()
       if (!mapa.has(chave)) {
-        mapa.set(chave, { ...item, _insercoes: [], _datas: [] })
+        mapa.set(chave, { ...item, _insercoes: [], _datas: [], _concs: [] })
       }
       const ex = mapa.get(chave)
       if (item.dataInsercao && item.dataInsercao !== '—') ex._insercoes.push(item.dataInsercao)
-      if (item.dataStr) ex._datas.push(item.dataStr)
+      if (item.dataStr && item.dataStr !== '—') ex._datas.push(item.dataStr)
+      if (item.dataConc && item.dataConc !== '—') ex._concs.push(item.dataConc)
     }
-    return Array.from(mapa.values()).map(({ _insercoes, _datas, ...item }) => ({
+    return Array.from(mapa.values()).map(({ _insercoes, _datas, _concs, ...item }) => ({
       ...item,
       dataInsercao: _insercoes.length ? _insercoes[0] : '—',
-      dataStr:      _datas.length ? _datas[_datas.length - 1] : item.dataStr,
+      dataStr:      _datas.length ? _datas[_datas.length - 1] : '—',
+      dataConc:     _concs.length ? _concs[_concs.length - 1] : '—',
     }))
   }
 
@@ -4650,19 +4682,31 @@ async function exportarPDF() {
     const [r, g, b] = corMap[grupo.abbr] || [100,100,100]
     autoTable(doc, {
       startY: y,
-      head: [[`${grupo.abbr} — ${grupo.label}`, 'Inserção no Sistema', 'Data do Contrato']],
+      head: [[`${grupo.abbr} — ${grupo.label}`, 'Tipo', 'Localização', 'Protocolo', 'Inserção', 'Contrato', 'Conclusão']],
       body: grupo.items.length
         ? grupo.items.map(p => [
             p.empresa || p.razaoSocial || '—',
+            p.tipoProcesso && p.tipoProcesso !== '—' ? p.tipoProcesso : '',
+            p.localizacao  && p.localizacao  !== '—' ? p.localizacao  : '',
+            p.protocolo    && p.protocolo    !== '—' ? p.protocolo    : '',
             p.dataInsercao || '—',
-            p.dataStr || '—'
+            p.dataStr      || '—',
+            p.dataConc     && p.dataConc     !== '—' ? p.dataConc     : '',
           ])
-        : [['Nenhum processo nesta categoria', '', '']],
-      headStyles: { fillColor: [r, g, b], textColor: 255, fontSize: 9, fontStyle: 'bold' },
-      bodyStyles: { fontSize: 8, textColor: [30, 40, 60] },
+        : [['Nenhum processo nesta categoria', '', '', '', '', '', '']],
+      headStyles: { fillColor: [r, g, b], textColor: 255, fontSize: 8, fontStyle: 'bold' },
+      bodyStyles: { fontSize: 7, textColor: [30, 40, 60] },
       alternateRowStyles: { fillColor: [245, 247, 252] },
-      columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: 40 }, 2: { cellWidth: 32 } },
-      margin: { left: 12, right: 12 },
+      columnStyles: {
+        0: { cellWidth: 'auto' },
+        1: { cellWidth: 22 },
+        2: { cellWidth: 22 },
+        3: { cellWidth: 22 },
+        4: { cellWidth: 18 },
+        5: { cellWidth: 18 },
+        6: { cellWidth: 18 },
+      },
+      margin: { left: 10, right: 10 },
       tableLineColor: [220, 225, 235],
       tableLineWidth: 0.2,
     })
@@ -4701,7 +4745,7 @@ function exportarExcel() {
     ['WMS CONSULTORIA CONTÁBIL'],
     [`Relatório Detalhado — ${mesLabel}/${rlAno.value}`],
     [],
-    ['Status', 'Empresa / Razão Social', 'Inserção no Sistema', 'Data do Contrato'],
+    ['Status', 'Empresa / Razão Social', 'Tipo de Processo', 'Localização', 'Protocolo', 'Assinatura', 'Inserção no Sistema', 'Data do Contrato', 'Data de Conclusão'],
   ]
   for (const grupo of rlGrupos.value) {
     if (grupo.items.length === 0) continue
@@ -4709,13 +4753,18 @@ function exportarExcel() {
       detalheRows.push([
         grupo.abbr,
         p.empresa || p.razaoSocial || '—',
+        p.tipoProcesso && p.tipoProcesso !== '—' ? p.tipoProcesso : '',
+        p.localizacao  && p.localizacao  !== '—' ? p.localizacao  : '',
+        p.protocolo    && p.protocolo    !== '—' ? p.protocolo    : '',
+        p.assinatura   && p.assinatura   !== '—' ? p.assinatura   : '',
         p.dataInsercao || '—',
-        p.dataStr || '—',
+        p.dataStr      || '—',
+        p.dataConc     && p.dataConc     !== '—' ? p.dataConc     : '',
       ])
     }
   }
   const wsDetalhe = XLSX.utils.aoa_to_sheet(detalheRows)
-  wsDetalhe['!cols'] = [{ wch: 10 }, { wch: 36 }, { wch: 20 }, { wch: 20 }]
+  wsDetalhe['!cols'] = [{ wch: 8 }, { wch: 36 }, { wch: 18 }, { wch: 20 }, { wch: 16 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 18 }]
   XLSX.utils.book_append_sheet(wb, wsDetalhe, 'Detalhado')
 
   XLSX.writeFile(wb, `Relatorio_${mesLabel}_${rlAno.value}.xlsx`)
@@ -11259,9 +11308,16 @@ const alerts = [
 .rl-row:hover { background: rgba(255,255,255,0.03); }
 .rl-row-left { flex: 1; min-width: 0; }
 .rl-row-nome { font-size: 0.86rem; font-weight: 700; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rl-row-meta { display: flex; align-items: center; gap: 12px; margin-top: 3px; }
+.rl-row-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; margin-top: 4px; }
+.rl-row-tipo  { font-size: 0.72rem; color: rgba(255,255,255,0.65); display: flex; align-items: center; gap: 3px; font-weight: 600; }
+.rl-row-loc   { font-size: 0.72rem; color: rgba(255,255,255,0.5); display: flex; align-items: center; gap: 3px; }
 .rl-row-proto { font-size: 0.72rem; color: rgba(255,255,255,0.5); display: flex; align-items: center; gap: 3px; }
+.rl-row-assin { font-size: 0.72rem; color: rgba(255,255,255,0.45); display: flex; align-items: center; gap: 3px; }
 .rl-row-sem-proto { font-size: 0.7rem; color: rgba(255,255,255,0.2); font-style: italic; }
+.rl-row-datas { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 16px; margin-top: 4px; }
+.rl-row-data-item { font-size: 0.7rem; color: rgba(255,255,255,0.35); display: flex; align-items: center; gap: 3px; }
+.rl-row-data-contrato { color: rgba(90,184,46,0.8); }
+.rl-row-data-conc     { color: rgba(59,130,246,0.7); }
 .rl-row-data { font-size: 0.7rem; color: rgba(255,255,255,0.3); }
 .rl-row-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto; }
 .rl-row-badge {
@@ -11313,8 +11369,14 @@ const alerts = [
 .wms-app--light .rl-row { border-bottom-color: rgba(15,23,42,0.05) !important; }
 .wms-app--light .rl-row:hover { background: rgba(15,23,42,0.02) !important; }
 .wms-app--light .rl-row-nome { color: #0f172a !important; }
+.wms-app--light .rl-row-tipo  { color: rgba(15,23,42,0.75) !important; }
+.wms-app--light .rl-row-loc   { color: rgba(15,23,42,0.55) !important; }
 .wms-app--light .rl-row-proto { color: rgba(15,23,42,0.5) !important; }
+.wms-app--light .rl-row-assin { color: rgba(15,23,42,0.45) !important; }
 .wms-app--light .rl-row-sem-proto { color: rgba(15,23,42,0.3) !important; }
+.wms-app--light .rl-row-data-item { color: rgba(15,23,42,0.4) !important; }
+.wms-app--light .rl-row-data-contrato { color: rgba(50,140,10,0.9) !important; }
+.wms-app--light .rl-row-data-conc     { color: rgba(30,100,220,0.8) !important; }
 .wms-app--light .rl-row-data { color: rgba(15,23,42,0.35) !important; }
 .wms-app--light .rl-del-btn { color: rgba(15,23,42,0.25) !important; }
 
