@@ -2132,43 +2132,49 @@
 
             <div v-else class="rl-rows">
               <div class="rl-row" v-for="p in grupo.items" :key="p.id">
-                <div class="rl-row-left">
+                <!-- cabeçalho: nome + badge + botão -->
+                <div class="rl-row-header">
                   <div class="rl-row-nome">{{ p.empresa || p.razaoSocial || '—' }}</div>
-                  <!-- linha de tipo + localização -->
-                  <div class="rl-row-meta">
-                    <span v-if="p.tipoProcesso && p.tipoProcesso !== '—'" class="rl-row-tipo">
-                      <q-icon name="work_outline" size="11px" /> {{ p.tipoProcesso }}
-                    </span>
-                    <span v-if="p.localizacao && p.localizacao !== '—'" class="rl-row-loc">
-                      <q-icon name="place" size="11px" /> {{ p.localizacao }}
-                    </span>
-                    <span v-if="p.protocolo && p.protocolo !== '—'" class="rl-row-proto">
-                      <q-icon name="tag" size="11px" /> {{ p.protocolo }}
-                    </span>
-                    <span v-if="p.assinatura && p.assinatura !== '—'" class="rl-row-assin">
-                      <q-icon name="verified_user" size="11px" /> {{ p.assinatura }}
-                    </span>
-                  </div>
-                  <!-- linha de datas -->
-                  <div class="rl-row-datas">
-                    <span class="rl-row-data-item" title="Data de inserção no sistema">
-                      <q-icon name="add_circle_outline" size="10px" /> {{ p.dataInsercao || '—' }}
-                    </span>
-                    <span v-if="p.dataStr && p.dataStr !== '—'" class="rl-row-data-item rl-row-data-contrato" title="Data do Contrato Autenticado">
-                      <q-icon name="verified" size="10px" /> {{ p.dataStr }}
-                    </span>
-                    <span v-if="p.dataConc && p.dataConc !== '—'" class="rl-row-data-item rl-row-data-conc" title="Data de conclusão no sistema">
-                      <q-icon name="check_circle_outline" size="10px" /> {{ p.dataConc }}
-                    </span>
+                  <div class="rl-row-right">
+                    <div class="rl-row-badge" :style="{ background: grupo.corBg, color: grupo.cor }">{{ grupo.abbr }}</div>
+                    <button class="rl-del-btn" @click.stop="excluirProcessoConsultar(p)" title="Excluir processo">
+                      <q-icon name="delete_outline" size="15px" />
+                    </button>
                   </div>
                 </div>
-                <div class="rl-row-right">
-                  <div class="rl-row-badge" :style="{ background: grupo.corBg, color: grupo.cor }">
-                    {{ grupo.abbr }}
+                <!-- grid de atributos -->
+                <div class="rl-attr-grid">
+                  <div v-if="p.tipoProcesso && p.tipoProcesso !== '—'" class="rl-col">
+                    <span class="rl-col-label">Tipo</span>
+                    <span class="rl-col-val rl-col-tipo"><q-icon name="work_outline" size="10px" /> {{ p.tipoProcesso }}</span>
                   </div>
-                  <button class="rl-del-btn" @click.stop="excluirProcessoConsultar(p)" title="Excluir processo">
-                    <q-icon name="delete_outline" size="15px" />
-                  </button>
+                  <div v-if="p.localizacao && p.localizacao !== '—'" class="rl-col">
+                    <span class="rl-col-label">Localização</span>
+                    <span class="rl-col-val"><q-icon name="place" size="10px" /> {{ p.localizacao }}</span>
+                  </div>
+                  <div v-if="p.protocolo && p.protocolo !== '—'" class="rl-col">
+                    <span class="rl-col-label">Protocolo</span>
+                    <span class="rl-col-val"><q-icon name="tag" size="10px" /> {{ p.protocolo }}</span>
+                  </div>
+                  <div v-if="p.assinatura && p.assinatura !== '—'" class="rl-col">
+                    <span class="rl-col-label">Assinatura</span>
+                    <span class="rl-col-val"><q-icon name="verified_user" size="10px" /> {{ p.assinatura }}</span>
+                  </div>
+                </div>
+                <!-- grid de datas -->
+                <div class="rl-dates-grid">
+                  <div class="rl-col">
+                    <span class="rl-col-label">Inserção</span>
+                    <span class="rl-col-val rl-date-ins"><q-icon name="add_circle_outline" size="10px" /> {{ p.dataInsercao || '—' }}</span>
+                  </div>
+                  <div v-if="p.dataStr && p.dataStr !== '—'" class="rl-col">
+                    <span class="rl-col-label">Contrato Autenticado</span>
+                    <span class="rl-col-val rl-date-contr"><q-icon name="verified" size="10px" /> {{ p.dataStr }}</span>
+                  </div>
+                  <div v-if="p.dataConc && p.dataConc !== '—'" class="rl-col">
+                    <span class="rl-col-label">Conclusão</span>
+                    <span class="rl-col-val rl-date-conc"><q-icon name="check_circle_outline" size="10px" /> {{ p.dataConc }}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -11362,17 +11368,43 @@ const alerts = [
 .rl-row:last-child { border-bottom: none; }
 .rl-row:hover { background: rgba(255,255,255,0.03); }
 .rl-row-left { flex: 1; min-width: 0; }
-.rl-row-nome { font-size: 0.86rem; font-weight: 700; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rl-row-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; margin-top: 4px; }
-.rl-row-tipo  { font-size: 0.72rem; color: rgba(255,255,255,0.65); display: flex; align-items: center; gap: 3px; font-weight: 600; }
-.rl-row-loc   { font-size: 0.72rem; color: rgba(255,255,255,0.5); display: flex; align-items: center; gap: 3px; }
-.rl-row-proto { font-size: 0.72rem; color: rgba(255,255,255,0.5); display: flex; align-items: center; gap: 3px; }
-.rl-row-assin { font-size: 0.72rem; color: rgba(255,255,255,0.45); display: flex; align-items: center; gap: 3px; }
+.rl-row-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.rl-row-nome { font-size: 0.88rem; font-weight: 700; color: white; line-height: 1.3; }
+
+/* grid de atributos (tipo / localização / protocolo / assinatura) */
+.rl-attr-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 6px 20px;
+  margin-top: 8px;
+}
+/* grid de datas (inserção / contrato / conclusão) */
+.rl-dates-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 4px 20px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+/* célula genérica com rótulo + valor */
+.rl-col { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rl-col-label {
+  font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.09em;
+  color: rgba(255,255,255,0.28); font-weight: 700;
+}
+.rl-col-val {
+  font-size: 0.74rem; color: rgba(255,255,255,0.65);
+  display: flex; align-items: center; gap: 3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rl-col-tipo  { color: rgba(255,255,255,0.85); font-weight: 700; }
+.rl-date-ins  { color: rgba(255,255,255,0.35); }
+.rl-date-contr{ color: rgba(90,184,46,0.9); font-weight: 600; }
+.rl-date-conc { color: rgba(59,130,246,0.85); font-weight: 600; }
+
+/* mantidos por compatibilidade com código legado */
 .rl-row-sem-proto { font-size: 0.7rem; color: rgba(255,255,255,0.2); font-style: italic; }
-.rl-row-datas { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 16px; margin-top: 4px; }
-.rl-row-data-item { font-size: 0.7rem; color: rgba(255,255,255,0.35); display: flex; align-items: center; gap: 3px; }
-.rl-row-data-contrato { color: rgba(90,184,46,0.8); }
-.rl-row-data-conc     { color: rgba(59,130,246,0.7); }
 .rl-row-data { font-size: 0.7rem; color: rgba(255,255,255,0.3); }
 .rl-row-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto; }
 .rl-row-badge {
@@ -11431,14 +11463,15 @@ const alerts = [
 .wms-app--light .rl-row { border-bottom-color: rgba(15,23,42,0.05) !important; }
 .wms-app--light .rl-row:hover { background: rgba(15,23,42,0.02) !important; }
 .wms-app--light .rl-row-nome { color: #0f172a !important; }
-.wms-app--light .rl-row-tipo  { color: rgba(15,23,42,0.75) !important; }
-.wms-app--light .rl-row-loc   { color: rgba(15,23,42,0.55) !important; }
-.wms-app--light .rl-row-proto { color: rgba(15,23,42,0.5) !important; }
-.wms-app--light .rl-row-assin { color: rgba(15,23,42,0.45) !important; }
+.wms-app--light .rl-row-nome  { color: #0f172a !important; }
+.wms-app--light .rl-col-label { color: rgba(15,23,42,0.35) !important; }
+.wms-app--light .rl-col-val   { color: rgba(15,23,42,0.65) !important; }
+.wms-app--light .rl-col-tipo  { color: rgba(15,23,42,0.85) !important; }
+.wms-app--light .rl-date-ins  { color: rgba(15,23,42,0.4) !important; }
+.wms-app--light .rl-date-contr{ color: rgba(40,120,10,0.9) !important; }
+.wms-app--light .rl-date-conc { color: rgba(20,80,200,0.85) !important; }
+.wms-app--light .rl-dates-grid { border-top-color: rgba(15,23,42,0.07) !important; }
 .wms-app--light .rl-row-sem-proto { color: rgba(15,23,42,0.3) !important; }
-.wms-app--light .rl-row-data-item { color: rgba(15,23,42,0.4) !important; }
-.wms-app--light .rl-row-data-contrato { color: rgba(50,140,10,0.9) !important; }
-.wms-app--light .rl-row-data-conc     { color: rgba(30,100,220,0.8) !important; }
 .wms-app--light .rl-row-data { color: rgba(15,23,42,0.35) !important; }
 .wms-app--light .rl-del-btn { color: rgba(15,23,42,0.25) !important; }
 
