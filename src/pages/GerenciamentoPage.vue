@@ -4401,18 +4401,18 @@ const rlGrupos = computed(() => {
     const nome = nomeHistorico(h)
     if (!nome) continue
     const reg = regMap.get(String(h.processoId))
-    // CONC só entra se a data do contrato for deste mês (or sem data)
-    if (maxPct >= 100 && !contratoNoMes(reg)) continue
+    // histMes já garante que o historico está no período — pct=100 aqui = CONC neste período,
+    // independente de quando o contrato foi assinado.
     const item = mkItem(h, reg, { empresa: nome })
-    if (maxPct >= 100)           conc.push(item)
-    else if (maxPct > 0)         and.push(item)
-    else                         naoIniciados.push(item)
+    if (maxPct >= 100)      conc.push(item)
+    else if (maxPct > 0)    and.push(item)
+    else                    naoIniciados.push(item)
   }
 
   // Processos marcados concluídos no banco → CONC (ex.: Baixa finalizada)
   for (const r of registros.value) {
     if (!r.concluido) continue
-    // Filtra pelo mês da data do contrato autenticado
+    // Filtra pelo mês da data do contrato autenticado para ancorá-lo no período certo
     if (!contratoNoMes(r)) continue
     const pid = String(r.id)
     if (conc.some(c => String(c.processoId) === pid)) continue
@@ -4421,11 +4421,12 @@ const rlGrupos = computed(() => {
       conc.push(and.splice(andIdx, 1)[0])
       continue
     }
-    const hMes = histMes.find(h => String(h.processoId) === pid)
-    if (!hMes) continue
-    const nome = nomeProcesso(r) || nomeHistorico(hMes)
+    // Usa historico do período se disponível; senão, qualquer historico do processo (para metadados)
+    const hMes  = histMes.find(h => String(h.processoId) === pid)
+    const hFallback = hMes || historico.value.find(h => String(h.processoId) === pid)
+    const nome = nomeProcesso(r) || (hFallback ? nomeHistorico(hFallback) : '')
     if (!nome) continue
-    conc.push(mkItem(hMes, r, { empresa: nome, processoId: r.id }))
+    conc.push(mkItem(hFallback, r, { empresa: nome, processoId: r.id }))
   }
 
   const classIds = new Set()
