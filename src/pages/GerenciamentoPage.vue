@@ -2074,12 +2074,25 @@
               <p class="rl-subtitle">Não iniciados · SUSPENSOS</p>
             </div>
             <div class="rl-controls">
+              <button class="rl-modo-btn" @click="toggleRlModo" :title="rlModo === 'mensal' ? 'Alternar para intervalo de meses' : 'Alternar para mês único'">
+                <q-icon :name="rlModo === 'mensal' ? 'date_range' : 'calendar_month'" size="13px" />
+                {{ rlModo === 'mensal' ? 'Intervalo' : 'Mês único' }}
+              </button>
               <select v-model="rlMes" class="rl-select">
                 <option v-for="(m, i) in rlMeses" :key="i" :value="i + 1">{{ m }}</option>
               </select>
               <select v-model="rlAno" class="rl-select">
                 <option v-for="a in rlAnos" :key="a" :value="a">{{ a }}</option>
               </select>
+              <template v-if="rlModo === 'intervalo'">
+                <span class="rl-ate">até</span>
+                <select v-model="rlMesFim" class="rl-select">
+                  <option v-for="(m, i) in rlMeses" :key="i" :value="i + 1">{{ m }}</option>
+                </select>
+                <select v-model="rlAnoFim" class="rl-select">
+                  <option v-for="a in rlAnos" :key="a" :value="a">{{ a }}</option>
+                </select>
+              </template>
               <button class="rl-export-btn rl-export-btn--pdf" @click="exportarPDF">
                 <q-icon name="picture_as_pdf" size="16px" /> PDF
               </button>
@@ -2114,7 +2127,7 @@
 
             <div v-if="grupo.items.length === 0" class="rl-empty">
               <q-icon name="inbox" size="20px" />
-              Nenhum processo nesta categoria para {{ rlMeses[rlMes - 1] }}/{{ rlAno }}
+              Nenhum processo nesta categoria para {{ rlPeriodoLabel }}
             </div>
 
             <div v-else class="rl-rows">
@@ -4284,28 +4297,57 @@ async function atualizarConsultar() {
 }
 
 // ── Relatórios ──
-const rlMes  = ref(new Date().getMonth() + 1)
-const rlAno  = ref(new Date().getFullYear())
+const rlMes     = ref(new Date().getMonth() + 1)
+const rlAno     = ref(new Date().getFullYear())
+const rlMesFim  = ref(new Date().getMonth() + 1)
+const rlAnoFim  = ref(new Date().getFullYear())
+const rlModo    = ref('mensal')   // 'mensal' | 'intervalo'
 const rlMeses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 const rlAnos  = computed(() => {
   const a = new Date().getFullYear()
   return [a - 1, a, a + 1]
 })
 
+const rlPeriodoLabel = computed(() => {
+  if (rlModo.value === 'mensal') return `${rlMeses[rlMes.value - 1]}/${rlAno.value}`
+  const ini = `${rlMeses[rlMes.value - 1]}/${rlAno.value}`
+  const fim = `${rlMeses[rlMesFim.value - 1]}/${rlAnoFim.value}`
+  return ini === fim ? ini : `${ini} — ${fim}`
+})
+
+function toggleRlModo() {
+  if (rlModo.value === 'mensal') {
+    rlMesFim.value = rlMes.value
+    rlAnoFim.value = rlAno.value
+    rlModo.value = 'intervalo'
+  } else {
+    rlModo.value = 'mensal'
+  }
+}
+
 const rlGrupos = computed(() => {
-  const mes = rlMes.value
-  const ano = rlAno.value
+  const mesIni = rlMes.value
+  const anoIni = rlAno.value
+  const mesFim = rlModo.value === 'intervalo' ? rlMesFim.value : mesIni
+  const anoFim = rlModo.value === 'intervalo' ? rlAnoFim.value : anoIni
+
+  const inRange = (m, a) => {
+    const k = a * 12 + m
+    return k >= anoIni * 12 + mesIni && k <= anoFim * 12 + mesFim
+  }
 
   const matchDMY = (str) => {
     if (!str) return false
     const p = str.split('/')
-    return p.length >= 3 && parseInt(p[1]) === mes && parseInt(p[2]) === ano
+    if (p.length < 3) return false
+    return inRange(parseInt(p[1]), parseInt(p[2]))
   }
   const matchISO = (iso) => {
     if (!iso) return false
     const d = new Date(iso)
-    return d.getMonth() + 1 === mes && d.getFullYear() === ano
+    return inRange(d.getMonth() + 1, d.getFullYear())
   }
+
   const chaveHistorico = (h) => {
     if (h.processoId != null) return `pid:${h.processoId}`
     const nome = (h.empresa || '').trim().toLowerCase()
@@ -4632,8 +4674,8 @@ async function gerarRelatorioPDF(valores, nomeArquivo) {
 async function exportarPDF() {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const W = doc.internal.pageSize.getWidth()
-  const mesLabel = rlMeses[rlMes.value - 1]
-  const titulo   = `Relatório Mensal de Intensas — ${mesLabel}/${rlAno.value}`
+  const mesLabel = rlPeriodoLabel.value
+  const titulo   = `Relatório de Intensas — ${mesLabel}`
 
   // Logo — quadro escuro arredondado para destacar a marca
   const logoData = await rlLogoBase64()
@@ -4718,18 +4760,19 @@ async function exportarPDF() {
   doc.setTextColor(160, 170, 190)
   doc.text(`Gerado em ${new Date().toLocaleString('pt-BR')} · WMS Consultoria Contábil`, W / 2, doc.internal.pageSize.getHeight() - 8, { align: 'center' })
 
-  doc.save(`Relatorio_${mesLabel}_${rlAno.value}.pdf`)
+  const slug = mesLabel.replace(/\s/g, '_').replace(/\//g, '-').replace(/—/g, 'a')
+  doc.save(`Relatorio_${slug}.pdf`)
 }
 
 // ── Exportar Excel ──
 function exportarExcel() {
-  const mesLabel = rlMeses[rlMes.value - 1]
+  const mesLabel = rlPeriodoLabel.value
   const wb = XLSX.utils.book_new()
 
   // Planilha Resumo
   const resumoData = [
     ['WMS CONSULTORIA CONTÁBIL'],
-    [`Relatório Mensal de Intensas — ${mesLabel}/${rlAno.value}`],
+    [`Relatório de Intensas — ${mesLabel}`],
     [],
     ['Categoria', 'Descrição', 'Quantidade'],
     ...rlGrupos.value.map(g => [g.abbr, g.label, g.items.length]),
@@ -4743,7 +4786,7 @@ function exportarExcel() {
   // Planilha Detalhado
   const detalheRows = [
     ['WMS CONSULTORIA CONTÁBIL'],
-    [`Relatório Detalhado — ${mesLabel}/${rlAno.value}`],
+    [`Relatório Detalhado — ${mesLabel}`],
     [],
     ['Status', 'Empresa / Razão Social', 'Tipo de Processo', 'Localização', 'Protocolo', 'Assinatura', 'Inserção no Sistema', 'Data do Contrato', 'Data de Conclusão'],
   ]
@@ -4767,7 +4810,8 @@ function exportarExcel() {
   wsDetalhe['!cols'] = [{ wch: 8 }, { wch: 36 }, { wch: 18 }, { wch: 20 }, { wch: 16 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 18 }]
   XLSX.utils.book_append_sheet(wb, wsDetalhe, 'Detalhado')
 
-  XLSX.writeFile(wb, `Relatorio_${mesLabel}_${rlAno.value}.xlsx`)
+  const slug = mesLabel.replace(/\s/g, '_').replace(/\//g, '-').replace(/—/g, 'a')
+  XLSX.writeFile(wb, `Relatorio_${slug}.xlsx`)
 }
 
 // Etapa tratada = concluída ou marcada como não concluída (não aplicável ao processo)
@@ -11250,6 +11294,16 @@ const alerts = [
 .rl-select:focus { border-color: #5ab82e; }
 .rl-select option { background: #0d1f5c; color: white; }
 
+.rl-modo-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 7px 13px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.75);
+  font-size: 0.75rem; font-weight: 700; cursor: pointer; letter-spacing: 0.03em;
+  transition: all 0.18s; flex-shrink: 0;
+}
+.rl-modo-btn:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.3); }
+.rl-ate { font-size: 0.75rem; color: rgba(255,255,255,0.4); font-style: italic; flex-shrink: 0; }
+
 .rl-export-btn {
   display: flex; align-items: center; gap: 6px;
   padding: 8px 16px; border-radius: 10px; border: none;
@@ -11339,6 +11393,13 @@ const alerts = [
   -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
 }
 .wms-app--light .rl-subtitle { color: rgba(15,23,42,0.45) !important; }
+.wms-app--light .rl-modo-btn {
+  background: rgba(15,23,42,0.06) !important;
+  border-color: rgba(15,23,42,0.18) !important;
+  color: rgba(15,23,42,0.7) !important;
+}
+.wms-app--light .rl-modo-btn:hover { background: rgba(15,23,42,0.1) !important; }
+.wms-app--light .rl-ate { color: rgba(15,23,42,0.4) !important; }
 .wms-app--light .rl-select {
   background: rgba(255,255,255,0.85) !important;
   border-color: rgba(15,23,42,0.15) !important;
