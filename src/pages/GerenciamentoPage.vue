@@ -2099,8 +2099,8 @@
                 <q-icon name="bar_chart" size="15px" class="q-mr-xs" style="color:#5ab82e" />
                 <span>Relatório Mensal de Intensas</span>
               </div>
-              <h2 class="rl-title">CONC / PEN / AND</h2>
-              <p class="rl-subtitle">Não iniciados · SUSPENSOS</p>
+              <h2 class="rl-title">STATUS DOS PROCESSOS</h2>
+              <p class="rl-subtitle">Concluído · Em Andamento · Pendente · Não Iniciado · Suspenso</p>
             </div>
             <div class="rl-controls">
               <button class="rl-modo-btn" @click="toggleRlModo" :title="rlModo === 'mensal' ? 'Alternar para intervalo de meses' : 'Alternar para mês único'">
@@ -2122,6 +2122,10 @@
                   <option v-for="a in rlAnos" :key="a" :value="a">{{ a }}</option>
                 </select>
               </template>
+              <select v-model="rlFiltroStatus" class="rl-select rl-select--status">
+                <option value="todos">Todos os Status</option>
+                <option v-for="g in rlGrupos" :key="g.key" :value="g.key">{{ g.abbr }}</option>
+              </select>
               <button class="rl-export-btn rl-export-btn--pdf" @click="exportarPDF">
                 <q-icon name="picture_as_pdf" size="16px" /> PDF
               </button>
@@ -2141,16 +2145,14 @@
             >
               <div class="rl-stat-num">{{ st.count }}</div>
               <div class="rl-stat-abbr">{{ st.abbr }}</div>
-              <div class="rl-stat-label">{{ st.label }}</div>
             </div>
           </div>
 
           <!-- Grupos -->
-          <div v-for="grupo in rlGrupos" :key="grupo.key" class="rl-section q-mb-md">
+          <div v-for="grupo in rlGrupos" v-show="rlFiltroStatus === 'todos' || rlFiltroStatus === grupo.key" :key="grupo.key" class="rl-section q-mb-md">
             <div class="rl-section-head">
               <div class="rl-section-dot" :style="{ background: grupo.cor }"></div>
               <span class="rl-section-title">{{ grupo.abbr }}</span>
-              <span class="rl-section-label-full">{{ grupo.label }}</span>
               <span class="rl-section-count">{{ grupo.items.length }}</span>
             </div>
 
@@ -4343,6 +4345,7 @@ const rlAno     = ref(new Date().getFullYear())
 const rlMesFim  = ref(new Date().getMonth() + 1)
 const rlAnoFim  = ref(new Date().getFullYear())
 const rlModo    = ref('mensal')   // 'mensal' | 'intervalo'
+const rlFiltroStatus = ref('todos') // 'todos' | key do grupo
 const rlMeses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 const rlAnos  = computed(() => {
   const a = new Date().getFullYear()
@@ -4546,16 +4549,16 @@ const rlGrupos = computed(() => {
   }
 
   return [
-    { key: 'conc', abbr: 'CONC', label: 'Concluídos',   cor: '#22c55e', corBg: 'rgba(34,197,94,0.12)',   items: agruparPorEmpresa(conc),         rawCount: conc.length },
-    { key: 'and',  abbr: 'AND',  label: 'Em Andamento', cor: '#3b82f6', corBg: 'rgba(59,130,246,0.12)',  items: agruparPorEmpresa(and),          rawCount: and.length  },
-    { key: 'pen',  abbr: 'PEN',  label: 'Pendentes',    cor: '#f59e0b', corBg: 'rgba(245,158,11,0.12)', items: agruparPorEmpresa(pen),          rawCount: pen.length  },
-    { key: 'nao',  abbr: 'N/I',  label: 'Não Iniciados',cor: '#94a3b8', corBg: 'rgba(148,163,184,0.1)', items: agruparPorEmpresa(naoIniciados), rawCount: naoIniciados.length },
-    { key: 'sus',  abbr: 'SUS',  label: 'Suspensos',    cor: '#ef4444', corBg: 'rgba(239,68,68,0.12)',  items: agruparPorEmpresa(suspensos),    rawCount: 0 },
+    { key: 'conc', abbr: 'CONCLUÍDO',    cor: '#22c55e', corBg: 'rgba(34,197,94,0.12)',   items: agruparPorEmpresa(conc),         rawCount: conc.length },
+    { key: 'and',  abbr: 'EM ANDAMENTO', cor: '#3b82f6', corBg: 'rgba(59,130,246,0.12)',  items: agruparPorEmpresa(and),          rawCount: and.length  },
+    { key: 'pen',  abbr: 'PENDENTE',     cor: '#f59e0b', corBg: 'rgba(245,158,11,0.12)', items: agruparPorEmpresa(pen),          rawCount: pen.length  },
+    { key: 'nao',  abbr: 'NÃO INICIADO', cor: '#94a3b8', corBg: 'rgba(148,163,184,0.1)', items: agruparPorEmpresa(naoIniciados), rawCount: naoIniciados.length },
+    { key: 'sus',  abbr: 'SUSPENSO',     cor: '#ef4444', corBg: 'rgba(239,68,68,0.12)',  items: agruparPorEmpresa(suspensos),    rawCount: 0 },
   ]
 })
 
 const rlStats = computed(() => rlGrupos.value.map(g => ({
-  key: g.key, abbr: g.abbr, label: g.label, count: g.items.length, cor: g.cor
+  key: g.key, abbr: g.abbr, count: g.items.length, cor: g.cor
 })))
 
 // Carrega logo como base64 para embed nos relatórios
@@ -4765,7 +4768,7 @@ async function exportarPDF() {
   doc.line(12, 38, W - 12, 38)
 
   // Resumo de contagens
-  const corMap = { CONC: [34,197,94], AND: [59,130,246], PEN: [245,158,11], 'N/I': [148,163,184], SUS: [239,68,68] }
+  const corMap = { 'CONCLUÍDO': [34,197,94], 'EM ANDAMENTO': [59,130,246], 'PENDENTE': [245,158,11], 'NÃO INICIADO': [148,163,184], 'SUSPENSO': [239,68,68] }
   const stats  = rlStats.value
   const bw     = (W - 24) / stats.length
   stats.forEach((st, i) => {
@@ -4787,7 +4790,7 @@ async function exportarPDF() {
     const [r, g, b] = corMap[grupo.abbr] || [100,100,100]
     autoTable(doc, {
       startY: y,
-      head: [[`${grupo.abbr} — ${grupo.label}`, 'Tipo', 'Protocolo', 'Inserção', 'Contrato', 'Conclusão']],
+      head: [[grupo.abbr, 'Tipo', 'Protocolo', 'Inserção', 'Contrato', 'Conclusão']],
       body: grupo.items.length
         ? grupo.items.map(p => [
             p.empresa || p.razaoSocial || '—',
@@ -4835,13 +4838,13 @@ function exportarExcel() {
     ['WMS CONSULTORIA CONTÁBIL'],
     [`Relatório de Intensas — ${mesLabel}`],
     [],
-    ['Categoria', 'Descrição', 'Quantidade'],
-    ...rlGrupos.value.map(g => [g.abbr, g.label, g.items.length]),
+    ['Status', 'Quantidade'],
+    ...rlGrupos.value.map(g => [g.abbr, g.items.length]),
     [],
     ['Total', '', rlGrupos.value.reduce((s, g) => s + g.items.length, 0)],
   ]
   const wsResumo = XLSX.utils.aoa_to_sheet(resumoData)
-  wsResumo['!cols'] = [{ wch: 12 }, { wch: 22 }, { wch: 14 }]
+  wsResumo['!cols'] = [{ wch: 18 }, { wch: 12 }]
   XLSX.utils.book_append_sheet(wb, wsResumo, 'Resumo')
 
   // Planilha Detalhado
@@ -4867,7 +4870,7 @@ function exportarExcel() {
     }
   }
   const wsDetalhe = XLSX.utils.aoa_to_sheet(detalheRows)
-  wsDetalhe['!cols'] = [{ wch: 8 }, { wch: 36 }, { wch: 18 }, { wch: 20 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 18 }]
+  wsDetalhe['!cols'] = [{ wch: 18 }, { wch: 36 }, { wch: 18 }, { wch: 20 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 18 }]
   XLSX.utils.book_append_sheet(wb, wsDetalhe, 'Detalhado')
 
   const slug = mesLabel.replace(/\s/g, '_').replace(/\//g, '-').replace(/—/g, 'a')
