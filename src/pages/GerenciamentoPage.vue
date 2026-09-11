@@ -3656,9 +3656,10 @@ async function _ensureProcessoBaixa() {
   if (!empAtual) return null
   const norm = normEmpresa(empAtual)
 
+  // Idem constituição: processo aberto manda; não reponta por nome.
   if (regAbertoSessao2.value) {
     const reg = registros.value.find(r => r.id === regAbertoSessao2.value)
-    if (reg && normEmpresa(reg.razaoSocial) === norm) return regAbertoSessao2.value
+    if (reg) return regAbertoSessao2.value
   }
 
   const encontrado = registros.value.find(r => normEmpresa(r.razaoSocial) === norm)
@@ -3700,9 +3701,11 @@ async function _ensureProcessoConst() {
   if (!empAtual) return null
   const norm = normEmpresa(empAtual)
 
+  // Há processo aberto → ele É o registro da tela. Nunca repontar para outro pelo
+  // nome: renomear a empresa na tela redirecionaria a gravação para o registro alheio.
   if (regAberto.value) {
     const reg = registros.value.find(r => r.id === regAberto.value)
-    if (reg && normEmpresa(reg.razaoSocial) === norm) return regAberto.value
+    if (reg) return regAberto.value
   }
 
   const encontrado = registros.value.find(r => normEmpresa(r.razaoSocial) === norm && r.prazo !== 'baixa')
@@ -3757,10 +3760,10 @@ function salvarEtapasBaixa() {
   const data = _etapasBaixaData()
   localStorage.setItem('wms_baixa', JSON.stringify(data))
   if (_syncEtapasBaixaTimer) clearTimeout(_syncEtapasBaixaTimer)
+  // Nome capturado AGORA, junto com `data` — não relido no disparo
+  const razao = (etapasBaixa.value.find(e => e.key === 'empresa')?.valor || '').trim()
   _syncEtapasBaixaTimer = setTimeout(async () => {
     _syncEtapasBaixaTimer = null
-    const bv = key => etapasBaixa.value.find(e => e.key === key)?.valor || ''
-    const razao = bv('empresa').trim()
     if (!razao) return
     const id = await _ensureProcessoBaixa()
     if (!id) return
@@ -5309,6 +5312,24 @@ function selecionarSugestao(etapa, nome) {
 }
 
 let _syncEtapasTimer = null
+// Gravação pendente do debounce: { id, etapasData, razao }. O alvo é capturado
+// JUNTO com o payload no agendamento — nunca relido na hora de disparar, senão
+// uma troca de processo dentro da janela de 1,5s grava os dados de A em cima de B.
+let _syncEtapasPend = null
+
+async function _gravarPendenteEtapas() {
+  const pend = _syncEtapasPend
+  if (!pend) return
+  _syncEtapasPend = null
+  await persistirEtapas(pend.id, pend.etapasData, true)
+  if (pend.razao) {
+    const reg = registros.value.find(r => r.id === pend.id)
+    if (reg && reg.razaoSocial !== pend.razao) {
+      reg.razaoSocial = pend.razao
+      await supabase.from('processos').update({ razao_social: pend.razao }).eq('id', pend.id)
+    }
+  }
+}
 
 // Persiste etapas no Supabase verificando erro E linhas afetadas.
 // `silencioso=true` (autosave) não notifica em caso de erro para não poluir a tela;
@@ -5351,23 +5372,23 @@ function salvarEtapas() {
   localStorage.setItem('wms_constituicao', data)
 
   if (regAberto.value) {
+    const alvoId = regAberto.value
     // Atualiza a memória IMEDIATAMENTE para o progresso refletir na lista (Consultar/Dashboard)
     // sem precisar recarregar a página.
-    const reg = registros.value.find(r => r.id === regAberto.value)
+    const reg = registros.value.find(r => r.id === alvoId)
     if (reg) reg.etapas = etapasData
+    // Se havia pendência de OUTRO processo, grava antes de reagendar para não perdê-la
+    if (_syncEtapasPend && _syncEtapasPend.id !== alvoId) {
+      clearTimeout(_syncEtapasTimer)
+      _syncEtapasTimer = null
+      _gravarPendenteEtapas()
+    }
     // Persiste no Supabase após 1,5s de inatividade
+    _syncEtapasPend = { id: alvoId, etapasData, razao: etapaValor('empresa')?.trim() || '' }
     clearTimeout(_syncEtapasTimer)
-    _syncEtapasTimer = setTimeout(async () => {
-      const id = regAberto.value
-      const razao = etapaValor('empresa')?.trim()
-      await persistirEtapas(id, etapasData, true)
-      if (razao) {
-        const reg = registros.value.find(r => r.id === id)
-        if (reg && reg.razaoSocial !== razao) {
-          reg.razaoSocial = razao
-          await supabase.from('processos').update({ razao_social: razao }).eq('id', id)
-        }
-      }
+    _syncEtapasTimer = setTimeout(() => {
+      _syncEtapasTimer = null
+      _gravarPendenteEtapas()
     }, 1500)
   }
 }
@@ -7194,6 +7215,7 @@ async function concluirDepois() {
   if (id) {
     clearTimeout(_syncEtapasTimer)
     _syncEtapasTimer = null
+    _syncEtapasPend = null   // gravado aqui de forma síncrona; evita reescrita stale depois
     const reg = registros.value.find(r => r.id === id)
     if (reg) await persistirEtapas(id, reg.etapas, false)
   }
@@ -7481,15 +7503,12 @@ onMounted(async () => {
 })
 
 function _flushEtapas() {
-  if (!_syncEtapasTimer) return
-  clearTimeout(_syncEtapasTimer)
-  _syncEtapasTimer = null
-  const id = regAberto.value
-  if (!id) return
-  const reg = registros.value.find(r => r.id === id)
-  if (reg?.etapas?.length) {
-    persistirEtapas(id, reg.etapas, true)
+  if (_syncEtapasTimer) {
+    clearTimeout(_syncEtapasTimer)
+    _syncEtapasTimer = null
   }
+  // Grava o par id+payload capturado no agendamento (nunca o regAberto atual)
+  _gravarPendenteEtapas()
 }
 
 onUnmounted(() => {
