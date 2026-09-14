@@ -5,10 +5,15 @@ workers_dev = true
 preview_urls = false
 
 # Cron: 07:50 BRT (UTC-3) = 10:50 UTC | 15:00 BRT = 18:00 UTC
+# O */5 é a fila de e-mails agendados (worker/index.js separa por event.cron).
 [triggers]
-crons = ["50 10 * * 1-5", "0 18 * * 1-5"]
+crons = ["50 10 * * 1-5", "0 18 * * 1-5", "*/5 * * * *"]
 
 [vars]
 SUPABASE_URL    = "https://uysamynplejghdmxlrfk.supabase.co"
 NUMEROS_ALERTA  = "5599984491810,559882624491,559888435550,559885928114"
 GOTENBERG_URL   = "https://gotenberg-production-931d.up.railway.app"
+# TROCAR pela URL de produção do app (a mesma que você abre no navegador).
+APP_URL         = "https://SEU-APP.vercel.app"
+
+# CRON_SECRET é secret, não var: wrangler secret put CRON_SECRET

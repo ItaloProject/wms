@@ -5,6 +5,12 @@
 
 export default {
   async scheduled(event, env, ctx) {
+    // O cron de 5 em 5 min é só a fila de e-mails. Sem essa separação ele cairia
+    // no run() e dispararia os alertas de WhatsApp a cada 5 minutos.
+    if (event.cron === CRON_EMAILS) {
+      ctx.waitUntil(processarEmailsAgendados(env))
+      return
+    }
     // 10:50 UTC = 07:50 BRT → resumo completo | 18:00 UTC = 15:00 BRT → só urgências
     const utcHour = new Date(event.scheduledTime).getUTCHours()
     const modoCompleto = utcHour < 14  // manhã
@@ -21,11 +27,40 @@ export default {
       await run(env, false)
       return new Response('✅ Alerta de tarde processado', { status: 200 })
     }
+    if (url.pathname === '/test-emails') {
+      const r = await processarEmailsAgendados(env)
+      return new Response(`✅ Fila de e-mails: ${r}`, { status: 200 })
+    }
     if (url.pathname === '/converter') {
       return converterDocxPdf(request, env)
     }
     return new Response('WMS Alertas Worker — OK', { status: 200 })
   },
+}
+
+// ── Fila de e-mails agendados ──
+// A fila fica no Supabase; quem envia é /api/processar-agendados no Vercel
+// (tem nodemailer e credenciais SMTP). Aqui só acionamos no horário.
+const CRON_EMAILS = '*/5 * * * *'
+
+async function processarEmailsAgendados(env) {
+  if (!env.APP_URL || !env.CRON_SECRET) {
+    const msg = 'APP_URL ou CRON_SECRET não configurados no Worker'
+    console.error('[emails-agendados]', msg)
+    return msg
+  }
+  try {
+    const res = await fetch(`${env.APP_URL.replace(/\/$/, '')}/api/processar-agendados`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${env.CRON_SECRET}` },
+    })
+    const body = await res.text()
+    console.log('[emails-agendados]', res.status, body)
+    return `${res.status} ${body}`
+  } catch (err) {
+    console.error('[emails-agendados]', err.message)
+    return `erro: ${err.message}`
+  }
 }
 
 // ── Conversão DOCX → PDF (proxy para Gotenberg/LibreOffice) ──

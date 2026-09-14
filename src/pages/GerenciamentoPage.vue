@@ -2738,6 +2738,9 @@
               <div class="email-ag-info">
                 <span class="email-ag-para">{{ ag.para }}</span>
                 <span class="email-ag-data">{{ ag.dataHoraFormatada }}</span>
+                <span v-if="ag.status === 'erro'" class="email-ag-erro">
+                  <q-icon name="error_outline" size="12px" /> Falhou: {{ ag.erro }}
+                </span>
               </div>
               <button class="email-ag-del" @click="cancelarAgendamento(ag.id)" title="Cancelar">
                 <q-icon name="close" size="13px" />
@@ -6667,13 +6670,59 @@ const emailMensagem      = ref('')
 const emailData          = ref('')
 const emailHora          = ref('')
 const emailEnviando      = ref(false)
-const emailsAgendados    = ref(JSON.parse(localStorage.getItem('wms_emails_agendados') || '[]'))
+const emailsAgendados    = ref([])
 const emailsEnviadosProcessoIds = ref(new Set())
 const emailHoje          = computed(() => new Date().toISOString().slice(0, 10))
 
+// A fila de agendados vive no Supabase e quem envia é o cron do servidor
+// (/api/processar-agendados). Antes ficava em localStorage com um setInterval
+// no navegador — nada saía com o computador desligado.
+function agendadoFromDb(row) {
+  return {
+    id:          row.id,
+    processoId:  row.processo_id,
+    empresa:     row.empresa   || '',
+    para:        row.para      || '',
+    assunto:     row.assunto   || '',
+    mensagem:    row.mensagem  || '',
+    dataHoraISO: row.data_hora,
+    status:      row.status    || 'pendente',
+    erro:        row.erro      || '',
+  }
+}
+
+async function carregarEmailsAgendados() {
+  const { data } = await supabase.from('emails_agendados')
+    .select('*').in('status', ['pendente', 'erro']).order('data_hora')
+  emailsAgendados.value = (data || []).map(agendadoFromDb)
+}
+
+// Sobe para o servidor o que ficou pendente no localStorage da versão antiga.
+async function migrarAgendadosLocais() {
+  const raw = localStorage.getItem('wms_emails_agendados')
+  if (raw == null) return
+  let antigos = []
+  try { antigos = JSON.parse(raw) || [] } catch {}
+  if (antigos.length) {
+    const { error } = await supabase.from('emails_agendados').insert(
+      antigos.map(ag => ({
+        processo_id: ag.processoId ?? null,
+        empresa:     ag.empresa  || '',
+        para:        ag.para     || '',
+        assunto:     ag.assunto  || '',
+        mensagem:    ag.mensagem || '',
+        data_hora:   ag.dataHoraISO,
+      })),
+    )
+    if (error) return   // mantém o localStorage para tentar de novo no próximo load
+  }
+  localStorage.removeItem('wms_emails_agendados')
+  localStorage.removeItem('wms_emails_lock')
+}
+
 const emailsAgendadosDoProcesso = computed(() =>
   emailsAgendados.value
-    .filter(ag => ag.processoId === emailDialogProcessoId.value)
+    .filter(ag => String(ag.processoId) === String(emailDialogProcessoId.value))
     .map(ag => ({
       ...ag,
       dataHoraFormatada: new Date(ag.dataHoraISO).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
@@ -6688,7 +6737,7 @@ function copiarInfoProcesso(p) {
 
 function temEmailAgendado(p) {
   const pid = p.processoId || p.id || null
-  return emailsAgendados.value.some(ag => ag.processoId === pid)
+  return pid != null && emailsAgendados.value.some(ag => String(ag.processoId) === String(pid))
 }
 
 function temEmailEnviado(p) {
@@ -6786,95 +6835,45 @@ async function confirmarEmail() {
       $q.notify({ type: 'warning', message: 'A data/hora deve ser no futuro.', position: 'top' })
       return
     }
-    const ag = {
-      id: Date.now().toString(),
-      processoId: emailDialogProcessoId.value,
-      empresa: emailDialogEmpresa.value,
-      para: toList.join(', '),
-      assunto: emailAssunto.value.trim(),
-      mensagem: emailMensagem.value.trim(),
-      dataHoraISO,
+    emailEnviando.value = true
+    try {
+      const { error } = await supabase.from('emails_agendados').insert({
+        processo_id: emailDialogProcessoId.value ?? null,
+        empresa:     emailDialogEmpresa.value || '',
+        para:        toList.join(', '),
+        assunto:     emailAssunto.value.trim(),
+        mensagem:    emailMensagem.value.trim(),
+        data_hora:   dataHoraISO,
+      })
+      if (error) throw new Error(error.message)
+      await carregarEmailsAgendados()
+      $q.notify({ icon: 'schedule_send', color: 'positive', message: 'E-mail agendado! Será enviado pelo servidor no horário.', position: 'top', timeout: 3500 })
+      dialogEmail.value = false
+    } catch (err) {
+      $q.notify({ type: 'negative', message: 'Não foi possível agendar: ' + err.message, position: 'top', timeout: 5000 })
+    } finally {
+      emailEnviando.value = false
     }
-    emailsAgendados.value.push(ag)
-    localStorage.setItem('wms_emails_agendados', JSON.stringify(emailsAgendados.value))
-    $q.notify({ icon: 'schedule_send', color: 'positive', message: 'E-mail agendado!', position: 'top', timeout: 3500 })
-    dialogEmail.value = false
   }
 }
 
-function cancelarAgendamento(id) {
-  emailsAgendados.value = emailsAgendados.value.filter(ag => ag.id !== id)
-  localStorage.setItem('wms_emails_agendados', JSON.stringify(emailsAgendados.value))
+async function cancelarAgendamento(id) {
+  const { error } = await supabase.from('emails_agendados').delete().eq('id', id)
+  if (error) {
+    $q.notify({ type: 'negative', message: 'Não foi possível cancelar: ' + error.message, position: 'top', timeout: 5000 })
+    return
+  }
+  await carregarEmailsAgendados()
   $q.notify({ icon: 'event_busy', color: 'info', message: 'Agendamento cancelado.', position: 'top', timeout: 2000 })
 }
 
 let _emailCheckInterval = null
-let _emailCheckRodando  = false
 
-// Trava entre abas: cada aba roda seu próprio interval sobre o mesmo localStorage.
-// Sem isso, N abas abertas = N envios do mesmo agendamento.
-const EMAIL_LOCK_KEY = 'wms_emails_lock'
-const EMAIL_LOCK_TTL = 10 * 60 * 1000
-
-function adquirirLockEmails() {
-  const agora = Date.now()
-  const lock  = parseInt(localStorage.getItem(EMAIL_LOCK_KEY) || '0', 10)
-  if (agora - lock < EMAIL_LOCK_TTL) return false
-  localStorage.setItem(EMAIL_LOCK_KEY, String(agora))
-  return true
-}
-function liberarLockEmails() {
-  localStorage.removeItem(EMAIL_LOCK_KEY)
-}
-
+// O envio é do cron do servidor. Aqui só relemos a fila para a tela refletir
+// o que já saiu (e mostrar os que falharam).
 function iniciarVerificadorEmails() {
   if (_emailCheckInterval) return
-  _emailCheckInterval = setInterval(async () => {
-    if (_emailCheckRodando) return
-    const agora = new Date()
-    const pendentes = emailsAgendados.value.filter(ag => new Date(ag.dataHoraISO) <= agora)
-    if (!pendentes.length) return
-    if (!adquirirLockEmails()) return
-
-    _emailCheckRodando = true
-    // Tira da fila ANTES de enviar: o envio leva minutos (baixa anexos do R2) e
-    // qualquer tick/reload nesse intervalo reenviaria o mesmo agendamento.
-    const pendentesIds = new Set(pendentes.map(ag => ag.id))
-    emailsAgendados.value = emailsAgendados.value.filter(ag => !pendentesIds.has(ag.id))
-    localStorage.setItem('wms_emails_agendados', JSON.stringify(emailsAgendados.value))
-
-    const falhas = []
-    let enviados = 0
-    try {
-      for (const ag of pendentes) {
-        try {
-          const attachments = await anexosEmailDoProcesso(ag.processoId, ag.empresa)
-          const res = await fetch('/api/enviar-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ to: ag.para, subject: ag.assunto, text: ag.mensagem, attachments }),
-          })
-          if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`)
-          await registrarEmailEnviado(ag.processoId, ag.empresa, ag.para, ag.assunto)
-          enviados++
-        } catch (err) {
-          falhas.push(`${ag.empresa || ag.assunto}: ${err.message}`)
-        }
-      }
-    } finally {
-      _emailCheckRodando = false
-      liberarLockEmails()
-    }
-
-    if (enviados) {
-      $q.notify({ icon: 'mark_email_read', color: 'positive', message: `${enviados} e-mail(s) agendado(s) enviado(s).`, position: 'top', timeout: 4000 })
-    }
-    // Falha não recoloca na fila (reenvio cego duplicaria). Avisa para reenvio manual.
-    if (falhas.length) {
-      $q.notify({ type: 'negative', position: 'top', timeout: 0, closeBtn: 'Fechar',
-        message: `${falhas.length} e-mail(s) agendado(s) NÃO foram enviados — reenvie manualmente:\n${falhas.join('\n')}` })
-    }
-  }, 30000) // verifica a cada 30 segundos
+  _emailCheckInterval = setInterval(carregarEmailsAgendados, 60000)
 }
 const docsDialogProcessoId = ref(null)
 const docsDialogDocs       = ref([])
@@ -7522,6 +7521,8 @@ onMounted(async () => {
   }
   notifInterval = setInterval(dispararNotificacoes, 30 * 60 * 1000)
   agendarProximoAlerta()
+  await migrarAgendadosLocais()
+  await carregarEmailsAgendados()
   iniciarVerificadorEmails()
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') dispararNotificacoes()
@@ -10406,6 +10407,7 @@ const alerts = [
 .email-ag-info { flex: 1; display: flex; flex-direction: column; gap: 1px; }
 .email-ag-para { color: rgba(255,255,255,0.75); font-size: 0.78rem; }
 .email-ag-data { color: rgba(255,255,255,0.35); font-size: 0.7rem; }
+.email-ag-erro { color: #f87171; font-size: 0.7rem; display: flex; align-items: center; gap: 4px; margin-top: 2px; }
 .email-ag-del { background: none; border: none; cursor: pointer; color: rgba(239,68,68,0.5); display: flex; align-items: center; padding: 2px; }
 .email-ag-del:hover { color: #ef4444; }
 .email-dialog-footer {
