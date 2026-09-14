@@ -6809,28 +6809,70 @@ function cancelarAgendamento(id) {
 }
 
 let _emailCheckInterval = null
+let _emailCheckRodando  = false
+
+// Trava entre abas: cada aba roda seu próprio interval sobre o mesmo localStorage.
+// Sem isso, N abas abertas = N envios do mesmo agendamento.
+const EMAIL_LOCK_KEY = 'wms_emails_lock'
+const EMAIL_LOCK_TTL = 10 * 60 * 1000
+
+function adquirirLockEmails() {
+  const agora = Date.now()
+  const lock  = parseInt(localStorage.getItem(EMAIL_LOCK_KEY) || '0', 10)
+  if (agora - lock < EMAIL_LOCK_TTL) return false
+  localStorage.setItem(EMAIL_LOCK_KEY, String(agora))
+  return true
+}
+function liberarLockEmails() {
+  localStorage.removeItem(EMAIL_LOCK_KEY)
+}
+
 function iniciarVerificadorEmails() {
   if (_emailCheckInterval) return
   _emailCheckInterval = setInterval(async () => {
+    if (_emailCheckRodando) return
     const agora = new Date()
     const pendentes = emailsAgendados.value.filter(ag => new Date(ag.dataHoraISO) <= agora)
     if (!pendentes.length) return
-    for (const ag of pendentes) {
-      try {
-        const attachments = await anexosEmailDoProcesso(ag.processoId, ag.empresa)
-        await fetch('/api/enviar-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to: ag.para, subject: ag.assunto, text: ag.mensagem, attachments }),
-        })
-        await registrarEmailEnviado(ag.processoId, ag.empresa, ag.para, ag.assunto)
-      } catch {}
-    }
-    const enviadosIds = new Set(pendentes.map(ag => ag.id))
-    emailsAgendados.value = emailsAgendados.value.filter(ag => !enviadosIds.has(ag.id))
+    if (!adquirirLockEmails()) return
+
+    _emailCheckRodando = true
+    // Tira da fila ANTES de enviar: o envio leva minutos (baixa anexos do R2) e
+    // qualquer tick/reload nesse intervalo reenviaria o mesmo agendamento.
+    const pendentesIds = new Set(pendentes.map(ag => ag.id))
+    emailsAgendados.value = emailsAgendados.value.filter(ag => !pendentesIds.has(ag.id))
     localStorage.setItem('wms_emails_agendados', JSON.stringify(emailsAgendados.value))
-    if (pendentes.length) {
-      $q.notify({ icon: 'mark_email_read', color: 'positive', message: `${pendentes.length} e-mail(s) agendado(s) enviado(s).`, position: 'top', timeout: 4000 })
+
+    const falhas = []
+    let enviados = 0
+    try {
+      for (const ag of pendentes) {
+        try {
+          const attachments = await anexosEmailDoProcesso(ag.processoId, ag.empresa)
+          const res = await fetch('/api/enviar-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to: ag.para, subject: ag.assunto, text: ag.mensagem, attachments }),
+          })
+          if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`)
+          await registrarEmailEnviado(ag.processoId, ag.empresa, ag.para, ag.assunto)
+          enviados++
+        } catch (err) {
+          falhas.push(`${ag.empresa || ag.assunto}: ${err.message}`)
+        }
+      }
+    } finally {
+      _emailCheckRodando = false
+      liberarLockEmails()
+    }
+
+    if (enviados) {
+      $q.notify({ icon: 'mark_email_read', color: 'positive', message: `${enviados} e-mail(s) agendado(s) enviado(s).`, position: 'top', timeout: 4000 })
+    }
+    // Falha não recoloca na fila (reenvio cego duplicaria). Avisa para reenvio manual.
+    if (falhas.length) {
+      $q.notify({ type: 'negative', position: 'top', timeout: 0, closeBtn: 'Fechar',
+        message: `${falhas.length} e-mail(s) agendado(s) NÃO foram enviados — reenvie manualmente:\n${falhas.join('\n')}` })
     }
   }, 30000) // verifica a cada 30 segundos
 }
