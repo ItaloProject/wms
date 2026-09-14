@@ -13,7 +13,6 @@ crons = ["50 10 * * 1-5", "0 18 * * 1-5", "*/5 * * * *"]
 SUPABASE_URL    = "https://uysamynplejghdmxlrfk.supabase.co"
 NUMEROS_ALERTA  = "5599984491810,559882624491,559888435550,559885928114"
 GOTENBERG_URL   = "https://gotenberg-production-931d.up.railway.app"
-# TROCAR pela URL de produção do app (a mesma que você abre no navegador).
-APP_URL         = "https://SEU-APP.vercel.app"
+APP_URL         = "https://wms-nine-pi.vercel.app"
 
 # CRON_SECRET é secret, não var: wrangler secret put CRON_SECRET
