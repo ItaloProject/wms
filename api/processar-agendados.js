@@ -79,7 +79,9 @@ export default async function handler(req, res) {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
   // Devolve à fila o que ficou preso em 'enviando' por execução interrompida.
-  await supabase.rpc('destravar_emails_agendados').catch(() => {})
+  // O retorno de .rpc() é "thenable" mas não é uma Promise completa — não tem
+  // .catch() nativo, por isso try/await em vez de encadear .catch().
+  try { await supabase.rpc('destravar_emails_agendados') } catch {}
 
   const { data: fila, error } = await supabase
     .from('emails_agendados')
