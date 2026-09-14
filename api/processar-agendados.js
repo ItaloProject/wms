@@ -9,12 +9,13 @@ import nodemailer from 'nodemailer'
 // condicional (status pendente → enviando): se duas execuções concorrerem, só
 // uma altera a linha e a outra pula — é isso que garante envio único.
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-)
-
 const env = (...nomes) => nomes.map(n => process.env[n]).find(Boolean)
+
+// SUPABASE_URL pode reaproveitar a var do frontend (mesmo valor). A service
+// role key NUNCA existiu no projeto (é sensível, não pode ir no frontend) —
+// precisa ser criada do zero nas env vars da Vercel.
+const SUPABASE_URL = env('SUPABASE_URL', 'VITE_SUPABASE_URL')
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 const R2_BUCKET     = env('R2_BUCKET_NAME', 'VITE_R2_BUCKET_NAME')
 const R2_ACCOUNT_ID = env('R2_ACCOUNT_ID', 'VITE_R2_ACCOUNT_ID')
@@ -33,7 +34,7 @@ function s3() {
   return _s3
 }
 
-async function anexosDoProcesso(processoId, empresa) {
+async function anexosDoProcesso(supabase, processoId, empresa) {
   let docs = []
   if (processoId) {
     const { data } = await supabase.from('documentos').select('nome, r2_key')
@@ -71,6 +72,11 @@ export default async function handler(req, res) {
   if (!user || !pass) {
     return res.status(500).json({ error: 'GMAIL_USER / GMAIL_APP_PASSWORD não configurados' })
   }
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    return res.status(500).json({ error: 'SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY não configurados na Vercel' })
+  }
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
   // Devolve à fila o que ficou preso em 'enviando' por execução interrompida.
   await supabase.rpc('destravar_emails_agendados').catch(() => {})
@@ -101,7 +107,7 @@ export default async function handler(req, res) {
     if (!claim?.length) continue
 
     try {
-      const attachments = await anexosDoProcesso(ag.processo_id, ag.empresa)
+      const attachments = await anexosDoProcesso(supabase, ag.processo_id, ag.empresa)
       const info = await transporter.sendMail({
         from: `"WMS Consultoria" <${user}>`,
         to: ag.para,
