@@ -3582,17 +3582,6 @@ const etapasBaixaPadrao = [
   { key: 'contrato',          titulo: 'Data do Contrato Autenticado', tipo: 'data' },
 ]
 
-// Lista unificada para o filtro "parado na etapa" do Consultar: constituição
-// e baixa têm listas de etapas diferentes, mas várias chaves são compartilhadas
-// (protocolo, contrato, etc.) — dedup por key mantendo o primeiro título visto.
-const etapasFiltroOpcoes = (() => {
-  const vistos = new Map()
-  for (const e of [...etapasPadrao, ...etapasBaixaPadrao]) {
-    if (!vistos.has(e.key)) vistos.set(e.key, e.titulo)
-  }
-  return Array.from(vistos, ([key, titulo]) => ({ key, titulo }))
-})()
-
 function carregarEtapasBaixa() {
   const salvas = JSON.parse(localStorage.getItem('wms_baixa') || 'null')
   return etapasBaixaPadrao.map(e => {
@@ -5866,6 +5855,34 @@ const progressPercent = computed(() =>
 )
 
 const registros = ref([])
+
+// Lista unificada para o filtro "parado na etapa" do Consultar: constituição
+// e baixa têm listas de etapas diferentes, mas várias chaves são compartilhadas
+// (protocolo, contrato, etc.) — dedup por key mantendo o primeiro título visto.
+// Só entram etapas com pelo menos um processo ativo realmente parado nelas —
+// senão o select fica poluído com opções que nunca retornam resultado.
+const etapasFiltroOpcoes = computed(() => {
+  const comPendente = new Set()
+  for (const r of registros.value) {
+    if (r.concluido) continue
+    for (const e of (r.etapas || [])) {
+      if (!etapaResolvida(e)) comPendente.add(e.key)
+    }
+  }
+  const vistos = new Map()
+  for (const e of [...etapasPadrao, ...etapasBaixaPadrao]) {
+    if (comPendente.has(e.key) && !vistos.has(e.key)) vistos.set(e.key, e.titulo)
+  }
+  return Array.from(vistos, ([key, titulo]) => ({ key, titulo }))
+})
+
+// Se a etapa selecionada deixar de ter processos pendentes (ex.: o último
+// foi resolvido), volta o filtro pra "todas" em vez de ficar num valor órfão.
+watch(etapasFiltroOpcoes, (opcoes) => {
+  if (consultarFiltroEtapa.value !== 'todos' && !opcoes.some(o => o.key === consultarFiltroEtapa.value)) {
+    consultarFiltroEtapa.value = 'todos'
+  }
+})
 
 // ── Resumo ──
 const docsEmpresa = ref([
