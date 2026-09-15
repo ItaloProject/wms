@@ -1040,6 +1040,18 @@
                         </button>
                       </div>
                     </div>
+                    <div v-else-if="etapa.tipo === 'texto' && etapa.key === 'nfse_senha'" class="et-nfse-wrap">
+                      <div class="et-nfse-login">
+                        <q-icon name="badge" size="13px" />
+                        Login: <strong>{{ cnpjResumoAtual || 'CNPJ não preenchido no Resumo' }}</strong>
+                      </div>
+                      <input
+                        v-model="etapa.valor"
+                        class="et-input"
+                        :placeholder="etapa.placeholder"
+                        @change="salvarEtapas"
+                      />
+                    </div>
                     <input
                       v-else-if="etapa.tipo === 'texto'"
                       v-model="etapa.valor"
@@ -5899,6 +5911,10 @@ const docsEmpresa = ref([
   { label: 'E-Mail',              valor: '', tipo: 'email'   },
 ])
 
+// Login do NFS-e é sempre o CNPJ da empresa (ver etapa 'nfse_senha') — exibido
+// como dica pro usuário não precisar abrir o Resumo pra saber qual é.
+const cnpjResumoAtual = computed(() => docsEmpresa.value.find(d => d.label === 'CNPJ')?.valor || '')
+
 function copiarTexto(texto, caption = '') {
   navigator.clipboard.writeText(texto).then(() => {
     $q.notify({
@@ -9926,6 +9942,12 @@ const alerts = [
   outline: none; transition: border-color 0.2s;
 }
 .et-input:focus, .et-select:focus { border-color: rgba(90,184,46,0.5); }
+.et-nfse-wrap { display: flex; flex-direction: column; gap: 6px; }
+.et-nfse-login {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 0.75rem; color: rgba(255,255,255,0.45);
+}
+.et-nfse-login strong { color: #5ab82e; font-weight: 700; }
 .et-toggle-btns { display: flex; gap: 6px; flex-wrap: wrap; }
 
 /* ── Processo lista de itens ── */
@@ -11869,6 +11891,7 @@ const alerts = [
   border-color: rgba(15,23,42,0.15) !important;
   color: #0f172a !important;
 }
+.wms-app--light .et-nfse-login { color: rgba(15,23,42,0.5) !important; }
 .wms-app--light .et-input::placeholder { color: rgba(15,23,42,0.3) !important; }
 .wms-app--light .et-select option { background: #fff !important; color: #0f172a !important; }
 .wms-app--light .et-toggle-btn { color: rgba(15,23,42,0.45) !important; }
