@@ -3463,6 +3463,7 @@ const etapasPadrao = [
   { key: 'taxa',       titulo: 'Taxa',                        tipo: 'ok' },
   { key: 'contrato',   titulo: 'Data do Contrato Autenticado',tipo: 'data' },
   { key: 'semfaz',     titulo: 'Senha SEMFAZ e Alvará',       tipo: 'texto',  placeholder: 'Senha SEMFAZ' },
+  { key: 'nfse_senha', titulo: 'Senha NFS-e (Portal)',        tipo: 'texto',  placeholder: 'Senha de acesso ao portal NFS-e' },
   { key: 'estado',     titulo: 'Ativar no Estado',            tipo: 'toggle', opcoes: ['OK', 'NA'],
     subItens: [
       { key: 'alvara',  label: 'Alvará',              temProtocolo: false },
@@ -7169,6 +7170,7 @@ function _coletarValoresRelatorio() {
   const processoVal     = etapaValor('processo')
   const semfazVal       = etapaValor('semfaz')
   const sefaznetVal     = etapaValor('sefaznet')
+  const nfseSenhaVal    = etapaValor('nfse_senha')
   const procStatus      = etapaStatus('proc_fisica') === 'concluida' || etapaStatus('proc_juridica') === 'concluida' ? 'SIM' : ''
 
   const emp = label => docsEmpresa.value.find(d => d.label === label)?.valor || ''
@@ -7217,8 +7219,10 @@ function _coletarValoresRelatorio() {
       SEN_EST:     sefaznetVal,
       SEN_MUN:     semfazVal,
       CERTIFICADO: assinaturaVal === 'Certificado' ? 'SIM' : 'NÃO',
-      NFSE1:       '',
-      NFSE2:       '',
+      // Login do NFS-e é sempre o CNPJ (já coletado do Resumo) — só a senha
+      // vem da etapa própria, preenchida assim que o acesso é gerado no portal.
+      NFSE1:       cnpj,
+      NFSE2:       nfseSenhaVal,
       SEGMENTO:    '',
       CUIDADOR:    '',
       REGIME:      regimeVal,
@@ -7250,9 +7254,12 @@ async function gerarRelatorio() {
 
   const { valores, nomeArquivo } = _coletarValoresRelatorio()
 
+  // NFSE1 não entra: é sempre o CNPJ, e a ausência dele já é cobrada pelo
+  // campo CNPJ acima. NFSE2 (senha) continua aqui como rede de segurança —
+  // se o processo não tiver a senha preenchida ainda, ainda pergunta aqui.
   const COMPLEMENTAVEIS = ['RAZAO','CNPJ','ABERTURA','CAPITAL','MUN_EST','DONO',
     'INSC_EST','INSC_MUN','SOCIO','CPF','NIRE','SEN_EST','SEN_MUN',
-    'NFSE1','NFSE2','SEGMENTO','CUIDADOR','REGIME','DOMINIO','VERI','GOVBR']
+    'NFSE2','SEGMENTO','CUIDADOR','REGIME','DOMINIO','VERI','GOVBR']
 
   const vazios = COMPLEMENTAVEIS.filter(k => !valores[k])
   if (vazios.length > 0) {
