@@ -1688,6 +1688,10 @@
                   >{{ f.label }}</button>
                 </div>
                 <div class="cons-filtros-mes">
+                  <select v-model="consultarFiltroEtapa" class="cons-filtro-select" title="Filtrar por etapa parada">
+                    <option value="todos">Todas as etapas</option>
+                    <option v-for="et in etapasFiltroOpcoes" :key="et.key" :value="et.key">Parado em: {{ et.titulo }}</option>
+                  </select>
                   <select v-model="consultarFiltroMes" class="cons-filtro-select">
                     <option :value="0">Todos os meses</option>
                     <option v-for="(m, i) in rlMeses" :key="i" :value="i + 1">{{ m }}</option>
@@ -3578,6 +3582,17 @@ const etapasBaixaPadrao = [
   { key: 'contrato',          titulo: 'Data do Contrato Autenticado', tipo: 'data' },
 ]
 
+// Lista unificada para o filtro "parado na etapa" do Consultar: constituição
+// e baixa têm listas de etapas diferentes, mas várias chaves são compartilhadas
+// (protocolo, contrato, etc.) — dedup por key mantendo o primeiro título visto.
+const etapasFiltroOpcoes = (() => {
+  const vistos = new Map()
+  for (const e of [...etapasPadrao, ...etapasBaixaPadrao]) {
+    if (!vistos.has(e.key)) vistos.set(e.key, e.titulo)
+  }
+  return Array.from(vistos, ([key, titulo]) => ({ key, titulo }))
+})()
+
 function carregarEtapasBaixa() {
   const salvas = JSON.parse(localStorage.getItem('wms_baixa') || 'null')
   return etapasBaixaPadrao.map(e => {
@@ -4319,6 +4334,7 @@ const consultarBusca        = ref('')
 const consultarFiltroStatus = ref('todos')   // 'todos'|'andamento'|'nao_iniciado'|'concluido'|'aguardando'
 const consultarFiltroMes    = ref(0)         // 0 = todos os meses, 1-12 = mês específico
 const consultarFiltroAno    = ref(new Date().getFullYear())
+const consultarFiltroEtapa  = ref('todos')   // 'todos' | key da etapa (parado nela = ainda não resolvida)
 const atualizandoConsultar  = ref(false)
 const lixeira               = ref([])
 const lixeiraAberta         = ref(false)
@@ -5072,7 +5088,16 @@ const processosConsultar = computed(() => {
     return false
   }
 
-  const filtrados = todos.filter(p => statusOk(p) && mesOk(p))
+  // Filtro por etapa — "parado em X" = etapa X existe no processo e ainda não
+  // foi resolvida (nem concluída, nem marcada como não aplicável).
+  const fe = consultarFiltroEtapa.value
+  const etapaOk = (p) => {
+    if (fe === 'todos') return true
+    const etapa = p._reg?.etapas?.find(e => e.key === fe)
+    return !!etapa && !etapaResolvida(etapa)
+  }
+
+  const filtrados = todos.filter(p => statusOk(p) && mesOk(p) && etapaOk(p))
 
   const q = consultarBusca.value
   if (!q.trim()) return filtrados
