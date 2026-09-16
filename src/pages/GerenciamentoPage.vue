@@ -5643,6 +5643,22 @@ function mascarar(v, tipo) {
         .replace(/(\d{3})(\d)/, '$1.$2')
         .replace(/(\d{3})(\d{1,2})$/, '$1-$2')
     }
+    // Sócio pode ser pessoa jurídica — aceita CPF (11 dígitos) ou CNPJ (14),
+    // decidindo o formato pela quantidade de dígitos já digitados.
+    case 'cpf_cnpj': {
+      const d = v.replace(/\D/g, '').slice(0, 14)
+      if (d.length <= 11) {
+        return d
+          .replace(/(\d{3})(\d)/, '$1.$2')
+          .replace(/(\d{3})(\d)/, '$1.$2')
+          .replace(/(\d{3})(\d{1,2})$/, '$1-$2')
+      }
+      return d
+        .replace(/(\d{2})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1/$2')
+        .replace(/(\d{4})(\d{1,2})$/, '$1-$2')
+    }
     case 'telefone': {
       const d = v.replace(/\D/g, '').slice(0, 11)
       if (d.length <= 10)
@@ -5670,6 +5686,7 @@ function campoValido(doc) {
   switch (doc.tipo) {
     case 'cnpj':     return v.trim().length > 0
     case 'cpf':      return v.replace(/\D/g, '').length === 11
+    case 'cpf_cnpj': { const n = v.replace(/\D/g, '').length; return n === 11 || n === 14 }
     case 'telefone': return v.replace(/\D/g, '').length >= 10
     case 'email':    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
     default:         return true
@@ -5679,6 +5696,7 @@ function campoValido(doc) {
 const PLACEHOLDER_CAMPO = {
   cnpj:     '00.000.000/0000-00',
   cpf:      '000.000.000-00',
+  cpf_cnpj: 'CPF ou CNPJ',
   telefone: '(00) 00000-0000',
   email:    'nome@email.com',
   moeda:    '1.500,00',
@@ -5689,7 +5707,7 @@ function placeholderCampo(doc) {
   return PLACEHOLDER_CAMPO[doc.tipo] || 'Digite aqui...'
 }
 function inputmodeCampo(doc) {
-  return ['cpf','telefone','numero','moeda','rg'].includes(doc.tipo) ? 'numeric' : 'text'
+  return ['cpf','cpf_cnpj','telefone','numero','moeda','rg'].includes(doc.tipo) ? 'numeric' : 'text'
 }
 
 function onInputDoc(doc, event) {
@@ -5736,7 +5754,7 @@ const totalPreenchido = computed(() =>
 
 const SOCIO_CAMPOS_PADRAO = [
   { label: 'Nome do Sócio',               valor: '', tipo: 'texto'   },
-  { label: 'CPF',                         valor: '', tipo: 'cpf'    },
+  { label: 'CPF',                         valor: '', tipo: 'cpf_cnpj' },
   { label: 'RG ou CNH',                   valor: '', tipo: 'rg'     },
   { label: 'Endereço pessoa física',      valor: '', tipo: 'texto'  },
   { label: 'Senha do Gov.Br (Nível Ouro)', valor: '', tipo: 'senha'  },
