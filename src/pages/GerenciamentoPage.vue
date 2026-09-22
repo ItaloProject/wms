@@ -863,7 +863,7 @@
               <!-- Caixa fixa com empresa e protocolo -->
               <Teleport to="body">
                 <div
-                  v-if="etapaValor('empresa') || etapaValor('protocolo')"
+                  v-if="etapaValor('empresa') || cnpjResumoAtual || etapaValor('protocolo')"
                   class="et-info-fixa"
                 >
                   <div v-if="etapaValor('empresa')" class="et-info-fixa-item">
@@ -872,6 +872,14 @@
                     <span class="et-info-fixa-valor">{{ etapaValor('empresa') }}</span>
                     <span class="et-info-fixa-copy" @click="copiarInfo('empresa')" title="Copiar">
                       <q-icon :name="copiado === 'empresa' ? 'check' : 'content_copy'" size="14px" :style="{ color: copiado === 'empresa' ? '#5ab82e' : 'rgba(255,255,255,0.6)' }" />
+                    </span>
+                  </div>
+                  <div v-if="cnpjResumoAtual" class="et-info-fixa-item">
+                    <q-icon name="badge" size="13px" class="et-info-fixa-icon" />
+                    <span class="et-info-fixa-label">CNPJ</span>
+                    <span class="et-info-fixa-valor">{{ cnpjResumoAtual }}</span>
+                    <span class="et-info-fixa-copy" @click="copiarInfo('cnpj')" title="Copiar">
+                      <q-icon :name="copiado === 'cnpj' ? 'check' : 'content_copy'" size="14px" :style="{ color: copiado === 'cnpj' ? '#5ab82e' : 'rgba(255,255,255,0.6)' }" />
                     </span>
                   </div>
                   <div v-if="etapaValor('protocolo')" class="et-info-fixa-item">
@@ -3342,7 +3350,8 @@ function iniciarResizeNotas(e) {
 }
 
 function copiarInfo(key) {
-  const valor = etapaValor(key)
+  // CNPJ não é etapa, vem do Resumo (docsEmpresa)
+  const valor = key === 'cnpj' ? cnpjResumoAtual.value : etapaValor(key)
   if (!valor) return
   navigator.clipboard.writeText(valor).then(() => {
     copiado.value = key
