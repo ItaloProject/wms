@@ -2199,8 +2199,8 @@
                   <span v-if="p.localizacao && p.localizacao !== '—'" class="rl-chip">
                     <q-icon name="place" size="11px" /> {{ p.localizacao }}
                   </span>
-                  <span v-if="p.protocolo && p.protocolo !== '—'" class="rl-chip">
-                    <q-icon name="tag" size="11px" /> {{ p.protocolo }}
+                  <span v-if="p.cnpj && p.cnpj !== '—'" class="rl-chip">
+                    <q-icon name="tag" size="11px" /> {{ p.cnpj }}
                   </span>
                   <span v-if="p.assinatura && p.assinatura !== '—'" class="rl-chip rl-chip--assin">
                     <q-icon name="verified_user" size="11px" /> {{ p.assinatura }}
@@ -4457,8 +4457,16 @@ const rlGrupos = computed(() => {
   }
 
   // Helpers para etapas do registro
-  const dataContrato = (r) => r?.etapas?.find(e => e.key === 'contrato')?.valor || '—'
+  // contrato vem do <input type="date"> em ISO (yyyy-mm-dd); formata pra dd/mm/yyyy
+  // igual à coluna Conclusão. Mantém o valor bruto como fallback (ex.: legado
+  // digitado manualmente em dd/mm/yyyy, que formatarDataEtapa não reconhece).
+  const dataContrato = (r) => {
+    const v = r?.etapas?.find(e => e.key === 'contrato')?.valor
+    if (!v) return '—'
+    return formatarDataEtapa(v) || v
+  }
   const etapaVal     = (r, key) => r?.etapas?.find(e => e.key === key)?.valor || ''
+  const cnpjDoRegistro = (r) => r?.empresa?.find(d => d.label === 'CNPJ')?.valor || ''
 
   // Monta objeto de item enriquecido com todos os campos do relatório
   const mkItem = (h, reg, extra = {}) => ({
@@ -4471,6 +4479,7 @@ const rlGrupos = computed(() => {
     tipoProcesso:  etapaVal(reg, 'processo') || '—',
     localizacao:   etapaVal(reg, 'localizacao') || h?.localizacao || '—',
     protocolo:     etapaVal(reg, 'protocolo') || h?.protocolo || '—',
+    cnpj:          cnpjDoRegistro(reg) || '—',
     assinatura:    etapaVal(reg, 'assinatura') || '—',
   })
 
@@ -4549,10 +4558,14 @@ const rlGrupos = computed(() => {
 
   // Agrupa entradas com o mesmo nome de empresa dentro de cada categoria,
   // mantendo a data de inserção mais antiga e a data de contrato mais recente.
+  // Chave inclui o CNPJ (só dígitos): duas empresas com nome igual/parecido mas
+  // CNPJ diferente não podem virar um único card — é o problema que motivou
+  // exibir o CNPJ no relatório.
   const agruparPorEmpresa = (items) => {
     const mapa = new Map()
     for (const item of items) {
-      const chave = (item.empresa || '').trim().toUpperCase()
+      const cnpjNum = item.cnpj && item.cnpj !== '—' ? item.cnpj.replace(/\D/g, '') : ''
+      const chave = `${(item.empresa || '').trim().toUpperCase()}|${cnpjNum}`
       if (!mapa.has(chave)) {
         mapa.set(chave, { ...item, _insercoes: [], _datas: [], _concs: [] })
       }
@@ -4811,12 +4824,12 @@ async function exportarPDF() {
     const [r, g, b] = corMap[grupo.abbr] || [100,100,100]
     autoTable(doc, {
       startY: y,
-      head: [[grupo.abbr, 'Tipo', 'Protocolo', 'Inserção', 'Contrato', 'Conclusão']],
+      head: [[grupo.abbr, 'Tipo', 'CNPJ', 'Inserção', 'Contrato', 'Conclusão']],
       body: grupo.items.length
         ? grupo.items.map(p => [
             p.empresa || p.razaoSocial || '—',
             p.tipoProcesso && p.tipoProcesso !== '—' ? p.tipoProcesso : '',
-            p.protocolo    && p.protocolo    !== '—' ? p.protocolo    : '',
+            p.cnpj         && p.cnpj         !== '—' ? p.cnpj         : '',
             p.dataInsercao || '—',
             p.dataStr      || '—',
             p.dataConc     && p.dataConc     !== '—' ? p.dataConc     : '',
@@ -4873,7 +4886,7 @@ function exportarExcel() {
     ['WMS CONSULTORIA CONTÁBIL'],
     [`Relatório Detalhado — ${mesLabel}`],
     [],
-    ['Status', 'Empresa / Razão Social', 'Tipo de Processo', 'Protocolo', 'Assinatura', 'Inserção no Sistema', 'Data do Contrato', 'Data de Conclusão'],
+    ['Status', 'Empresa / Razão Social', 'Tipo de Processo', 'CNPJ', 'Assinatura', 'Inserção no Sistema', 'Data do Contrato', 'Data de Conclusão'],
   ]
   for (const grupo of rlGrupos.value) {
     if (grupo.items.length === 0) continue
@@ -4882,7 +4895,7 @@ function exportarExcel() {
         grupo.abbr,
         p.empresa || p.razaoSocial || '—',
         p.tipoProcesso && p.tipoProcesso !== '—' ? p.tipoProcesso : '',
-        p.protocolo    && p.protocolo    !== '—' ? p.protocolo    : '',
+        p.cnpj         && p.cnpj         !== '—' ? p.cnpj         : '',
         p.assinatura   && p.assinatura   !== '—' ? p.assinatura   : '',
         p.dataInsercao || '—',
         p.dataStr      || '—',
