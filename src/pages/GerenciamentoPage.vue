@@ -9772,7 +9772,7 @@ const alerts = [
   position: fixed;
   bottom: 130px;
   right: 24px;
-  z-index: 9998;
+  z-index: 99998;
   background: rgba(13, 31, 60, 0.95);
   border: 1px solid rgba(245, 158, 11, 0.35);
   border-radius: 12px;
@@ -9865,7 +9865,7 @@ const alerts = [
   position: fixed;
   bottom: 24px;
   right: 24px;
-  z-index: 9999;
+  z-index: 99999;
   background: rgba(13, 31, 60, 0.95);
   border: 1px solid rgba(90, 184, 46, 0.35);
   border-radius: 12px;
