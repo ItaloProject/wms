@@ -5951,9 +5951,18 @@ const docsEmpresa = ref([
   { label: 'E-Mail',              valor: '', tipo: 'email'   },
 ])
 
-// Login do NFS-e é sempre o CNPJ da empresa (ver etapa 'nfse_senha') — exibido
-// como dica pro usuário não precisar abrir o Resumo pra saber qual é.
-const cnpjResumoAtual = computed(() => docsEmpresa.value.find(d => d.label === 'CNPJ')?.valor || '')
+// CNPJ do processo atualmente aberto na Guia — usado no aviso de login do
+// NFS-e e na caixa fixa Empresa/CNPJ/Protocolo.
+// IMPORTANTE: não ler de docsEmpresa (Resumo). O Resumo é um rascunho único e
+// compartilhado, só sincronizado com o processo em pontos específicos (ex.:
+// ao gerar relatório) — ao navegar entre processos na Guia ele NÃO é recarregado,
+// então usá-lo aqui mostrava sempre o último CNPJ carregado, igual pra todos os
+// processos. A fonte correta é o próprio registro (reg.empresa), que reflete
+// fielmente o processo aberto (regAberto).
+const cnpjResumoAtual = computed(() => {
+  const reg = registros.value.find(r => r.id === regAberto.value)
+  return reg?.empresa?.find(d => d.label === 'CNPJ')?.valor || ''
+})
 
 function copiarTexto(texto, caption = '') {
   navigator.clipboard.writeText(texto).then(() => {
