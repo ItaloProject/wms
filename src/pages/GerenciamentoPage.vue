@@ -3488,10 +3488,11 @@ const etapasPadrao = [
   { key: 'nfse_senha', titulo: 'Senha NFS-e (Portal)',        tipo: 'texto',  placeholder: 'Senha de acesso ao portal NFS-e' },
   { key: 'estado',     titulo: 'Ativar no Estado',            tipo: 'toggle', opcoes: ['OK', 'NA'],
     subItens: [
-      { key: 'alvara',  label: 'Alvará',              temProtocolo: false },
-      { key: 'extrato', label: 'Extrato Bancário',     temProtocolo: false },
-      { key: 'aluguel', label: 'Contrato de Aluguel',  temProtocolo: false },
-      { key: 'crc',     label: 'Certidão de CRC',      temProtocolo: true  },
+      { key: 'requerimento', label: 'Requerimento',       temProtocolo: false },
+      { key: 'extrato',      label: 'Extrato Bancário',   temProtocolo: false },
+      { key: 'luz',          label: 'Conta de Luz',       temProtocolo: false },
+      { key: 'aluguel',      label: 'Contrato de Aluguel',temProtocolo: false },
+      { key: 'crc',          label: 'Certidão CRC',       temProtocolo: true  },
     ]
   },
   { key: 'sefaznet',   titulo: 'Senha SEFAZ NET',             tipo: 'texto',  placeholder: 'Senha SEFAZ NET' },
