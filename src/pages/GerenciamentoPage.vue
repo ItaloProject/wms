@@ -830,65 +830,66 @@
                 </div>
               </div>
 
-              <!-- Painel de anotações fixo -->
+              <!-- Painel fixo direito: Anotações + caixa Empresa/CNPJ/Protocolo num único container -->
               <Teleport to="body">
-                <div class="notas-fixas" :class="{ 'notas-fixas--expandido': notasExpandido }" ref="notasPainelRef">
-                  <div class="notas-fixas-header" @click="toggleNotas">
-                    <q-icon name="sticky_note_2" size="15px" style="color:#f59e0b" />
-                    <span class="notas-fixas-titulo">Anotações</span>
-                    <button
-                      v-if="notasExpandido && notasTexto.trim()"
-                      class="notas-fixas-btn notas-fixas-btn--lixo"
-                      title="Apagar anotações"
-                      @click.stop="confirmarApagarNotas"
-                    >
-                      <q-icon name="delete_outline" size="14px" />
-                    </button>
-                    <q-icon :name="notasExpandido ? 'expand_more' : 'expand_less'" size="15px" style="color:rgba(255,255,255,0.4);margin-left:2px" />
+                <div class="et-painel-direito">
+                  <!-- Anotações -->
+                  <div class="notas-fixas" :class="{ 'notas-fixas--expandido': notasExpandido }" ref="notasPainelRef">
+                    <div class="notas-fixas-header" @click="toggleNotas">
+                      <q-icon name="sticky_note_2" size="15px" style="color:#f59e0b" />
+                      <span class="notas-fixas-titulo">Anotações</span>
+                      <button
+                        v-if="notasExpandido && notasTexto.trim()"
+                        class="notas-fixas-btn notas-fixas-btn--lixo"
+                        title="Apagar anotações"
+                        @click.stop="confirmarApagarNotas"
+                      >
+                        <q-icon name="delete_outline" size="14px" />
+                      </button>
+                      <q-icon :name="notasExpandido ? 'expand_more' : 'expand_less'" size="15px" style="color:rgba(255,255,255,0.4);margin-left:2px" />
+                    </div>
+                    <div v-if="notasExpandido" class="notas-fixas-body">
+                      <pre class="notas-fixas-fixa">{{ NOTAS_FIXAS_TEXTO }}</pre>
+                      <div class="notas-fixas-separador" />
+                      <textarea
+                        v-model="notasTexto"
+                        class="notas-fixas-textarea"
+                        placeholder="Anotações adicionais do processo..."
+                        @input="salvarNotas"
+                      />
+                    </div>
+                    <div v-if="notasExpandido" class="notas-fixas-resize-handle" @mousedown.prevent="iniciarResizeNotas" />
                   </div>
-                  <div v-if="notasExpandido" class="notas-fixas-body">
-                    <pre class="notas-fixas-fixa">{{ NOTAS_FIXAS_TEXTO }}</pre>
-                    <div class="notas-fixas-separador" />
-                    <textarea
-                      v-model="notasTexto"
-                      class="notas-fixas-textarea"
-                      placeholder="Anotações adicionais do processo..."
-                      @input="salvarNotas"
-                    />
-                  </div>
-                  <div v-if="notasExpandido" class="notas-fixas-resize-handle" @mousedown.prevent="iniciarResizeNotas" />
-                </div>
-              </Teleport>
 
-              <!-- Caixa fixa com empresa e protocolo -->
-              <Teleport to="body">
-                <div
-                  v-if="etapaValor('empresa') || cnpjResumoAtual || etapaValor('protocolo')"
-                  class="et-info-fixa"
-                >
-                  <div v-if="etapaValor('empresa')" class="et-info-fixa-item">
-                    <q-icon name="business" size="13px" class="et-info-fixa-icon" />
-                    <span class="et-info-fixa-label">Empresa</span>
-                    <span class="et-info-fixa-valor">{{ etapaValor('empresa') }}</span>
-                    <span class="et-info-fixa-copy" @click="copiarInfo('empresa')" title="Copiar">
-                      <q-icon :name="copiado === 'empresa' ? 'check' : 'content_copy'" size="14px" :style="{ color: copiado === 'empresa' ? '#5ab82e' : 'rgba(255,255,255,0.6)' }" />
-                    </span>
-                  </div>
-                  <div v-if="cnpjResumoAtual" class="et-info-fixa-item">
-                    <q-icon name="badge" size="13px" class="et-info-fixa-icon" />
-                    <span class="et-info-fixa-label">CNPJ</span>
-                    <span class="et-info-fixa-valor">{{ cnpjResumoAtual }}</span>
-                    <span class="et-info-fixa-copy" @click="copiarInfo('cnpj')" title="Copiar">
-                      <q-icon :name="copiado === 'cnpj' ? 'check' : 'content_copy'" size="14px" :style="{ color: copiado === 'cnpj' ? '#5ab82e' : 'rgba(255,255,255,0.6)' }" />
-                    </span>
-                  </div>
-                  <div v-if="etapaValor('protocolo')" class="et-info-fixa-item">
-                    <q-icon name="tag" size="13px" class="et-info-fixa-icon" />
-                    <span class="et-info-fixa-label">Protocolo</span>
-                    <span class="et-info-fixa-valor">{{ etapaValor('protocolo') }}</span>
-                    <span class="et-info-fixa-copy" @click="copiarInfo('protocolo')" title="Copiar">
-                      <q-icon :name="copiado === 'protocolo' ? 'check' : 'content_copy'" size="14px" :style="{ color: copiado === 'protocolo' ? '#5ab82e' : 'rgba(255,255,255,0.6)' }" />
-                    </span>
+                  <!-- Caixa fixa com empresa, CNPJ e protocolo -->
+                  <div
+                    v-if="etapaValor('empresa') || cnpjResumoAtual || etapaValor('protocolo')"
+                    class="et-info-fixa"
+                  >
+                    <div v-if="etapaValor('empresa')" class="et-info-fixa-item">
+                      <q-icon name="business" size="13px" class="et-info-fixa-icon" />
+                      <span class="et-info-fixa-label">Empresa</span>
+                      <span class="et-info-fixa-valor">{{ etapaValor('empresa') }}</span>
+                      <span class="et-info-fixa-copy" @click="copiarInfo('empresa')" title="Copiar">
+                        <q-icon :name="copiado === 'empresa' ? 'check' : 'content_copy'" size="14px" :style="{ color: copiado === 'empresa' ? '#5ab82e' : 'rgba(255,255,255,0.6)' }" />
+                      </span>
+                    </div>
+                    <div v-if="cnpjResumoAtual" class="et-info-fixa-item">
+                      <q-icon name="badge" size="13px" class="et-info-fixa-icon" />
+                      <span class="et-info-fixa-label">CNPJ</span>
+                      <span class="et-info-fixa-valor">{{ cnpjResumoAtual }}</span>
+                      <span class="et-info-fixa-copy" @click="copiarInfo('cnpj')" title="Copiar">
+                        <q-icon :name="copiado === 'cnpj' ? 'check' : 'content_copy'" size="14px" :style="{ color: copiado === 'cnpj' ? '#5ab82e' : 'rgba(255,255,255,0.6)' }" />
+                      </span>
+                    </div>
+                    <div v-if="etapaValor('protocolo')" class="et-info-fixa-item">
+                      <q-icon name="tag" size="13px" class="et-info-fixa-icon" />
+                      <span class="et-info-fixa-label">Protocolo</span>
+                      <span class="et-info-fixa-valor">{{ etapaValor('protocolo') }}</span>
+                      <span class="et-info-fixa-copy" @click="copiarInfo('protocolo')" title="Copiar">
+                        <q-icon :name="copiado === 'protocolo' ? 'check' : 'content_copy'" size="14px" :style="{ color: copiado === 'protocolo' ? '#5ab82e' : 'rgba(255,255,255,0.6)' }" />
+                      </span>
+                    </div>
                   </div>
                 </div>
               </Teleport>
@@ -9768,11 +9769,17 @@ const alerts = [
 
 /* Caixa fixa empresa + protocolo */
 /* ── Painel de anotações fixo ── */
-.notas-fixas {
+.et-painel-direito {
   position: fixed;
-  bottom: 130px;
+  bottom: 24px;
   right: 24px;
-  z-index: 99998;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+}
+.notas-fixas {
   background: rgba(13, 31, 60, 0.95);
   border: 1px solid rgba(245, 158, 11, 0.35);
   border-radius: 12px;
@@ -9862,10 +9869,6 @@ const alerts = [
 }
 
 .et-info-fixa {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  z-index: 99999;
   background: rgba(13, 31, 60, 0.95);
   border: 1px solid rgba(90, 184, 46, 0.35);
   border-radius: 12px;
